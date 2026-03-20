@@ -26,14 +26,15 @@ function computePipeline() {
     const Ho_deg = obs.Ho_deg + obs.Ho_min / 60;
     const utc = obs.utc || state.utc;
     const result = sightReduce(star, Ho_deg, utc, state.ap, state.magDecl, obs.magBearing);
+    const Zn = result.trueBearing != null ? result.trueBearing : result.Zn;
     lops.push({
       intercept_nm: result.intercept_nm,
-      Zn: result.Zn,
+      Zn,
       Ho: Ho_deg,
       starDec: dec_d,
       starName: obs.starName
     });
-    return { ...obs, Hc: result.Hc, intercept_nm: result.intercept_nm, Zn: result.Zn };
+    return { ...obs, Hc: result.Hc, intercept_nm: result.intercept_nm, Zn };
   });
 
   const fix = lops.length >= 2 ? leastSquaresFix(lops, state.ap) : null;
