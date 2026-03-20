@@ -46,7 +46,21 @@ celestial/
 - **`fix.js`** — Least-squares fix solver
 - **`nav-chart.js`** — d3 Mercator nav chart
 
-All other modules carry over from the existing redesign spec (`2026-03-19-celestial-nav-redesign.md`).
+All other modules carry over from the existing redesign spec (`2026-03-19-celestial-nav-redesign.md`), with these changes:
+
+### Changes to March 19 Spec Modules
+
+- **`altitude.js`**: `altitudeFix()` is **removed** — superseded by `sightReduce()` + `leastSquaresFix()` in the new modules. Retains `equatorialToAltAz()`, `computePhotoAltitude()`, and `DeviceAltitudeCapture` (Photo mode only). Adds `visibleStars()` filter function.
+- **`overlay.js`**: Active in **Photo mode only**. `nav-chart.js` handles all chart rendering in both modes.
+- **`state.js`**: State shape updated to the dual-mode schema below (replaces March 19 `sightings[]` with `observations[]`, adds `lops[]`/`fix`, changes mode enum to `'photo' | 'sights'`). The March 19 three-source altitude pipeline (`alt_manual`, `alt_device`, `alt_photo`) is retained in Photo mode but not used in Sights mode (sextant users always provide manual Ho).
+
+### Coordinate Conventions
+
+All modules use these conventions consistently:
+- **Latitude**: degrees, north positive, south negative (-90 to +90)
+- **Longitude**: degrees, east positive, west negative (-180 to +180)
+- **Azimuth (Zn)**: degrees, clockwise from north (0-360)
+- **All trig functions** receive radians internally; public APIs accept/return degrees. Use `D2R`/`R2D` from `math.js` at module boundaries.
 
 ## Module APIs
 
@@ -57,10 +71,12 @@ Pure functions, no DOM dependency.
 ```js
 // Greenwich Hour Angle from UTC + star RA
 // GHA_Aries = GMST(utc) converted to degrees
-// GHA_star = GHA_Aries + RA (adjusted to 0-360)
+// GHA_star = GHA_Aries - RA (SHA = 360 - RA; GHA increases westward, RA eastward)
+// Result normalized to 0-360
 export function gha(utc, ra_deg) → number  // degrees 0-360
 
-// Local Hour Angle = GHA + AP longitude (west negative convention)
+// Local Hour Angle = GHA + AP longitude (east-positive convention)
+// LHA = GHA + lon_east, normalized to 0-360
 export function lha(gha_deg, ap_lon) → number  // degrees 0-360
 
 // Computed altitude and true azimuth from AP + star declination + GHA
@@ -70,30 +86,43 @@ export function lha(gha_deg, ap_lon) → number  // degrees 0-360
 export function calcHcZn(ap_lat, ap_lon, dec, gha_deg) → { Hc_deg: number, Zn_deg: number }
 
 // Full sight reduction for one star observation
+// star: { name: string, ra: number (degrees), dec: number (degrees) } from catalog
 // Computes GHA → LHA → Hc/Zn → intercept
 // intercept = Ho - Hc (in arcminutes = nautical miles)
 // Positive intercept = observed altitude > computed = actual position is toward the star
+// magBearing is stored alongside for display but does NOT replace computed Zn.
+// Zn is always computed from the spherical triangle. magBearing is informational
+// (user can compare their compass reading against computed Zn to check compass error).
 export function sightReduce(star, Ho_deg, utc, ap, magDecl, magBearing?) → {
   intercept_nm: number,
-  Zn: number,          // true azimuth 0-360
+  Zn: number,          // true azimuth 0-360 (computed, not from magBearing)
   Hc: number,          // computed altitude (degrees)
   Ho: number,          // observed altitude (degrees)
-  starName: string
+  starName: string,
+  trueBearing: number | null  // magToTrue(magBearing, magDecl) if magBearing provided
 }
 
 // Convert magnetic compass bearing to true azimuth
 // true = magnetic + declination (east positive)
 export function magToTrue(magBearing, magDecl) → number  // degrees 0-360
+
+// Filter catalog to stars above horizon at given AP/UTC, sorted by altitude descending
+// Uses equatorialToAltAz() from altitude.js internally
+export function visibleStars(ap, utc) → [{ name, ra, dec, mag, alt, az }]
 ```
 
 ### fix.js
 
 ```js
 // Least-squares fix from N≥2 Lines of Position
-// Each LOP defines equation: x·cos(Zn) + y·sin(Zn) = intercept
-// where x = north offset (nm), y = east offset (nm) from AP
-// Solves overdetermined system Ax = b
-// Converts (dx_nm, dy_nm) offset to absolute lat/lon
+// Each LOP defines equation: dN·cos(Zn_rad) + dE·sin(Zn_rad) = intercept
+// where dN = north offset (nm), dE = east offset (nm) from AP
+// Zn converted to radians internally before trig
+// Solves overdetermined system Ax = b via normal equations (A^T A)x = A^T b
+// Converts (dN_nm, dE_nm) offset to absolute lat/lon:
+//   fix_lat = ap_lat + dN_nm / 60
+//   fix_lon = ap_lon + dE_nm / (60 · cos(ap_lat))
+// Returns null if system is near-singular (LOPs with <15° angle of cut)
 export function leastSquaresFix(lops, ap) → {
   lat: number,         // fix latitude
   lon: number,         // fix longitude
@@ -101,7 +130,7 @@ export function leastSquaresFix(lops, ap) → {
   dLon_nm: number,     // east offset from AP (nm)
   residuals: number[], // per-LOP residual (nm)
   confidence: number   // RMS of residuals (nm)
-}
+} | null
 ```
 
 Input LOP format: `{ intercept_nm: number, Zn: number, starName: string }`
@@ -117,7 +146,7 @@ export function createNavChart(container: HTMLElement) → NavChart
 // NavChart interface
 NavChart.update({
   ap: { lat, lon },
-  lops: [{ intercept_nm, Zn, starName, color }],
+  lops: [{ intercept_nm, Zn, Ho, starDec, starName, color }],
   fix: { lat, lon } | null,
   radius_nm: number     // viewport radius, default 200
 })
@@ -130,8 +159,8 @@ NavChart.destroy()      // cleanup
 - Lat/lon grid with labels
 - AP marker (crosshair, yellow)
 - Per-star azimuth lines (dashed, from AP toward Zn)
-- Per-star LOPs (solid, perpendicular to azimuth at intercept distance, color-coded)
-- Per-star CoEA arcs (subtle dashed arc showing circle of equal altitude)
+- Per-star LOPs (solid, perpendicular to azimuth at intercept distance, color-coded). Length: extends viewport_radius/3 each direction from intercept point along the perpendicular.
+- Per-star CoEA arcs (subtle dashed arc showing circle of equal altitude). Computed from Ho and star declination (both included in LOP input). Rendered as a small arc segment near the LOP.
 - Fix marker (⊕ symbol with lat/lon readout, yellow)
 - Scale bar
 - North indicator
@@ -229,8 +258,8 @@ Existing v3 functionality, modularized:
   plateSolution: { ra0, dec0, scale, rotation, rms } | null,
   horizon: { p1, p2 } | null,
 
-  // Shared output (computed from either mode)
-  lops: [{ intercept_nm, Zn, starName, color }],
+  // Shared output (computed from observations)
+  lops: [{ intercept_nm, Zn, Ho, starDec, starName, color }],
   fix: { lat, lon, dLat_nm, dLon_nm, confidence } | null
 }
 ```
@@ -240,17 +269,28 @@ Existing v3 functionality, modularized:
 ## Data Flow
 
 ```
-Sights mode:                         Photo mode:
-  User edits Ho/UTC/bearing            Upload → detect → identify → plate solve
+Photo mode:                          Sights mode:
+  Upload → detect → identify           User adds star, edits Ho/UTC/bearing
        ↓                                         ↓
-  sightReduce() per observation        "Export to Sights" (optional)
+  plate solve → fix (zenith method)    sightReduce() per observation
        ↓                                         ↓
-  lops[] ←──────────────────────────── lops[]
-       ↓
-  leastSquaresFix(lops, ap)  [when N≥2]
-       ↓
-  navChart.update({ ap, lops, fix })
+  "Export to Sights" button ──────→   observations[] populated
+                                                  ↓
+                                      lops[] built from observations
+                                                  ↓
+                                      leastSquaresFix(lops, ap) [when N≥2]
+                                                  ↓
+                                      navChart.update({ ap, lops, fix })
 ```
+
+Photo Nav mode computes its own fix via the plate-solve zenith method (existing v3 logic). It does **not** generate LOPs directly. The "Export to Sights" bridge is the only path from Photo mode into the LOP/intercept pipeline.
+
+**`computePipeline()` in `app.js`** orchestrates the Sights mode flow:
+1. For each observation, call `sightReduce()` using the per-sight UTC (falling back to global UTC if not overridden)
+2. Build `lops[]` array from results
+3. If N≥2, call `leastSquaresFix(lops, ap)`
+4. Call `navChart.update()`
+5. Update fix readout in bottom bar
 
 ## External Dependencies
 
