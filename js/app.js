@@ -4,8 +4,8 @@ import { sightReduce } from './sight-reduction.js';
 import { leastSquaresFix } from './fix.js';
 import { initUI, renderObsTable, initPhotoUI, updatePhotoFix } from './ui.js';
 import { CAT } from './catalog.js';
-import { plateSolve } from './plate-solve.js';
-import { zenithFix } from './math.js';
+import { plateSolve, pixelToSky } from './plate-solve.js';
+import { zenithFix, horizonFix } from './math.js';
 import { drawOverlay } from './overlay.js';
 
 const store = createStore(INITIAL_STATE);
@@ -46,7 +46,7 @@ function computePipeline() {
 
 function photoPipeline(photoState) {
   if (!photoState) return;
-  const { sightings, overlayFlags } = photoState;
+  const { sightings, overlayFlags, horizonY } = photoState;
   const state = store.get();
   const svgEl = document.getElementById('ovl');
 
@@ -57,8 +57,21 @@ function photoPipeline(photoState) {
   if (solvable.length >= 2) {
     solve = plateSolve(solvable.map(s => ({ ra_h: s.ra_h, dec_d: s.dec_d, px: s.px, py: s.py })));
     if (solve && isFinite(solve.ra_h) && isFinite(solve.dec_d)) {
-      fix = zenithFix(solve.ra_h, solve.dec_d, state.utc);
-      method = `Plate solve (${solvable.length} stars)`;
+      // If a horizon is set, use it for a position fix; otherwise assume image-centre = zenith
+      if (horizonY != null) {
+        const hPts = [0.1, 0.25, 0.5, 0.75, 0.9]
+          .map(fx => pixelToSky(fx, horizonY, solve))
+          .filter(Boolean);
+        const abovePt = pixelToSky(0.5, Math.max(horizonY - 0.1, 0.02), solve);
+        if (hPts.length >= 2 && abovePt) {
+          fix = horizonFix(hPts, abovePt, state.utc);
+          method = `Horizon fix (${solvable.length} stars)`;
+        }
+      }
+      if (!fix) {
+        fix = zenithFix(solve.ra_h, solve.dec_d, state.utc);
+        method = `Plate solve centre (${solvable.length} stars)`;
+      }
     }
   } else if (solvable.length === 1) {
     fix = zenithFix(solvable[0].ra_h, solvable[0].dec_d, state.utc);
@@ -77,13 +90,17 @@ function photoPipeline(photoState) {
   if (fix) store.update({ fix });
   chart.update({ ap: state.ap, lops: store.get().lops, fix });
 
-  // Draw overlay
+  // Draw overlay — auto-enable RA/Dec grid when any sighting has an observed altitude
+  const hasHo = sightings.some(s => s.Ho_deg > 0 || s.Ho_min > 0);
+  const effectiveFlags = hasHo ? { ...overlayFlags, radec: true } : overlayFlags;
+
   drawOverlay(svgEl, {
     plateSolution: solve,
     sightings,
     horizonPts: [],
     horizonLine: null,
-    overlayFlags,
+    horizonY,
+    overlayFlags: effectiveFlags,
     fix,
     utc: state.utc
   });
@@ -97,7 +114,7 @@ function exportToSights(sightings) {
     .filter(s => CAT[s.name])
     .map(s => ({
       starName: s.name,
-      Ho_deg: 0, Ho_min: 0,
+      Ho_deg: s.Ho_deg || 0, Ho_min: s.Ho_min || 0,
       utc: state.utc,
       magBearing: null,
       Hc: 0, intercept_nm: 0, Zn: 0
