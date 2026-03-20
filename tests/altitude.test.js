@@ -1,4 +1,5 @@
 import { equatorialToAltAz, visibleStars } from '../js/altitude.js';
+import { CAT } from '../js/catalog.js';
 
 test('equatorialToAltAz: Polaris from mid-latitudes is circumpolar near latitude', () => {
   // Polaris altitude ≈ observer latitude (not dec). From 40°N, alt ≈ 40°.
@@ -17,7 +18,7 @@ test('visibleStars filters to above-horizon only', () => {
   const utc = new Date('2025-06-15T03:00:00Z');
   const stars = visibleStars(ap, utc);
   assert(stars.length > 0, 'Should have some visible stars');
-  assert(stars.length < 58, 'Should not have all 58 stars visible');
+  assert(stars.length < Object.keys(CAT).length, 'Should not have all catalog stars visible');
   assert(stars.every(s => s.alt > 0), 'All returned stars should have positive altitude');
   // Should be sorted by altitude descending
   for (let i = 1; i < stars.length; i++) {
