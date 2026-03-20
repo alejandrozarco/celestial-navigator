@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Celestial Nav Tests</title>
+<style>
+body{font-family:monospace;background:#0a0a1a;color:#ccc;padding:20px}
+.pass{color:#4f4}
+.fail{color:#f44}
+#results{white-space:pre-wrap}
+</style></head><body>
+<h2>Celestial Nav — Tests</h2>
+<div id="results"></div>
+<script type="module">
+const el = document.getElementById('results');
+let pass = 0, fail = 0;
+window.test = (name, fn) => {
+  try { fn(); pass++; el.innerHTML += `<span class="pass">✓ ${name}</span>\n`; }
+  catch(e){ fail++; el.innerHTML += `<span class="fail">✗ ${name}: ${e.message}</span>\n`; }
+};
+window.assert = (cond, msg) => { if (!cond) throw new Error(msg || 'assertion failed'); };
+window.assertNear = (a, b, tol, msg) => {
+  if (Math.abs(a - b) > (tol || 0.001)) throw new Error(`${msg || ''} expected ${b}, got ${a} (tol ${tol})`);
+};
+window.runTests = () => el.innerHTML += `\n─── ${pass} passed, ${fail} failed ───\n`;
+
+// Test modules will be imported below as tasks add them
+import('./tests/math.test.js').then(() =>
+  import('./tests/sight-reduction.test.js').catch(() => {})
+).then(() =>
+  import('./tests/fix.test.js').catch(() => {})
+).then(() => runTests()).catch(e => el.innerHTML += `\nLoad error: ${e.message}\n`);
+</script></body></html>
