@@ -1,9 +1,9 @@
 import { equatorialToAltAz, visibleStars } from '../js/altitude.js';
 
-test('equatorialToAltAz: Polaris from mid-latitudes is high', () => {
-  // Polaris (RA ~2.53h, Dec ~89.26°) from lat 40°N should have alt ≈ 89°
+test('equatorialToAltAz: Polaris from mid-latitudes is circumpolar near latitude', () => {
+  // Polaris altitude ≈ observer latitude (not dec). From 40°N, alt ≈ 40°.
   const { alt_d, az_d } = equatorialToAltAz(2.53, 89.26, 40, -74, new Date('2025-06-15T00:00:00Z'));
-  assert(alt_d > 80, `Polaris alt should be >80°, got ${alt_d}`);
+  assert(alt_d > 30 && alt_d < 50, `Polaris alt should be ~40° from 40°N, got ${alt_d}`);
 });
 
 test('equatorialToAltAz: star below horizon has negative alt', () => {

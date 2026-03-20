@@ -18,10 +18,11 @@ test('lha normalizes to 0-360', () => {
   assertNear(lha(10, -20), 350, 0.001);
 });
 
-test('calcHcZn: Polaris from 40N has high altitude, Zn near 0/360', () => {
+test('calcHcZn: Polaris from 40N has altitude ~40°, Zn near 0/360', () => {
+  // Polaris altitude ≈ observer latitude. From 40°N, Hc ≈ 40°.
   const g = gha(new Date('2025-06-15T00:00:00Z'), 37.95);
   const { Hc_deg, Zn_deg } = calcHcZn(40, -74, 89.26, g);
-  assert(Hc_deg > 80, `Polaris Hc should be >80°, got ${Hc_deg}`);
+  assert(Hc_deg > 30 && Hc_deg < 50, `Polaris Hc should be ~40° from 40°N, got ${Hc_deg}`);
   assert(Zn_deg < 5 || Zn_deg > 355, `Polaris Zn should be near north, got ${Zn_deg}`);
 });
 
