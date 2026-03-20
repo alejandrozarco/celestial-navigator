@@ -101,19 +101,22 @@ export function renderObsTable(store, computePipeline) {
     const row = document.createElement('div');
     row.className = 'obs-row';
     const obsUtcVal = (obs.utc instanceof Date ? obs.utc : new Date(obs.utc)).toISOString().slice(0, 16);
+    const intSign = obs.intercept_nm >= 0 ? '+' : '';
     row.innerHTML = `
-      <span class="obs-name">${obs.starName}</span>
-      <label>Ho:</label>
-      <input type="number" class="finput obs-ho-deg" data-i="${i}" value="${obs.Ho_deg}" min="0" max="90" style="width:40px">°
-      <input type="number" class="finput obs-ho-min" data-i="${i}" value="${obs.Ho_min}" min="0" max="59.9" step="0.1" style="width:50px">'
-      <label>UTC:</label>
-      <input type="datetime-local" class="finput obs-utc" data-i="${i}" value="${obsUtcVal}" style="width:140px">
-      <label>Brg:</label>
-      <input type="number" class="finput obs-brg" data-i="${i}" value="${obs.magBearing || ''}" placeholder="—" style="width:50px">°
-      <span class="obs-computed">
-        Hc ${obs.Hc.toFixed(1)}° | a=${obs.intercept_nm > 0 ? '+' : ''}${obs.intercept_nm.toFixed(1)}' | Zn ${obs.Zn.toFixed(0)}°
-      </span>
-      <button class="srmv" data-i="${i}">✕</button>
+      <div class="obs-row-main">
+        <span class="obs-name">${obs.starName}</span>
+        <span class="obs-computed">Hc ${obs.Hc.toFixed(1)}° &nbsp;a=${intSign}${obs.intercept_nm.toFixed(1)}' &nbsp;Zn ${obs.Zn.toFixed(0)}°</span>
+        <button class="srmv" data-i="${i}">✕</button>
+      </div>
+      <div class="obs-row-fields">
+        <label class="flbl">Ho</label>
+        <input type="number" class="finput obs-ho-deg" data-i="${i}" value="${obs.Ho_deg}" min="0" max="90" style="width:52px">°
+        <input type="number" class="finput obs-ho-min" data-i="${i}" value="${(obs.Ho_min || 0).toFixed(1)}" min="0" max="59.9" step="0.1" style="width:58px">'
+        <label class="flbl" style="margin-left:10px">UTC</label>
+        <input type="datetime-local" class="finput obs-utc" data-i="${i}" value="${obsUtcVal}" style="width:150px">
+        <label class="flbl" style="margin-left:10px">Brg</label>
+        <input type="number" class="finput obs-brg" data-i="${i}" value="${obs.magBearing || ''}" placeholder="—" style="width:56px">°
+      </div>
     `;
     container.appendChild(row);
   });
@@ -200,6 +203,7 @@ export function initPhotoUI(onPhotoPipeline, onExportSights) {
     sightings: [],
     nextId: 1,
     overlayFlags: { stars: true, const: true, radec: false, altaz: false },
+    horizonY: null,
     detOpts: { pct: 96, maxStars: 30, clusterPx: 18 }
   };
 
@@ -242,14 +246,38 @@ export function initPhotoUI(onPhotoPipeline, onExportSights) {
     if (_onExportSights) _onExportSights([..._photoState.sightings]);
   });
 
-  // Overlay toggles
-  document.querySelectorAll('.ovl-btn').forEach(btn => {
+  // Overlay toggles (all except the special horizon button)
+  document.querySelectorAll('.ovl-btn[data-ovl]').forEach(btn => {
     btn.addEventListener('click', () => {
       const key = btn.dataset.ovl;
       _photoState.overlayFlags[key] = !_photoState.overlayFlags[key];
       btn.classList.toggle('active', _photoState.overlayFlags[key]);
       if (_onPhotoPipeline) _onPhotoPipeline(_photoState);
     });
+  });
+
+  // Horizon mode button + slider
+  const horizonBtn    = document.getElementById('horizonModeBtn');
+  const horizonCtrl   = document.getElementById('horizon-ctrl');
+  const horizonSlider = document.getElementById('horizon-y');
+  const horizonVal    = document.getElementById('horizon-y-val');
+
+  horizonBtn.addEventListener('click', () => {
+    const on = !_photoState.overlayFlags.horizon;
+    _photoState.overlayFlags.horizon = on;
+    horizonBtn.classList.toggle('active', on);
+    horizonCtrl.style.display = on ? 'flex' : 'none';
+    _photoState.horizonY = on ? parseInt(horizonSlider.value) / 100 : null;
+    if (_onPhotoPipeline) _onPhotoPipeline(_photoState);
+  });
+
+  horizonSlider.addEventListener('input', () => {
+    const pct = parseInt(horizonSlider.value);
+    horizonVal.textContent = pct + '%';
+    if (_photoState.overlayFlags.horizon) {
+      _photoState.horizonY = pct / 100;
+      if (_onPhotoPipeline) _onPhotoPipeline(_photoState);
+    }
   });
 
   // Picker
@@ -328,7 +356,9 @@ function photoAutoID() {
       const topCands = [..._photoState.candidates].sort((a, b) => b.v - a.v).slice(0, 12);
       if (topCands.length < 3) { bar.textContent = 'Need ≥3 detected candidates.'; return; }
 
-      const assignments = runAutoID(topCands, hash);
+      const imgEl = document.getElementById('pi');
+      const ar = imgEl.naturalWidth / imgEl.naturalHeight;
+      const assignments = runAutoID(topCands, hash, undefined, ar);
       const existingNames = new Set(_photoState.sightings.map(s => s.name));
       let matched = 0;
 
@@ -384,11 +414,15 @@ function handlePhotoClick(e) {
 }
 
 function addSighting(s) {
+  let preserved = {};
   if (s.candId != null) {
     const idx = _photoState.sightings.findIndex(x => x.candId === s.candId);
-    if (idx >= 0) _photoState.sightings.splice(idx, 1);
+    if (idx >= 0) {
+      preserved = { Ho_deg: _photoState.sightings[idx].Ho_deg, Ho_min: _photoState.sightings[idx].Ho_min };
+      _photoState.sightings.splice(idx, 1);
+    }
   }
-  _photoState.sightings.push({ id: _photoState.nextId++, ...s });
+  _photoState.sightings.push({ id: _photoState.nextId++, Ho_deg: 0, Ho_min: 0, ...preserved, ...s });
 }
 
 function renderSightingsList() {
@@ -402,10 +436,24 @@ function renderSightingsList() {
       <span class="spip ${s.autoID ? 'auto' : ''}"></span>
       <span class="sname">${s.name}</span>
       <span class="scoord">${s.ra_h.toFixed(2)}h ${s.dec_d >= 0 ? '+' : ''}${s.dec_d.toFixed(1)}°</span>
-      ${s.px != null ? `<span style="font-size:10px;color:var(--tx3);font-family:var(--mono)">(${(s.px * 100).toFixed(0)}%,${(s.py * 100).toFixed(0)}%)</span>` : `<span class="snopx">no pixel pos</span>`}
+      <label class="sho-lbl">Ho</label>
+      <input type="number" class="finput sho-deg" data-id="${s.id}" value="${s.Ho_deg}" min="0" max="90" style="width:44px">°
+      <input type="number" class="finput sho-min" data-id="${s.id}" value="${(s.Ho_min || 0).toFixed(1)}" min="0" max="59.9" step="0.1" style="width:48px">'
       <button class="srmv" data-id="${s.id}" style="margin-left:auto">✕</button>
     </div>
   `).join('');
+
+  el.querySelectorAll('.sho-deg, .sho-min').forEach(inp => {
+    inp.addEventListener('change', () => {
+      const id = parseInt(inp.dataset.id);
+      const s = _photoState.sightings.find(x => x.id === id);
+      if (!s) return;
+      if (inp.classList.contains('sho-deg')) s.Ho_deg = parseFloat(inp.value) || 0;
+      if (inp.classList.contains('sho-min')) s.Ho_min = parseFloat(inp.value) || 0;
+      if (_onPhotoPipeline) _onPhotoPipeline(_photoState);
+    });
+  });
+
   el.querySelectorAll('.srmv').forEach(btn => {
     btn.addEventListener('click', () => {
       const id = parseInt(btn.dataset.id);
