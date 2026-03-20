@@ -1061,7 +1061,7 @@ This module handles:
 - Updating fix readout
 
 ```js
-import { visibleStars } from './sight-reduction.js';
+import { visibleStars } from './altitude.js';
 
 export function initUI(store, computePipeline) {
   // Tab switching
@@ -1160,11 +1160,14 @@ export function renderObsTable(store, computePipeline) {
   state.observations.forEach((obs, i) => {
     const row = document.createElement('div');
     row.className = 'obs-row';
+    const obsUtcVal = (obs.utc instanceof Date ? obs.utc : new Date(obs.utc)).toISOString().slice(0, 16);
     row.innerHTML = `
       <span class="obs-name">${obs.starName}</span>
       <label>Ho:</label>
       <input type="number" class="finput obs-ho-deg" data-i="${i}" value="${obs.Ho_deg}" min="0" max="90" style="width:40px">°
       <input type="number" class="finput obs-ho-min" data-i="${i}" value="${obs.Ho_min}" min="0" max="59.9" step="0.1" style="width:50px">'
+      <label>UTC:</label>
+      <input type="datetime-local" class="finput obs-utc" data-i="${i}" value="${obsUtcVal}" style="width:140px">
       <label>Brg:</label>
       <input type="number" class="finput obs-brg" data-i="${i}" value="${obs.magBearing || ''}" placeholder="—" style="width:50px">°
       <span class="obs-computed">
@@ -1176,15 +1179,15 @@ export function renderObsTable(store, computePipeline) {
   });
 
   // Event delegation
-  container.querySelectorAll('.obs-ho-deg,.obs-ho-min,.obs-brg').forEach(inp => {
+  container.querySelectorAll('.obs-ho-deg,.obs-ho-min,.obs-brg,.obs-utc').forEach(inp => {
     inp.addEventListener('change', () => {
       const idx = parseInt(inp.dataset.i);
       const obs = [...state.observations];
-      const row = container.closest ? container : document;
       obs[idx] = { ...obs[idx] };
       if (inp.classList.contains('obs-ho-deg')) obs[idx].Ho_deg = parseFloat(inp.value) || 0;
       if (inp.classList.contains('obs-ho-min')) obs[idx].Ho_min = parseFloat(inp.value) || 0;
       if (inp.classList.contains('obs-brg')) obs[idx].magBearing = inp.value ? parseFloat(inp.value) : null;
+      if (inp.classList.contains('obs-utc')) obs[idx].utc = inp.value ? new Date(inp.value + 'Z') : state.utc;
       store.update({ observations: obs });
       computePipeline();
     });
