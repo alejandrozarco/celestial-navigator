@@ -63,7 +63,7 @@ export function plateSolve(stars) {
   return solve;
 }
 
-export function projectToPixel(ra_h, dec_d, solve) {
+export function projectToPixel(ra_h, dec_d, solve, { clamp = true } = {}) {
   if (!solve || !solve.cx || !solve.cy) return null;
   const r0 = solve.ra0_deg * D2R, d0 = solve.dec0_deg * D2R;
   const ra = ra_h * 15 * D2R, de = dec_d * D2R;
@@ -74,7 +74,7 @@ export function projectToPixel(ra_h, dec_d, solve) {
   const cx = solve.cx, cy = solve.cy;
   const px = cx[0] * xi + cx[1] * et + cx[2] + 0.5;
   const py = -(cy[0] * xi + cy[1] * et + cy[2]) + 0.5;
-  if (px < 0 || px > 1 || py < 0 || py > 1) return null;
+  if (clamp && (px < 0 || px > 1 || py < 0 || py > 1)) return null;
   return { px, py };
 }
 

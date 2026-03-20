@@ -71,21 +71,6 @@ export function drawOverlay(svgElement, state) {
   }
 }
 
-// Project a sky point to pixel coords without bounds clipping (returns {px,py} or null)
-function projectUnclamped(ra_h, dec_d, solve) {
-  if (!solve || !solve.cx || !solve.cy) return null;
-  const r0 = solve.ra0_deg * D2R, d0 = solve.dec0_deg * D2R;
-  const ra = ra_h * 15 * D2R, de = dec_d * D2R;
-  const D = Math.sin(d0) * Math.sin(de) + Math.cos(d0) * Math.cos(de) * Math.cos(ra - r0);
-  if (D <= 0) return null;
-  const xi = Math.cos(de) * Math.sin(ra - r0) / D;
-  const et = (Math.cos(d0) * Math.sin(de) - Math.sin(d0) * Math.cos(de) * Math.cos(ra - r0)) / D;
-  const cx = solve.cx, cy = solve.cy;
-  const px = cx[0] * xi + cx[1] * et + cx[2] + 0.5;
-  const py = -(cy[0] * xi + cy[1] * et + cy[2]) + 0.5;
-  return { px, py };
-}
-
 function project(ra_h, dec_d, solve) {
   const p = projectToPixel(ra_h, dec_d, solve);
   if (!p) return null;
@@ -130,7 +115,7 @@ function drawMeridian(svgEl, solve, sightings, horizonY) {
   const polaris = (sightings || []).find(s => s.name === 'Polaris');
   if (!polaris || !(polaris.Ho_deg > 0 || polaris.Ho_min > 0)) return;
 
-  const ncp = projectUnclamped(solve.ra_h, 90, solve);
+  const ncp = projectToPixel(solve.ra_h, 90, solve, { clamp: false });
   if (!ncp) return;
 
   const zx = 0.5, zy = 0.5;

@@ -20,6 +20,22 @@ test('buildCatalogHash entries come from brightest stars', () => {
   }
 });
 
+test('verifyAssignments filters geometrically inconsistent assignment', async () => {
+  const { verifyAssignments } = await import('../js/auto-id.js');
+  const assignments = [
+    { candId: 1, star: 'Sirius',  score: 20 },
+    { candId: 2, star: 'Canopus', score: 18 },
+    { candId: 3, star: 'Vega',    score: 15 },  // wrong pixel position
+  ];
+  const detections = [
+    { id: 1, px: 0.3, py: 0.5, v: 100 },
+    { id: 2, px: 0.7, py: 0.5, v: 90 },
+    { id: 3, px: 0.99, py: 0.01, v: 80 },  // far from where Vega should be
+  ];
+  const result = verifyAssignments(assignments, detections, 1);
+  assert(result.length === 2, `expected 2 (third filtered), got ${result.length}`);
+});
+
 test('verifyAssignments with 2 assignments always returns both', async () => {
   // With only 2 assignments the reference pair is returned unchanged
   const { verifyAssignments } = await import('../js/auto-id.js');
