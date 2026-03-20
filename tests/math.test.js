@@ -1,4 +1,4 @@
-import { D2R, R2D, nrm, clamp, gmst, angSep } from '../js/math.js';
+import { D2R, R2D, nrm, clamp, gmst, angSep, zenithFix, solve3x3 } from '../js/math.js';
 
 test('D2R and R2D are inverses', () => {
   assertNear(45 * D2R * R2D, 45, 1e-10);
@@ -36,4 +36,28 @@ test('angSep Polaris to Sirius', () => {
   // Polaris: RA ~2.53h, Dec ~89.26° ; Sirius: RA ~6.75h, Dec ~-16.72°
   const sep = angSep(2.53, 89.26, 6.75, -16.72);
   assertNear(sep, 105.9, 0.5, 'Polaris-Sirius separation');
+});
+
+test('zenithFix: returned lon is in [-180, 180]', () => {
+  const date = new Date('2025-06-15T00:00:00Z');
+  const result = zenithFix(2.0, 45.0, date);
+  assert(result.lon >= -180 && result.lon <= 180, `lon ${result.lon} out of range`);
+  assertNear(result.lat, 45.0, 0.001, 'lat equals dec');
+});
+
+test('solve3x3: solves known system', () => {
+  // Identity matrix: solution = b
+  const M = [1,0,0, 0,1,0, 0,0,1];
+  const b = [3, 7, -2];
+  const x = solve3x3(M, b);
+  assertNear(x[0], 3, 1e-10);
+  assertNear(x[1], 7, 1e-10);
+  assertNear(x[2], -2, 1e-10);
+});
+
+test('solve3x3: returns null for singular matrix', () => {
+  // Rows 1 and 2 are identical → singular
+  const M = [1,2,3, 1,2,3, 0,0,1];
+  const result = solve3x3(M, [1, 1, 0]);
+  assert(result === null, 'singular matrix should return null');
 });

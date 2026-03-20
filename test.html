@@ -23,8 +23,8 @@ window.runTests = () => el.innerHTML += `\n─── ${pass} passed, ${fail} fai
 
 // Test modules will be imported below as tasks add them
 import('./tests/math.test.js').then(() =>
-  import('./tests/sight-reduction.test.js').catch(() => {})
+  import('./tests/sight-reduction.test.js').catch(e => { el.innerHTML += `<span class="fail">⚠ sight-reduction.test.js: ${e.message}</span>\n`; })
 ).then(() =>
-  import('./tests/fix.test.js').catch(() => {})
+  import('./tests/fix.test.js').catch(e => { el.innerHTML += `<span class="fail">⚠ fix.test.js: ${e.message}</span>\n`; })
 ).then(() => runTests()).catch(e => el.innerHTML += `\nLoad error: ${e.message}\n`);
 </script></body></html>
