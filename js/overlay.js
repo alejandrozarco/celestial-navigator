@@ -21,7 +21,7 @@ export function drawOverlay(svgElement, state) {
   while (svgElement.firstChild) svgElement.removeChild(svgElement.firstChild);
 
   const { plateSolution, sightings = [], horizonPts = [], horizonLine = null,
-          overlayFlags = {}, fix = null, utc = null } = state;
+          overlayFlags = {}, fix = null, utc = null, horizonY = null } = state;
 
   // Horizon in-progress dots
   for (const p of horizonPts) {
@@ -52,9 +52,38 @@ export function drawOverlay(svgElement, state) {
     }
   }
 
+  // Horizon line (from slider)
+  if (horizonY != null && isFinite(horizonY)) {
+    const hy = pct(horizonY);
+    svgElement.appendChild(el('line', {
+      x1: '0%', y1: hy, x2: '100%', y2: hy,
+      stroke: '#e03878', 'stroke-width': '1.5', 'stroke-dasharray': '10 5', opacity: '0.85'
+    }));
+    const tx = el('text', { x: '1%', y: pct(Math.max(horizonY - 0.015, 0.015)),
+      fill: '#e03878', 'font-size': '11', 'font-family': 'sans-serif' });
+    tx.textContent = 'Horizon';
+    svgElement.appendChild(tx);
+  }
+
   if (plateSolution && plateSolution.cx && plateSolution.cy) {
     drawCelestialGrid(svgElement, plateSolution, overlayFlags, fix, utc);
+    drawMeridian(svgElement, plateSolution, sightings, horizonY);
   }
+}
+
+// Project a sky point to pixel coords without bounds clipping (returns {px,py} or null)
+function projectUnclamped(ra_h, dec_d, solve) {
+  if (!solve || !solve.cx || !solve.cy) return null;
+  const r0 = solve.ra0_deg * D2R, d0 = solve.dec0_deg * D2R;
+  const ra = ra_h * 15 * D2R, de = dec_d * D2R;
+  const D = Math.sin(d0) * Math.sin(de) + Math.cos(d0) * Math.cos(de) * Math.cos(ra - r0);
+  if (D <= 0) return null;
+  const xi = Math.cos(de) * Math.sin(ra - r0) / D;
+  const et = (Math.cos(d0) * Math.sin(de) - Math.sin(d0) * Math.cos(de) * Math.cos(ra - r0)) / D;
+  const cx = solve.cx, cy = solve.cy;
+  const px = cx[0] * xi + cx[1] * et + cx[2] + 0.5;
+  const py = -(cy[0] * xi + cy[1] * et + cy[2]) + 0.5;
+  return { px, py };
 }
 
 function project(ra_h, dec_d, solve) {
@@ -94,6 +123,52 @@ function altazToEquatorial(alt, az, lat, lon, utcDate) {
   const LMST = nrm(gmst(utcDate) + lon);
   const ra_h = nrm(LMST - R2D * HA_r) / 15;
   return { ra_h, dec_d };
+}
+
+function drawMeridian(svgEl, solve, sightings, horizonY) {
+  if (horizonY != null) return;
+  const polaris = (sightings || []).find(s => s.name === 'Polaris');
+  if (!polaris || !(polaris.Ho_deg > 0 || polaris.Ho_min > 0)) return;
+
+  const ncp = projectUnclamped(solve.ra_h, 90, solve);
+  if (!ncp) return;
+
+  const zx = 0.5, zy = 0.5;
+  let dx = ncp.px - zx, dy = ncp.py - zy;
+  const len = Math.hypot(dx, dy);
+  if (len < 1e-6) return;
+  dx /= len; dy /= len;
+
+  function clipT(ox, oy, vx, vy) {
+    const ts = [];
+    if (Math.abs(vx) > 1e-9) { ts.push(-ox / vx); ts.push((1 - ox) / vx); }
+    if (Math.abs(vy) > 1e-9) { ts.push(-oy / vy); ts.push((1 - oy) / vy); }
+    const pos = ts.filter(t => t > 1e-9);
+    return pos.length ? Math.min(...pos) : 0;
+  }
+  const tFwd  = clipT(zx, zy,  dx,  dy);
+  const tBack = clipT(zx, zy, -dx, -dy);
+
+  const x1 = zx - dx * tBack, y1 = zy - dy * tBack;
+  const x2 = zx + dx * tFwd,  y2 = zy + dy * tFwd;
+
+  svgEl.appendChild(el('line', {
+    x1: pct(x1), y1: pct(y1), x2: pct(x2), y2: pct(y2),
+    stroke: 'rgba(200,220,255,0.85)', 'stroke-width': '1.5', 'stroke-dasharray': '12 4'
+  }));
+
+  if (ncp.px >= 0 && ncp.px <= 1 && ncp.py >= 0 && ncp.py <= 1) {
+    svgEl.appendChild(el('circle', {
+      cx: pct(ncp.px), cy: pct(ncp.py), r: '4',
+      fill: 'rgba(200,220,255,0.85)', stroke: 'none'
+    }));
+    const lbl = el('text', {
+      x: pct(ncp.px + 0.015), y: pct(ncp.py - 0.015),
+      fill: 'rgba(200,220,255,0.9)', 'font-size': '10', 'font-family': 'sans-serif'
+    });
+    lbl.textContent = 'N';
+    svgEl.appendChild(lbl);
+  }
 }
 
 function drawCelestialGrid(svgEl, solve, overlayFlags, fix, utc) {
