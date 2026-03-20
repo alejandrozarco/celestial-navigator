@@ -23,8 +23,12 @@ body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSyst
 .panel.active{display:block}
 .btn{background:var(--bg3);border:.5px solid #1a5c8c;border-radius:6px;color:#52b0e2;font-size:11px;font-weight:500;font-family:inherit;padding:5px 10px;cursor:pointer;transition:background .15s,border-color .15s;white-space:nowrap}
 .btn:hover{background:#0e2440;border-color:#2a7ac0}
+.btn-ghost{background:transparent;border:.5px solid var(--bdr2);color:var(--tx3)}
+.btn-ghost:hover{border-color:var(--bdr);color:var(--tx);background:var(--bg)}
 .btn-teal{border-color:#0f5c48;color:var(--teal2)}
 .btn-teal:hover{background:#081e18;border-color:#1a7a60}
+.btn-rose{border-color:#5c1030;color:#e060a0}
+.btn-rose:hover{background:#150818;border-color:#8a1848}
 .flbl{font-size:11px;color:var(--tx3);flex-shrink:0}
 .finput{background:var(--bg);border:.5px solid var(--bdr2);border-radius:5px;color:var(--amb2);font-size:11px;padding:5px 8px;font-family:var(--mono)}
 .finput:focus{outline:none;border-color:#2a72b0}
@@ -35,11 +39,64 @@ body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSyst
 .obs-computed{font-family:var(--mono);font-size:10px;color:var(--teal2);flex:1}
 .srmv{background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;padding:0 4px}
 .fix-readout{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--tx3);margin-left:auto}
+/* dropzone */
 .dz{border:1.5px dashed var(--bdr2);border-radius:8px;padding:40px 20px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;user-select:none}
-.dz:hover{border-color:#2a72b0;background:rgba(26,92,140,.05)}
+.dz:hover,.dz.over{border-color:#2a72b0;background:rgba(26,92,140,.05)}
 .dz-title{font-size:13px;font-weight:500;color:var(--tx2);margin:5px 0 2px}
 .dz-hint{font-size:11px;color:var(--tx3)}
 label{font-size:11px;color:var(--tx3)}
+/* photo overlay */
+.pv-outer{position:relative;display:inline-block;max-width:100%;cursor:crosshair;user-select:none}
+.pv-outer img{display:block;max-width:100%;max-height:280px;border-radius:6px}
+#ovl{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;border-radius:6px;overflow:visible}
+/* candidate markers */
+.cmarker{position:absolute;width:20px;height:20px;border-radius:50%;border:1.5px dashed var(--bdr2);background:rgba(255,255,255,.04);transform:translate(-50%,-50%);cursor:pointer;transition:border-color .15s,background .15s}
+.cmarker:hover{border-color:#4a8cbf;background:rgba(74,140,191,.12)}
+.cmarker.identified{border-style:solid;border-color:var(--amb);background:rgba(224,152,32,.1)}
+.cmarker.auto-id{border-style:solid;border-color:var(--teal2);background:rgba(85,208,168,.1)}
+.cmarker.manual-pt{border-style:dotted;border-color:#4a8cbf;background:rgba(74,140,191,.06)}
+.cmk-lbl{position:absolute;font-size:10px;font-family:var(--mono);white-space:nowrap;transform:translate(9px,-50%);pointer-events:none;text-shadow:0 0 6px #000,0 0 2px #000;color:var(--amb)}
+.cmk-lbl.auto{color:var(--teal2)}
+.photo-actions{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap;align-items:center}
+.det-settings{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:5px 8px;background:var(--bg3);border:.5px solid var(--bdr);border-radius:6px;font-size:10px;color:var(--tx3);margin-bottom:6px}
+.det-settings input[type=range]{width:72px;accent-color:var(--teal)}
+.det-settings input[type=number]{width:48px;background:var(--bg);border:.5px solid var(--bdr2);border-radius:4px;color:var(--amb2);font-size:10px;padding:2px 5px;font-family:var(--mono)}
+/* sightings */
+.srow{display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:.5px solid #0d1a28;font-size:11px}
+.srow:last-child{border-bottom:none}
+.spip{width:6px;height:6px;border-radius:50%;flex-shrink:0;background:var(--amb)}
+.spip.auto{background:var(--teal2)}
+.sname{font-weight:500;color:var(--tx2);min-width:90px}
+.scoord{font-family:var(--mono);color:#3a6888;font-size:10px;flex:1}
+.snopx{font-size:10px;color:var(--tx3);flex:1;font-style:italic}
+/* auto-id bar */
+.autoid-bar{background:#081a10;border:.5px solid #0f3820;border-radius:6px;padding:7px 10px;margin-top:7px;font-size:11px;color:#3a7858;display:none}
+.autoid-bar.visible{display:block}
+/* picker */
+.picker-wrap{background:var(--bg2);border:.5px solid var(--bdr2);border-radius:9px;margin-top:8px;overflow:hidden;display:none;flex-direction:column;max-height:320px}
+.picker-hdr{display:flex;align-items:center;padding:9px 12px 7px;border-bottom:.5px solid var(--bdr);gap:8px}
+.picker-title{font-size:12px;font-weight:600;color:var(--tx2);flex:1}
+.picker-close{background:none;border:none;color:var(--tx3);font-size:15px;cursor:pointer;padding:2px}
+.picker-close:hover{color:var(--tx)}
+.psearch-wrap{padding:7px 12px 4px}
+.psearch{width:100%;background:var(--bg);border:.5px solid var(--bdr2);border-radius:5px;color:var(--tx2);font-size:12px;padding:6px 9px;font-family:inherit}
+.psearch:focus{outline:none;border-color:#2a72b0}
+.plist{overflow-y:auto;flex:1;padding:2px 0;min-height:80px}
+.pstar{display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;transition:background .1s}
+.pstar:hover{background:var(--bg3)}
+.pstar-name{font-size:12px;font-weight:500;color:var(--tx2);flex:1}
+.pstar-coords{font-size:10px;color:var(--tx3);font-family:var(--mono)}
+.pstar-mag{font-size:10px;color:var(--tx3);font-family:var(--mono)}
+.pstar-mag.bright{color:var(--amb2)}
+/* photo fix */
+.photo-fix{background:var(--bg2);border:.5px solid var(--bdr);border-radius:6px;padding:8px 10px;margin-top:8px;font-size:11px;color:var(--tx3)}
+.photo-fix .fix-coords{font-family:var(--mono);color:var(--teal2);font-weight:600;font-size:13px}
+.photo-method{font-size:10px;color:var(--tx3);margin-top:3px}
+/* overlay toggles */
+.ovl-toggles{display:flex;gap:5px;margin-bottom:6px;flex-wrap:wrap}
+.ovl-btn{background:var(--bg3);border:.5px solid var(--bdr2);border-radius:5px;color:var(--tx3);font-size:10px;padding:3px 8px;cursor:pointer;transition:all .15s}
+.ovl-btn:hover{border-color:var(--bdr);color:var(--tx)}
+.ovl-btn.active{border-color:#1a5c8c;color:#52b0e2}
 </style>
 </head>
 <body>
@@ -50,6 +107,7 @@ label{font-size:11px;color:var(--tx3)}
       <button class="tab" data-mode="photo">📷 Photo</button>
     </div>
 
+    <!-- SIGHTS MODE -->
     <div class="panel sights-panel active">
       <div class="star-selector">
         <button id="addStar" class="btn">+ Add Star</button>
@@ -57,14 +115,78 @@ label{font-size:11px;color:var(--tx3)}
       </div>
       <div id="obsTable"></div>
       <button id="computeFix" class="btn btn-teal" style="display:none;margin-top:8px">Compute Fix</button>
+      <button id="loadDemo" class="btn btn-ghost" style="margin-top:8px">Load Demo</button>
     </div>
 
+    <!-- PHOTO MODE -->
     <div class="panel photo-panel">
+      <!-- Drop zone -->
       <div class="dz" id="dropzone">
         <div class="dz-title">Drop sky photo here</div>
-        <div class="dz-hint">JPEG / PNG / HEIC</div>
+        <div class="dz-hint">or <label style="color:#52b0e2;cursor:pointer">click to browse<input type="file" id="photoFile" accept="image/*" style="display:none"></label></div>
       </div>
-      <div id="photoView" style="display:none"></div>
+
+      <!-- Photo viewer (shown after image loaded) -->
+      <div id="photoView" style="display:none">
+        <!-- Overlay toggles -->
+        <div class="ovl-toggles">
+          <button class="ovl-btn active" data-ovl="stars">Stars</button>
+          <button class="ovl-btn active" data-ovl="const">Constellations</button>
+          <button class="ovl-btn" data-ovl="radec">RA/Dec</button>
+          <button class="ovl-btn" data-ovl="altaz">Alt/Az</button>
+        </div>
+
+        <!-- Detection settings -->
+        <div class="det-settings">
+          <span>Threshold:</span>
+          <input type="range" id="det-pct" min="80" max="99" value="96">
+          <span id="det-pct-val" style="font-family:var(--mono);min-width:32px">96%ile</span>
+          <span style="margin-left:4px">Max:</span>
+          <input type="number" id="det-max" min="8" max="60" value="30" style="width:44px">
+          <span style="margin-left:4px">Cluster px:</span>
+          <input type="number" id="det-cluster" min="8" max="40" value="18" style="width:44px">
+        </div>
+
+        <!-- Image + SVG overlay -->
+        <div style="text-align:center">
+          <div id="pvwrap" class="pv-outer">
+            <img id="pi" src="" alt="sky photo">
+            <svg id="ovl" xmlns="http://www.w3.org/2000/svg"></svg>
+          </div>
+        </div>
+
+        <!-- Action row -->
+        <div class="photo-actions">
+          <button id="redetectBtn" class="btn">Re-detect</button>
+          <button id="autoIdBtn" class="btn btn-teal">Auto-ID</button>
+          <button id="clearSightingsBtn" class="btn btn-ghost">Clear sightings</button>
+          <span id="det-note" style="font-size:10px;color:var(--tx3);margin-left:auto"></span>
+        </div>
+
+        <!-- Auto-ID results bar -->
+        <div class="autoid-bar" id="autoid-bar"></div>
+
+        <!-- Sightings list -->
+        <div id="sightings-list" style="margin-top:8px"></div>
+
+        <!-- Photo fix result -->
+        <div id="photo-fix" class="photo-fix" style="display:none"></div>
+
+        <!-- Export to sights -->
+        <button id="exportSightsBtn" class="btn btn-teal" style="display:none;margin-top:8px;width:100%">Export to Sights →</button>
+
+        <!-- Star picker -->
+        <div id="picker-wrap" class="picker-wrap">
+          <div class="picker-hdr">
+            <span class="picker-title" id="picker-title">Identify star</span>
+            <button class="picker-close" id="picker-close">✕</button>
+          </div>
+          <div class="psearch-wrap">
+            <input type="text" id="psearch" class="psearch" placeholder="Search star name…" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="plist" id="plist"></div>
+        </div>
+      </div>
     </div>
   </div>
 
