@@ -76,25 +76,7 @@ index.html      Main app (single-file, self-contained)
 almanac.html    Daily almanac page generator / reference tool
 manifest.json   PWA manifest
 sw.js           Service worker for offline support
-js/             Modular ES module version (development)
-tests/          Unit tests (math, altitude, sight reduction, fix)
-test.html       Browser test harness
-```
-
-## Running Tests
-
-```bash
-node --input-type=module << 'EOF'
-let pass=0,fail=0;
-global.test=(n,f)=>{try{f();pass++;console.log('Pass',n);}catch(e){fail++;console.log('Fail',n,e.message);}};
-global.assert=(c,m)=>{if(!c)throw new Error(m||'failed')};
-global.assertNear=(a,b,t,m)=>{if(Math.abs(a-b)>(t||0.001))throw new Error(`${m||''} expected ${b}, got ${a}`)};
-await import('./tests/math.test.js');
-await import('./tests/altitude.test.js');
-await import('./tests/sight-reduction.test.js');
-await import('./tests/fix.test.js');
-console.log(`\n--- ${pass} passed, ${fail} failed ---`);
-EOF
+screenshots/    README screenshots
 ```
 
 ## License
