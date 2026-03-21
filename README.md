@@ -1,10 +1,12 @@
 # Celestial Navigator
 
+*Seguendo il corso del sole*
+
 A browser-based celestial navigation tool for computing position fixes from sextant observations. No server required — runs entirely in the browser as a single HTML file.
 
 **[Live App](https://alexanderkeur-del.github.io/celestial-navigator/)** | **[Almanac Generator](https://alexanderkeur-del.github.io/celestial-navigator/almanac.html)**
 
-![Celestial Navigator](screenshots/demo.png)
+![Celestial Navigator — Strait of Magellan](screenshots/magellan-strait.png)
 
 ## Features
 
@@ -65,18 +67,27 @@ The almanac includes:
 
 ## Screenshots
 
-| LOP Plot & Fix | Sight Log | Almanac |
+| Sanlúcar de Barrameda | Strait of Magellan | Mid-Pacific | Guam |
+|---|---|---|---|
+| ![Sanlúcar](screenshots/sanlucar.png) | ![Strait](screenshots/magellan-strait.png) | ![Pacific](screenshots/magellan-pacific.png) | ![Guam](screenshots/magellan-guam.png) |
+
+| LOP Plot | Sight Log | Workings |
 |---|---|---|
-| ![LOP Plot](screenshots/lop-plot.png) | ![Sight Log](screenshots/sight-log.png) | ![Almanac](screenshots/almanac.png) |
+| ![LOP Plot](screenshots/lop-plot.png) | ![Sight Log](screenshots/sight-log.png) | ![Workings](screenshots/workings.png) |
+
+| Direct COP Fix | Almanac | Star Catalog |
+|---|---|---|
+| ![Direct Fix](screenshots/direct-fix.png) | ![Almanac](screenshots/almanac.png) | ![Stars](screenshots/almanac-stars.png) |
 
 ## File Structure
 
 ```
-index.html      Main app (single-file, self-contained)
-almanac.html    Daily almanac page generator / reference tool
-manifest.json   PWA manifest
-sw.js           Service worker for offline support
-screenshots/    README screenshots
+index.html          App shell (dual-mode CSS layout, d3 + EXIF CDN)
+almanac.html        Daily almanac page generator
+js/                 ES modules (math, catalog, sight-reduction, fix, etc.)
+manifest.json       PWA manifest
+sw.js               Service worker for offline support
+screenshots/        README screenshots
 ```
 
 ## License
