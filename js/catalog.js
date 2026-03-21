@@ -64,6 +64,10 @@ export const CAT = {
 
   // ─── Ursa Minor (Little Dipper) ──────────────────────────────────────────
   'Pherkad':         [15.346,  71.834, 3.05],  // γ UMi
+  'Yildun':          [17.537,  86.586, 4.35],  // δ UMi
+  'Urodelus':        [16.766,  82.037, 4.23],  // ε UMi
+  'Akhfa al Farkadain': [15.734, 77.794, 4.32], // ζ UMi
+  'Anwar al Farkadain': [16.292, 75.755, 5.00], // η UMi
 
   // ─── Ursa Major (Big Dipper — completing the bowl) ───────────────────────
   'Merak':           [11.031,  56.383, 2.37],  // β UMa — pointer to Polaris (with Dubhe)
@@ -200,9 +204,14 @@ export const CONST_LINES = [
   ['Alioth',  'Mizar'],          // handle middle
   ['Mizar',   'Alkaid'],         // handle tip
 
-  // ─── Ursa Minor (Little Dipper — tip of handle) ──────────────────────────
-  ['Polaris', 'Kochab'],
-  ['Kochab',  'Pherkad'],
+  // ─── Ursa Minor (Little Dipper — complete) ───────────────────────────────
+  ['Polaris', 'Yildun'],           // handle tip → δ
+  ['Yildun',  'Urodelus'],         // handle δ → ε
+  ['Urodelus','Akhfa al Farkadain'], // handle ε → ζ
+  ['Akhfa al Farkadain','Anwar al Farkadain'], // bowl ζ → η
+  ['Anwar al Farkadain','Kochab'], // bowl η → β
+  ['Kochab',  'Pherkad'],          // bowl β → γ
+  ['Pherkad', 'Akhfa al Farkadain'], // bowl γ → ζ (close bowl)
 
   // ─── Cassiopeia (W) ──────────────────────────────────────────────────────
   ['Caph',    'Schedar'],

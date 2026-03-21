@@ -39,7 +39,13 @@ export function createNavChart(container) {
     svg.attr('viewBox', `0 0 ${width} ${height}`);
   }
 
-  function update({ ap, lops = [], fix = null, radius_nm = 200 }) {
+  function update({ ap, lops = [], fix = null, radius_nm }) {
+    // Auto-scale radius to fit data
+    if (radius_nm == null) {
+      const maxInt = lops.reduce((m, l) => Math.max(m, Math.abs(l.intercept_nm)), 0);
+      const fixDist = fix ? Math.hypot((fix.lat - ap.lat) * 60, (fix.lon - ap.lon) * 60 * Math.cos(ap.lat * D2R)) : 0;
+      radius_nm = Math.max(50, Math.min(500, Math.ceil((Math.max(maxInt, fixDist) * 1.5 + 20) / 10) * 10));
+    }
     resize();
     if (!ap) return;
 
@@ -154,17 +160,15 @@ export function createNavChart(container) {
       const color = lop.color || getColor(lop.starName);
       const zr = lop.Zn * D2R;
 
-      // Azimuth line (dashed, from AP outward)
-      const azEndLat = ap.lat + Math.cos(zr) * radius_nm * 0.9 * nmToDeg;
-      const azEndLon = ap.lon + Math.sin(zr) * radius_nm * 0.9 * nmToDeg / cosLat;
+      // Azimuth line (dashed, from AP toward star)
+      const azLen = Math.min(radius_nm * 0.8, Math.abs(lop.intercept_nm) * 1.3 + 30);
+      const azEndLat = ap.lat + Math.cos(zr) * azLen * nmToDeg;
+      const azEndLon = ap.lon + Math.sin(zr) * azLen * nmToDeg / cosLat;
       const azEnd = projection([azEndLon, azEndLat]);
       if (azEnd) {
         lopG.append('line')
           .attr('x1',apPt[0]).attr('y1',apPt[1]).attr('x2',azEnd[0]).attr('y2',azEnd[1])
-          .attr('stroke',color).attr('stroke-width',1).attr('stroke-dasharray','4,4').attr('opacity',0.5);
-        lopG.append('text').text(`${lop.starName} Zn ${Math.round(lop.Zn)}°`)
-          .attr('x',azEnd[0]+4).attr('y',azEnd[1]-4)
-          .attr('fill',color).attr('font-size',9).attr('font-family','monospace');
+          .attr('stroke',color).attr('stroke-width',1).attr('stroke-dasharray','4,4').attr('opacity',0.4);
       }
 
       // Intercept point (along azimuth line at intercept distance)
@@ -184,30 +188,12 @@ export function createNavChart(container) {
         lopG.append('line')
           .attr('x1',lp1[0]).attr('y1',lp1[1]).attr('x2',lp2[0]).attr('y2',lp2[1])
           .attr('stroke',color).attr('stroke-width',2.5);
-        const intPt = projection([intLon, intLat]);
-        if (intPt) {
-          lopG.append('text').text(`a=${lop.intercept_nm > 0 ? '+' : ''}${lop.intercept_nm.toFixed(1)}'`)
-            .attr('x',lp2[0]+4).attr('y',lp2[1]-2)
-            .attr('fill',color).attr('font-size',9).attr('font-family','monospace');
-        }
-      }
-
-      // CoEA arc (subtle dashed arc near LOP)
-      if (lop.Ho != null && lop.starDec != null) {
-        const arcPts = [];
-        for (let a = -15; a <= 15; a += 3) {
-          const angle = zr + a * D2R;
-          const aLat = ap.lat + Math.cos(angle) * lop.intercept_nm * nmToDeg;
-          const aLon = ap.lon + Math.sin(angle) * lop.intercept_nm * nmToDeg / cosLat;
-          const pt = projection([aLon, aLat]);
-          if (pt) arcPts.push(pt);
-        }
-        if (arcPts.length > 1) {
-          const line = d3.line().x(d=>d[0]).y(d=>d[1]).curve(d3.curveBasis);
-          lopG.append('path').attr('d', line(arcPts))
-            .attr('fill','none').attr('stroke',color).attr('stroke-width',1)
-            .attr('stroke-dasharray','2,3').attr('opacity',0.4);
-        }
+        // Label at the end of the LOP line
+        const intAbs = Math.abs(lop.intercept_nm);
+        const intStr = intAbs > 60 ? `${(intAbs / 60).toFixed(1)}°` : `${intAbs.toFixed(1)}'`;
+        lopG.append('text').text(`${lop.starName}  a=${lop.intercept_nm >= 0 ? '+' : '-'}${intStr}`)
+          .attr('x',lp2[0]+4).attr('y',lp2[1]-2)
+          .attr('fill',color).attr('font-size',9).attr('font-family','monospace');
       }
     }
   }

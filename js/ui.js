@@ -1,7 +1,8 @@
-import { visibleStars } from './altitude.js';
+import { visibleStars, equatorialToAltAz } from './altitude.js';
 import { CAT, CAT_BY_MAG } from './catalog.js';
 import { detectBrightSpots } from './detection.js';
 import { buildCatalogHash, runAutoID } from './auto-id.js';
+import { manualSolve, pixelToSky } from './plate-solve.js';
 
 export function initUI(store, computePipeline) {
   // Tab switching
@@ -54,18 +55,25 @@ export function initUI(store, computePipeline) {
 
   // Global inputs
   const utcInput = document.getElementById('utcInput');
-  utcInput.value = new Date().toISOString().slice(0, 16);
+  const nowUtc = new Date();
+  utcInput.value = nowUtc.toISOString().slice(0, 16);
+  store.update({ utc: nowUtc });
   utcInput.addEventListener('change', () => {
     store.update({ utc: new Date(utcInput.value + 'Z') });
-    computePipeline();
+    triggerPipeline();
   });
+
+  function triggerPipeline() {
+    computePipeline();
+    if (_onPhotoPipeline && _photoState) _onPhotoPipeline(_photoState);
+  }
 
   document.getElementById('apLat').addEventListener('change', (e) => {
     const lat = parseDM(e.target.value, 'lat');
     if (lat != null) {
       const state = store.get();
       store.update({ ap: { ...state.ap, lat } });
-      computePipeline();
+      triggerPipeline();
     }
   });
 
@@ -74,13 +82,13 @@ export function initUI(store, computePipeline) {
     if (lon != null) {
       const state = store.get();
       store.update({ ap: { ...state.ap, lon } });
-      computePipeline();
+      triggerPipeline();
     }
   });
 
   document.getElementById('magDecl').addEventListener('change', (e) => {
     store.update({ magDecl: parseFloat(e.target.value) || 0 });
-    computePipeline();
+    triggerPipeline();
   });
 
   document.getElementById('computeFix').addEventListener('click', () => {
@@ -95,6 +103,24 @@ export function initUI(store, computePipeline) {
 export function renderObsTable(store, computePipeline) {
   const state = store.get();
   const container = document.getElementById('obsTable');
+
+  // If row count matches, just update computed values without destroying inputs
+  const existingRows = container.querySelectorAll('.obs-row');
+  if (existingRows.length === state.observations.length && existingRows.length > 0) {
+    state.observations.forEach((obs, i) => {
+      const comp = existingRows[i].querySelector('.obs-computed');
+      if (comp) {
+        const intSign = obs.intercept_nm >= 0 ? '+' : '';
+        const intAbs = Math.abs(obs.intercept_nm);
+        const intLabel = intAbs > 60 ? `${(intAbs / 60).toFixed(1)}°` : `${intAbs.toFixed(1)}'`;
+        comp.textContent = `Hc ${obs.Hc.toFixed(1)}° | a=${intSign}${intLabel} | Zn ${obs.Zn.toFixed(0)}°`;
+      }
+    });
+    document.getElementById('computeFix').style.display = state.observations.length >= 2 ? 'inline-block' : 'none';
+    return;
+  }
+
+  // Full rebuild needed (rows added/removed)
   container.innerHTML = '';
 
   state.observations.forEach((obs, i) => {
@@ -102,28 +128,30 @@ export function renderObsTable(store, computePipeline) {
     row.className = 'obs-row';
     const obsUtcVal = (obs.utc instanceof Date ? obs.utc : new Date(obs.utc)).toISOString().slice(0, 16);
     const intSign = obs.intercept_nm >= 0 ? '+' : '';
+    const intAbs = Math.abs(obs.intercept_nm);
+    const intLabel = intAbs > 60 ? `${(intAbs / 60).toFixed(1)}°` : `${intAbs.toFixed(1)}'`;
     row.innerHTML = `
       <div class="obs-row-main">
         <span class="obs-name">${obs.starName}</span>
-        <span class="obs-computed">Hc ${obs.Hc.toFixed(1)}° &nbsp;a=${intSign}${obs.intercept_nm.toFixed(1)}' &nbsp;Zn ${obs.Zn.toFixed(0)}°</span>
         <button class="srmv" data-i="${i}">✕</button>
       </div>
       <div class="obs-row-fields">
         <label class="flbl">Ho</label>
-        <input type="number" class="finput obs-ho-deg" data-i="${i}" value="${obs.Ho_deg}" min="0" max="90" style="width:52px">°
-        <input type="number" class="finput obs-ho-min" data-i="${i}" value="${(obs.Ho_min || 0).toFixed(1)}" min="0" max="59.9" step="0.1" style="width:58px">'
-        <label class="flbl" style="margin-left:10px">UTC</label>
-        <input type="datetime-local" class="finput obs-utc" data-i="${i}" value="${obsUtcVal}" style="width:150px">
-        <label class="flbl" style="margin-left:10px">Brg</label>
-        <input type="number" class="finput obs-brg" data-i="${i}" value="${obs.magBearing || ''}" placeholder="—" style="width:56px">°
+        <input type="number" class="finput obs-ho-deg" data-i="${i}" value="${obs.Ho_deg}" min="0" max="90" style="width:60px">°
+        <input type="number" class="finput obs-ho-min" data-i="${i}" value="${(obs.Ho_min || 0).toFixed(1)}" min="0" max="59.9" step="0.1" style="width:68px">'
+        <label class="flbl" style="margin-left:8px">Brg</label>
+        <input type="number" class="finput obs-brg" data-i="${i}" value="${obs.magBearing || ''}" placeholder="—" style="width:72px">°
+        <label class="flbl" style="margin-left:8px">UTC</label>
+        <input type="datetime-local" class="finput obs-utc" data-i="${i}" value="${obsUtcVal}" style="width:185px">
       </div>
+      <div class="obs-computed">Hc ${obs.Hc.toFixed(1)}° | a=${intSign}${intLabel} | Zn ${obs.Zn.toFixed(0)}°</div>
     `;
     container.appendChild(row);
   });
 
   // Event delegation
   container.querySelectorAll('.obs-ho-deg,.obs-ho-min,.obs-brg,.obs-utc').forEach(inp => {
-    inp.addEventListener('change', () => {
+    const handler = () => {
       const idx = parseInt(inp.dataset.i);
       const obs = [...state.observations];
       obs[idx] = { ...obs[idx] };
@@ -133,7 +161,9 @@ export function renderObsTable(store, computePipeline) {
       if (inp.classList.contains('obs-utc')) obs[idx].utc = inp.value ? new Date(inp.value + 'Z') : state.utc;
       store.update({ observations: obs });
       computePipeline();
-    });
+    };
+    inp.addEventListener('change', handler);
+    inp.addEventListener('input', handler);
   });
 
   container.querySelectorAll('.srmv').forEach(btn => {
@@ -188,6 +218,7 @@ let _pickerCandId = null;
 let _catalogHash = null;
 let _onPhotoPipeline = null;
 let _onExportSights = null;
+let _mgDragJustEnded = false;
 
 function getCatalogHash() {
   if (!_catalogHash) _catalogHash = buildCatalogHash();
@@ -204,7 +235,8 @@ export function initPhotoUI(onPhotoPipeline, onExportSights) {
     nextId: 1,
     overlayFlags: { stars: true, const: true, radec: false, altaz: false },
     horizonY: null,
-    detOpts: { pct: 96, maxStars: 30, clusterPx: 18 }
+    detOpts: { pct: 96, maxStars: 30, clusterPx: 18 },
+    manualGrid: { enabled: false, ra_h: 6, dec_d: 20, fovDeg: 60, rotDeg: 0, offsetPx: 0, offsetPy: 0 }
   };
 
   const dz = document.getElementById('dropzone');
@@ -279,6 +311,125 @@ export function initPhotoUI(onPhotoPipeline, onExportSights) {
       if (_onPhotoPipeline) _onPhotoPipeline(_photoState);
     }
   });
+
+  // Manual grid mode
+  const mgridBtn    = document.getElementById('manualGridBtn');
+  const mgridCtrl   = document.getElementById('mgrid-ctrl');
+  const mgridFov    = document.getElementById('mgrid-fov');
+  const mgridRot    = document.getElementById('mgrid-rot');
+  const mgridFovVal = document.getElementById('mgrid-fov-val');
+  const mgridRotVal = document.getElementById('mgrid-rot-val');
+
+  mgridBtn.addEventListener('click', () => {
+    const mg = _photoState.manualGrid;
+    mg.enabled = !mg.enabled;
+    mgridBtn.classList.toggle('active', mg.enabled);
+    mgridCtrl.style.display = mg.enabled ? '' : 'none';
+    // Center on first identified star if available
+    if (mg.enabled && _photoState.sightings.length > 0) {
+      const s0 = _photoState.sightings[0];
+      mg.ra_h = s0.ra_h; mg.dec_d = s0.dec_d;
+    }
+    mgridFov.value = mg.fovDeg;
+    mgridFovVal.textContent = mg.fovDeg + '°';
+    mgridRot.value = mg.rotDeg;
+    mgridRotVal.textContent = mg.rotDeg + '°';
+    if (_onPhotoPipeline) _onPhotoPipeline(_photoState);
+  });
+
+  mgridFov.addEventListener('input', () => {
+    const v = parseInt(mgridFov.value);
+    mgridFovVal.textContent = v + '°';
+    _photoState.manualGrid.fovDeg = v;
+    if (_onPhotoPipeline) _onPhotoPipeline(_photoState);
+  });
+
+  mgridRot.addEventListener('input', () => {
+    const v = parseInt(mgridRot.value);
+    mgridRotVal.textContent = v + '°';
+    _photoState.manualGrid.rotDeg = v;
+    if (_onPhotoPipeline) _onPhotoPipeline(_photoState);
+  });
+
+  // Drag/scroll/shift-drag for manual grid
+  let _mgDrag = null;
+  const pvwrap = document.getElementById('pvwrap');
+
+  pvwrap.addEventListener('mousedown', (e) => {
+    // Allow drag when manual grid is enabled OR when grid controls are visible (single-star mode)
+    const ctrlVisible = document.getElementById('mgrid-ctrl').style.display !== 'none';
+    if (!_photoState.manualGrid.enabled && !ctrlVisible) return;
+    const img = document.getElementById('pi');
+    const rect = img.getBoundingClientRect();
+    const px = (e.clientX - rect.left) / rect.width;
+    const py = (e.clientY - rect.top) / rect.height;
+    if (px < 0 || px > 1 || py < 0 || py > 1) return;
+    _mgDrag = { startX: e.clientX, startY: e.clientY, startPx: px, startPy: py,
+                origRa: _photoState.manualGrid.ra_h, origDec: _photoState.manualGrid.dec_d,
+                origRot: _photoState.manualGrid.rotDeg,
+                origOffX: _photoState.manualGrid.offsetPx || 0, origOffY: _photoState.manualGrid.offsetPy || 0,
+                singleStar: !_photoState.manualGrid.enabled,
+                shift: e.shiftKey, moved: false };
+    e.preventDefault();
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!_mgDrag) return;
+    const dx = e.clientX - _mgDrag.startX, dy = e.clientY - _mgDrag.startY;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) _mgDrag.moved = true;
+    if (!_mgDrag.moved) return;
+
+    const mg = _photoState.manualGrid;
+    if (_mgDrag.shift) {
+      // Shift+drag = rotate
+      mg.rotDeg = _mgDrag.origRot + dx * 0.5;
+      mg.rotDeg = Math.max(-180, Math.min(180, mg.rotDeg));
+      mgridRot.value = Math.round(mg.rotDeg);
+      mgridRotVal.textContent = Math.round(mg.rotDeg) + '°';
+    } else if (_mgDrag.singleStar) {
+      // Single-star mode: drag adjusts pixel offsets
+      const img = document.getElementById('pi');
+      const rect = img.getBoundingClientRect();
+      const dxNorm = (e.clientX - _mgDrag.startX) / rect.width;
+      const dyNorm = (e.clientY - _mgDrag.startY) / rect.height;
+      mg.offsetPx = _mgDrag.origOffX + dxNorm;
+      mg.offsetPy = _mgDrag.origOffY - dyNorm;
+    } else {
+      // Manual grid mode: drag = pan via inverse projection to get sky delta
+      const solve = manualSolve(_mgDrag.origRa, _mgDrag.origDec, mg.fovDeg, mg.rotDeg, mg.offsetPx, mg.offsetPy);
+      const img = document.getElementById('pi');
+      const rect = img.getBoundingClientRect();
+      const curPx = (e.clientX - rect.left) / rect.width;
+      const curPy = (e.clientY - rect.top) / rect.height;
+      const skyStart = pixelToSky(_mgDrag.startPx, _mgDrag.startPy, solve);
+      const skyCur = pixelToSky(curPx, curPy, solve);
+      if (skyStart && skyCur) {
+        mg.ra_h = _mgDrag.origRa - (skyCur.ra_h - skyStart.ra_h);
+        mg.dec_d = Math.max(-89, Math.min(89, _mgDrag.origDec - (skyCur.dec_d - skyStart.dec_d)));
+      }
+    }
+    if (_onPhotoPipeline) _onPhotoPipeline(_photoState);
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (_mgDrag && _mgDrag.moved) {
+      _mgDragJustEnded = true;
+      setTimeout(() => { _mgDragJustEnded = false; }, 50);
+    }
+    _mgDrag = null;
+  });
+
+  pvwrap.addEventListener('wheel', (e) => {
+    const ctrlVisible = document.getElementById('mgrid-ctrl').style.display !== 'none';
+    if (!_photoState.manualGrid.enabled && !ctrlVisible) return;
+    e.preventDefault();
+    const mg = _photoState.manualGrid;
+    const delta = e.deltaY > 0 ? 1.1 : 0.9;
+    mg.fovDeg = Math.max(5, Math.min(120, mg.fovDeg * delta));
+    mgridFov.value = Math.round(mg.fovDeg);
+    mgridFovVal.textContent = Math.round(mg.fovDeg) + '°';
+    if (_onPhotoPipeline) _onPhotoPipeline(_photoState);
+  }, { passive: false });
 
   // Picker
   document.getElementById('picker-close').addEventListener('click', closePicker);
@@ -395,7 +546,7 @@ function photoClearSightings() {
 }
 
 function handlePhotoClick(e) {
-  if (e._handled) return;
+  if (e._handled || _mgDragJustEnded) return;
   e._handled = true;
   const img = document.getElementById('pi');
   const rect = img.getBoundingClientRect();
@@ -425,33 +576,74 @@ function addSighting(s) {
   _photoState.sightings.push({ id: _photoState.nextId++, Ho_deg: 0, Ho_min: 0, ...preserved, ...s });
 }
 
+/** Propagate estimated Alt/Az to all sightings given a fix and UTC */
+export function propagateAltAz(fix, utc) {
+  if (!fix || !utc || !_photoState) return;
+  for (const s of _photoState.sightings) {
+    const aa = equatorialToAltAz(s.ra_h, s.dec_d, fix.lat, fix.lon, utc);
+    s._estAlt = aa.alt_d;
+    s._estAz = aa.az_d;
+    // If Ho is 0 and no manual az, fill in estimates for convenience
+    if (s.Ho_deg === 0 && (s.Ho_min || 0) === 0 && s.az == null) {
+      // Don't auto-fill — just show estimates
+    }
+  }
+  renderSightingsList();
+}
+
 function renderSightingsList() {
   const el = document.getElementById('sightings-list');
   if (!_photoState.sightings.length) {
     el.innerHTML = '<div style="font-size:11px;color:var(--tx3);font-style:italic">No stars identified yet.</div>';
     return;
   }
-  el.innerHTML = _photoState.sightings.map(s => `
+  el.innerHTML = _photoState.sightings.map(s => {
+    const estAlt = s._estAlt != null ? s._estAlt.toFixed(1) + '°' : '';
+    const estAz = s._estAz != null ? s._estAz.toFixed(1) + '°' : '';
+    const userHo = s.Ho_deg + (s.Ho_min || 0) / 60;
+    // Residuals: difference between user input and computed position
+    let residualHtml = '';
+    if (estAlt) {
+      const parts = [];
+      parts.push(`calc: ${estAlt} alt, ${estAz} az`);
+      if (userHo > 0 && s._estAlt != null) {
+        const dAlt = (userHo - s._estAlt).toFixed(1);
+        parts.push(`\u0394alt=${dAlt > 0 ? '+' : ''}${dAlt}°`);
+      }
+      if (s.az != null && s._estAz != null) {
+        let dAz = s.az - s._estAz;
+        if (dAz > 180) dAz -= 360; if (dAz < -180) dAz += 360;
+        parts.push(`\u0394az=${dAz > 0 ? '+' : ''}${dAz.toFixed(1)}°`);
+      }
+      residualHtml = `<div class="saz-est">${parts.join(' &nbsp; ')}</div>`;
+    }
+    return `
     <div class="srow">
       <span class="spip ${s.autoID ? 'auto' : ''}"></span>
       <span class="sname">${s.name}</span>
       <span class="scoord">${s.ra_h.toFixed(2)}h ${s.dec_d >= 0 ? '+' : ''}${s.dec_d.toFixed(1)}°</span>
       <label class="sho-lbl">Ho</label>
-      <input type="number" class="finput sho-deg" data-id="${s.id}" value="${s.Ho_deg}" min="0" max="90" style="width:44px">°
-      <input type="number" class="finput sho-min" data-id="${s.id}" value="${(s.Ho_min || 0).toFixed(1)}" min="0" max="59.9" step="0.1" style="width:48px">'
+      <input type="number" class="finput sho-deg" data-id="${s.id}" value="${s.Ho_deg}" min="0" max="90" style="width:60px">°
+      <input type="number" class="finput sho-min" data-id="${s.id}" value="${(s.Ho_min || 0).toFixed(1)}" min="0" max="59.9" step="0.1" style="width:64px">'
+      <label class="sho-lbl">Az</label>
+      <input type="number" class="finput saz" data-id="${s.id}" value="${s.az != null ? s.az.toFixed(1) : ''}" placeholder="—" min="0" max="360" step="0.1" style="width:72px">°
       <button class="srmv" data-id="${s.id}" style="margin-left:auto">✕</button>
-    </div>
-  `).join('');
+      ${residualHtml}
+    </div>`;
+  }).join('');
 
-  el.querySelectorAll('.sho-deg, .sho-min').forEach(inp => {
-    inp.addEventListener('change', () => {
+  el.querySelectorAll('.sho-deg, .sho-min, .saz').forEach(inp => {
+    const handler = () => {
       const id = parseInt(inp.dataset.id);
       const s = _photoState.sightings.find(x => x.id === id);
       if (!s) return;
       if (inp.classList.contains('sho-deg')) s.Ho_deg = parseFloat(inp.value) || 0;
       if (inp.classList.contains('sho-min')) s.Ho_min = parseFloat(inp.value) || 0;
+      if (inp.classList.contains('saz')) s.az = inp.value ? parseFloat(inp.value) : null;
       if (_onPhotoPipeline) _onPhotoPipeline(_photoState);
-    });
+    };
+    inp.addEventListener('change', handler);
+    inp.addEventListener('input', handler);
   });
 
   el.querySelectorAll('.srmv').forEach(btn => {
@@ -573,4 +765,27 @@ export function updatePhotoFix(solve, fix, method) {
 
 export function getPhotoState() {
   return _photoState;
+}
+
+/** Show/hide FOV/rotation controls based on whether a solve needs manual params */
+export function showGridControls(show) {
+  const ctrl = document.getElementById('mgrid-ctrl');
+  const btn = document.getElementById('manualGridBtn');
+  if (!ctrl || !_photoState) return;
+  if (show) {
+    ctrl.style.display = '';
+    btn.classList.add('active');
+    // Sync slider values
+    const mg = _photoState.manualGrid;
+    document.getElementById('mgrid-fov').value = mg.fovDeg;
+    document.getElementById('mgrid-fov-val').textContent = Math.round(mg.fovDeg) + '°';
+    document.getElementById('mgrid-rot').value = mg.rotDeg;
+    document.getElementById('mgrid-rot-val').textContent = Math.round(mg.rotDeg) + '°';
+  }
+}
+
+export function getManualGridSolve() {
+  if (!_photoState || !_photoState.manualGrid.enabled) return null;
+  const mg = _photoState.manualGrid;
+  return manualSolve(mg.ra_h, mg.dec_d, mg.fovDeg, mg.rotDeg, mg.offsetPx, mg.offsetPy);
 }

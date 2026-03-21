@@ -1,221 +1,1803 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Celestial Nav</title>
-<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/exif-js@2.3.0/exif.min.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#c8a84b">
+<link rel="manifest" href="manifest.json">
+<title>Celestial Navigator</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Share+Tech+Mono&family=Crimson+Pro:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
-:root{--bg:#050c1a;--bg2:#0a1525;--bg3:#0f1d30;--bdr:#182c42;--bdr2:#243a56;--tx:#8ab4cc;--tx2:#b8d2e8;--tx3:#36566e;--amb:#e09820;--amb2:#f0c060;--teal:#1a9e7a;--teal2:#55d0a8;--red:#c04030;--rose:#c03060;--mono:ui-monospace,'SF Mono','Cascadia Code','Fira Mono',monospace}
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;line-height:1.55;height:100vh;overflow:hidden}
-.app-layout{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr auto;height:100vh;gap:0}
-.left-panel{grid-row:1;grid-column:1;overflow-y:auto;padding:12px;border-right:.5px solid var(--bdr)}
-.right-panel{grid-row:1;grid-column:2}
-#navChart{width:100%;height:100%}
-.bottom-bar{grid-row:2;grid-column:1 / -1;display:flex;gap:12px;align-items:center;padding:8px 12px;border-top:.5px solid var(--bdr);flex-wrap:wrap;background:var(--bg2)}
-.tab-bar{display:flex;gap:6px;margin-bottom:12px}
-.tab{background:var(--bg3);border:.5px solid var(--bdr2);border-radius:6px;color:var(--tx3);font-size:12px;font-weight:500;font-family:inherit;padding:5px 12px;cursor:pointer;transition:all .15s}
-.tab:hover{border-color:var(--bdr);color:var(--tx)}
-.tab.active{border-color:#1a5c8c;color:#52b0e2;background:var(--bg3)}
-.panel{display:none}
-.panel.active{display:block}
-.btn{background:var(--bg3);border:.5px solid #1a5c8c;border-radius:6px;color:#52b0e2;font-size:11px;font-weight:500;font-family:inherit;padding:5px 10px;cursor:pointer;transition:background .15s,border-color .15s;white-space:nowrap}
-.btn:hover{background:#0e2440;border-color:#2a7ac0}
-.btn-ghost{background:transparent;border:.5px solid var(--bdr2);color:var(--tx3)}
-.btn-ghost:hover{border-color:var(--bdr);color:var(--tx);background:var(--bg)}
-.btn-teal{border-color:#0f5c48;color:var(--teal2)}
-.btn-teal:hover{background:#081e18;border-color:#1a7a60}
-.btn-rose{border-color:#5c1030;color:#e060a0}
-.btn-rose:hover{background:#150818;border-color:#8a1848}
-.flbl{font-size:11px;color:var(--tx3);flex-shrink:0}
-.finput{background:var(--bg);border:.5px solid var(--bdr2);border-radius:5px;color:var(--amb2);font-size:11px;padding:5px 8px;font-family:var(--mono)}
-.finput:focus{outline:none;border-color:#2a72b0}
-.input-group{display:flex;align-items:center;gap:6px}
-.star-selector{margin-bottom:10px;display:flex;align-items:center;gap:8px}
-.obs-row{display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--bg2);border:.5px solid var(--bdr);border-radius:6px;margin-bottom:6px;flex-wrap:wrap;font-size:11px}
-.obs-name{font-weight:600;color:var(--tx2);min-width:80px;font-family:var(--mono)}
-.obs-computed{font-family:var(--mono);font-size:10px;color:var(--teal2);flex:1}
-.srmv{background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;padding:0 4px}
-.fix-readout{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--tx3);margin-left:auto}
-/* dropzone */
-.dz{border:1.5px dashed var(--bdr2);border-radius:8px;padding:40px 20px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;user-select:none}
-.dz:hover,.dz.over{border-color:#2a72b0;background:rgba(26,92,140,.05)}
-.dz-title{font-size:13px;font-weight:500;color:var(--tx2);margin:5px 0 2px}
-.dz-hint{font-size:11px;color:var(--tx3)}
-label{font-size:11px;color:var(--tx3)}
-/* photo overlay */
-.pv-outer{position:relative;display:inline-block;max-width:100%;cursor:crosshair;user-select:none}
-.pv-outer img{display:block;max-width:100%;max-height:280px;border-radius:6px}
-#ovl{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;border-radius:6px;overflow:visible}
-/* candidate markers */
-.cmarker{position:absolute;width:20px;height:20px;border-radius:50%;border:1.5px dashed var(--bdr2);background:rgba(255,255,255,.04);transform:translate(-50%,-50%);cursor:pointer;transition:border-color .15s,background .15s}
-.cmarker:hover{border-color:#4a8cbf;background:rgba(74,140,191,.12)}
-.cmarker.identified{border-style:solid;border-color:var(--amb);background:rgba(224,152,32,.1)}
-.cmarker.auto-id{border-style:solid;border-color:var(--teal2);background:rgba(85,208,168,.1)}
-.cmarker.manual-pt{border-style:dotted;border-color:#4a8cbf;background:rgba(74,140,191,.06)}
-.cmk-lbl{position:absolute;font-size:10px;font-family:var(--mono);white-space:nowrap;transform:translate(9px,-50%);pointer-events:none;text-shadow:0 0 6px #000,0 0 2px #000;color:var(--amb)}
-.cmk-lbl.auto{color:var(--teal2)}
-.photo-actions{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap;align-items:center}
-.det-settings{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:5px 8px;background:var(--bg3);border:.5px solid var(--bdr);border-radius:6px;font-size:10px;color:var(--tx3);margin-bottom:6px}
-.det-settings input[type=range]{width:72px;accent-color:var(--teal)}
-.det-settings input[type=number]{width:48px;background:var(--bg);border:.5px solid var(--bdr2);border-radius:4px;color:var(--amb2);font-size:10px;padding:2px 5px;font-family:var(--mono)}
-/* sightings */
-.srow{display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:.5px solid #0d1a28;font-size:11px}
-.srow:last-child{border-bottom:none}
-.spip{width:6px;height:6px;border-radius:50%;flex-shrink:0;background:var(--amb)}
-.spip.auto{background:var(--teal2)}
-.sname{font-weight:500;color:var(--tx2);min-width:90px}
-.scoord{font-family:var(--mono);color:#3a6888;font-size:10px;flex:1}
-.snopx{font-size:10px;color:var(--tx3);flex:1;font-style:italic}
-/* auto-id bar */
-.autoid-bar{background:#081a10;border:.5px solid #0f3820;border-radius:6px;padding:7px 10px;margin-top:7px;font-size:11px;color:#3a7858;display:none}
-.autoid-bar.visible{display:block}
-/* picker */
-.picker-wrap{background:var(--bg2);border:.5px solid var(--bdr2);border-radius:9px;margin-top:8px;overflow:hidden;display:none;flex-direction:column;max-height:320px}
-.picker-hdr{display:flex;align-items:center;padding:9px 12px 7px;border-bottom:.5px solid var(--bdr);gap:8px}
-.picker-title{font-size:12px;font-weight:600;color:var(--tx2);flex:1}
-.picker-close{background:none;border:none;color:var(--tx3);font-size:15px;cursor:pointer;padding:2px}
-.picker-close:hover{color:var(--tx)}
-.psearch-wrap{padding:7px 12px 4px}
-.psearch{width:100%;background:var(--bg);border:.5px solid var(--bdr2);border-radius:5px;color:var(--tx2);font-size:12px;padding:6px 9px;font-family:inherit}
-.psearch:focus{outline:none;border-color:#2a72b0}
-.plist{overflow-y:auto;flex:1;padding:2px 0;min-height:80px}
-.pstar{display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;transition:background .1s}
-.pstar:hover{background:var(--bg3)}
-.pstar-name{font-size:12px;font-weight:500;color:var(--tx2);flex:1}
-.pstar-coords{font-size:10px;color:var(--tx3);font-family:var(--mono)}
-.pstar-mag{font-size:10px;color:var(--tx3);font-family:var(--mono)}
-.pstar-mag.bright{color:var(--amb2)}
-/* photo fix */
-.photo-fix{background:var(--bg2);border:.5px solid var(--bdr);border-radius:6px;padding:8px 10px;margin-top:8px;font-size:11px;color:var(--tx3)}
-.photo-fix .fix-coords{font-family:var(--mono);color:var(--teal2);font-weight:600;font-size:13px}
-.photo-method{font-size:10px;color:var(--tx3);margin-top:3px}
-/* overlay toggles */
-.ovl-toggles{display:flex;gap:5px;margin-bottom:6px;flex-wrap:wrap}
-.ovl-btn{background:var(--bg3);border:.5px solid var(--bdr2);border-radius:5px;color:var(--tx3);font-size:10px;padding:3px 8px;cursor:pointer;transition:all .15s}
-.ovl-btn:hover{border-color:var(--bdr);color:var(--tx)}
-.ovl-btn.active{border-color:#1a5c8c;color:#52b0e2}
+:root{
+  --bg:#06091a;--s1:#0b1028;--s2:#0f1735;--s3:#132040;
+  --b1:#1a3258;--b2:#244978;--b3:#2e5d96;
+  --acc:#c8a84b;--acc2:#8a6e2a;--acc3:rgba(200,168,75,0.12);
+  --blu:#5b9fd6;--grn:#52c98a;--red:#e05252;--pur:#a78bfa;
+  --tx1:#ddd5bc;--tx2:#7a8fa8;--tx3:#3d5470;
+  --mono:'Share Tech Mono','Courier New',monospace;
+  --disp:'Cinzel',Georgia,serif;
+  --body:'Crimson Pro',Georgia,serif;
+}
+html,body{height:100%;overflow:hidden}
+body{
+  background:var(--bg);color:var(--tx1);font-family:var(--body);font-size:19px;
+  display:flex;flex-direction:column;
+  background-image:radial-gradient(ellipse 80% 50% at 15% 10%,rgba(91,159,214,0.05) 0%,transparent 70%),
+                   radial-gradient(ellipse 60% 40% at 85% 90%,rgba(200,168,75,0.04) 0%,transparent 70%);
+}
+
+/* ─── HEADER ─── */
+header{
+  flex-shrink:0;border-bottom:1px solid var(--b1);padding:10px 20px;
+  display:flex;align-items:center;justify-content:space-between;
+  background:var(--s1);
+  background-image:linear-gradient(90deg,rgba(200,168,75,0.04) 0%,transparent 50%);
+}
+header h1{font-family:var(--disp);font-size:24px;font-weight:700;letter-spacing:5px;color:var(--acc)}
+.hdr-right{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.utc-live{font-family:var(--mono);font-size:19px;color:var(--acc);letter-spacing:3px}
+.hdr-sub{font-family:var(--mono);font-size:13px;color:var(--tx3);letter-spacing:2px}
+
+/* ─── MAIN LAYOUT ─── */
+.layout{flex:1;display:grid;grid-template-columns:380px 1fr;grid-template-rows:1fr;overflow:hidden;min-height:0}
+.panel-left{border-right:1px solid var(--b1);overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px;background:var(--s1)}
+.panel-right{overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px}
+
+/* ─── SECTION ─── */
+.sec-title{font-family:var(--disp);font-size:15px;font-weight:700;letter-spacing:3px;color:var(--acc2);text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--b1)}
+.section{background:var(--s2);border:1px solid var(--b1);padding:12px}
+
+/* ─── MODE TABS ─── */
+.mode-tabs{display:flex;gap:3px}
+.mode-tab{flex:1;padding:7px 4px;background:var(--s2);border:1px solid var(--b1);color:var(--tx3);font-family:var(--disp);font-size:14px;font-weight:600;letter-spacing:2px;cursor:pointer;text-align:center;transition:all 0.15s}
+.mode-tab:hover{border-color:var(--acc2);color:var(--tx2)}
+.mode-tab.active{background:var(--s3);border-color:var(--acc);color:var(--acc)}
+
+/* ─── FORM ─── */
+.fr{display:flex;align-items:center;gap:6px;margin-bottom:7px}
+.fr:last-child{margin-bottom:0}
+.fr label{font-family:var(--mono);font-size:14px;color:var(--tx2);letter-spacing:1px;min-width:52px;text-transform:uppercase;flex-shrink:0}
+.fr input,.fr select{
+  background:var(--s1);border:1px solid var(--b1);color:var(--tx1);
+  font-family:var(--mono);font-size:16px;padding:4px 7px;outline:none;
+  transition:border-color 0.15s;-webkit-appearance:none;
+}
+.fr input:focus,.fr select:focus{border-color:var(--acc2)}
+.fr select option{background:var(--s2)}
+.fr .unit{font-family:var(--mono);font-size:14px;color:var(--tx3);flex-shrink:0}
+input[type=number]{-moz-appearance:textfield}
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
+.w40{width:40px;flex:none}
+.w52{width:52px;flex:none}
+.w64{width:64px;flex:none}
+.w80{width:80px;flex:none}
+.wfull{flex:1;min-width:0}
+select.dir{width:40px;flex:none}
+
+/* ─── BUTTONS ─── */
+.btn{padding:7px 14px;font-family:var(--disp);font-size:14px;letter-spacing:2px;cursor:pointer;border:1px solid;transition:all 0.15s;text-transform:uppercase;background:transparent}
+.btn-acc{border-color:var(--acc);color:var(--acc);width:100%;margin-top:6px}
+.btn-acc:hover{background:var(--acc3)}
+.btn-ghost{border-color:var(--b2);color:var(--tx2)}
+.btn-ghost:hover{border-color:var(--acc2);color:var(--tx1)}
+.btn-sm{padding:3px 9px;font-size:13px;letter-spacing:1px}
+.btn-danger{border-color:#7a2020;color:var(--red)}
+.btn-danger:hover{background:rgba(224,82,82,0.1)}
+
+/* ─── STATUS ─── */
+.status{font-family:var(--mono);font-size:15px;padding:7px 10px;border:1px solid;margin-top:7px}
+.st-ok{border-color:var(--grn);color:var(--grn);background:rgba(82,201,138,0.05)}
+.st-warn{border-color:var(--acc);color:var(--acc);background:var(--acc3)}
+.st-err{border-color:var(--red);color:var(--red);background:rgba(224,82,82,0.05)}
+
+/* ─── FIX ROW ─── */
+.fix-row{display:flex;gap:12px}
+.fix-panel{background:var(--s2);border:1px solid var(--b1);padding:14px;flex:1;min-width:0}
+.fix-map-wrap{flex:1;min-width:0;min-height:220px;background:var(--s2);border:1px solid var(--b1);position:relative}
+#fixMap{width:100%;height:100%;min-height:220px}
+.fix-coords{font-family:var(--mono);font-size:25px;color:var(--acc);margin:10px 0;line-height:1.5}
+.fix-coord-lbl{font-size:15px;color:var(--tx2);min-width:36px;display:inline-block}
+.fix-detail{font-family:var(--mono);font-size:15px;color:var(--tx2);line-height:1.9;margin-top:6px}
+.fix-detail span{color:var(--tx1)}
+.q-good{color:var(--grn) !important;font-weight:600}
+.q-mod{color:var(--acc) !important;font-weight:600}
+.q-poor{color:var(--red) !important;font-weight:600}
+.fix-toggle{display:flex;gap:3px;margin-top:10px}
+.fix-toggle button{flex:1;padding:4px;font-family:var(--mono);font-size:14px;letter-spacing:1px;cursor:pointer;background:var(--s1);border:1px solid var(--b1);color:var(--tx3);transition:all 0.15s}
+.fix-toggle button.active{background:var(--s3);border-color:var(--b2);color:var(--tx1)}
+.empty{text-align:center;padding:24px;color:var(--tx3);font-style:italic;font-family:var(--body);font-size:18px}
+
+/* ─── PLOT ─── */
+.plot-wrap{background:var(--s2);border:1px solid var(--b1)}
+.plot-hdr{padding:7px 12px;border-bottom:1px solid var(--b1);font-family:var(--disp);font-size:15px;font-weight:700;letter-spacing:2px;color:var(--tx3);text-transform:uppercase;display:flex;justify-content:space-between;align-items:center}
+canvas#plot{display:block;width:100%;height:280px;cursor:grab}
+canvas#plot:active{cursor:grabbing}
+
+/* ─── SIGHT LOG ─── */
+.log-area{flex-shrink:0;border-top:1px solid var(--b1);background:var(--s1);max-height:220px;overflow-y:auto;overflow-x:auto}
+.log-header{position:sticky;top:0;z-index:2;background:var(--s1);padding:8px 16px 4px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--b1)}
+.log-title{font-family:var(--disp);font-size:15px;font-weight:700;letter-spacing:3px;color:var(--acc2);text-transform:uppercase}
+.log-count{font-family:var(--mono);font-size:14px;color:var(--tx3)}
+table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:15px;white-space:nowrap}
+th{padding:4px 10px;color:var(--tx3);font-size:13px;letter-spacing:1px;text-align:left;border-bottom:1px solid var(--b1);background:var(--s1);position:sticky;top:37px;z-index:1}
+td{padding:5px 10px;border-bottom:1px solid rgba(26,50,88,0.4);vertical-align:middle}
+tr:hover td{background:rgba(255,255,255,0.015)}
+.badge{display:inline-block;padding:1px 6px;font-size:13px;letter-spacing:1px;border:1px solid}
+.b-int{background:rgba(91,159,214,0.12);color:var(--blu);border-color:rgba(91,159,214,0.3)}
+.b-pol{background:rgba(200,168,75,0.12);color:var(--acc);border-color:rgba(200,168,75,0.3)}
+.b-trs{background:rgba(82,201,138,0.12);color:var(--grn);border-color:rgba(82,201,138,0.3)}
+.toward{color:var(--grn)}.away{color:var(--red)}
+
+/* ─── WORKINGS ─── */
+.workings{background:var(--s2);border:1px solid var(--b1)}
+.wrk-hdr{padding:7px 12px;border-bottom:1px solid var(--b1);font-family:var(--disp);font-size:15px;font-weight:700;letter-spacing:2px;color:var(--tx3);text-transform:uppercase;cursor:pointer;display:flex;justify-content:space-between}
+.wrk-body{padding:12px;font-family:var(--mono);font-size:15px;line-height:2;color:var(--tx2)}
+.wrk-body .wk{display:flex;gap:10px}
+.wrk-body .wl{color:var(--tx3);min-width:140px}
+.wrk-body .wv{color:var(--tx1)}
+.wrk-sep{border-top:1px solid var(--b1);margin:4px 0}
+.star-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px;vertical-align:middle}
+
+/* ─── LEAFLET DARK OVERRIDES ─── */
+.leaflet-control-layers{background:var(--s2)!important;color:var(--tx1)!important;border:1px solid var(--b1)!important}
+.leaflet-control-layers label{color:var(--tx2)!important}
+.leaflet-control-layers-separator{border-top-color:var(--b1)!important}
+.leaflet-control-zoom a{background:var(--s2)!important;color:var(--tx1)!important;border-color:var(--b1)!important}
+.leaflet-control-zoom a:hover{background:var(--s3)!important}
+.leaflet-tooltip{background:var(--s2)!important;color:var(--acc)!important;border:1px solid var(--b1)!important;font-family:var(--mono)!important;font-size:13px!important}
+.leaflet-tooltip-top:before{border-top-color:var(--b1)!important}
+.leaflet-tooltip-bottom:before{border-bottom-color:var(--b1)!important}
+
+/* ─── EDIT BTN ─── */
+.btn-edit{border-color:var(--b2);color:var(--blu)}
+.btn-edit:hover{background:rgba(91,159,214,0.1)}
+
+/* ─── UTILS ─── */
+.hidden{display:none!important}
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--b2)}
 </style>
 </head>
 <body>
-<div class="app-layout">
-  <div class="left-panel">
-    <div class="tab-bar">
-      <button class="tab active" data-mode="sights">⚓ Sights</button>
-      <button class="tab" data-mode="photo">📷 Photo</button>
-    </div>
 
-    <!-- SIGHTS MODE -->
-    <div class="panel sights-panel active">
-      <div class="star-selector">
-        <button id="addStar" class="btn">+ Add Star</button>
-        <select id="starDropdown" class="finput" style="display:none"></select>
-      </div>
-      <div id="obsTable"></div>
-      <button id="computeFix" class="btn btn-teal" style="display:none;margin-top:8px">Compute Fix</button>
-      <button id="loadDemo" class="btn btn-ghost" style="margin-top:8px">Load Demo</button>
-    </div>
-
-    <!-- PHOTO MODE -->
-    <div class="panel photo-panel">
-      <!-- Drop zone -->
-      <div class="dz" id="dropzone">
-        <div class="dz-title">Drop sky photo here</div>
-        <div class="dz-hint">or <label style="color:#52b0e2;cursor:pointer">click to browse<input type="file" id="photoFile" accept="image/*" style="display:none"></label></div>
-      </div>
-
-      <!-- Photo viewer (shown after image loaded) -->
-      <div id="photoView" style="display:none">
-        <!-- Overlay toggles -->
-        <div class="ovl-toggles">
-          <button class="ovl-btn active" data-ovl="stars">Stars</button>
-          <button class="ovl-btn active" data-ovl="const">Constellations</button>
-          <button class="ovl-btn" data-ovl="radec">RA/Dec</button>
-          <button class="ovl-btn" data-ovl="altaz">Alt/Az</button>
-        </div>
-
-        <!-- Detection settings -->
-        <div class="det-settings">
-          <span>Threshold:</span>
-          <input type="range" id="det-pct" min="80" max="99" value="96">
-          <span id="det-pct-val" style="font-family:var(--mono);min-width:32px">96%ile</span>
-          <span style="margin-left:4px">Max:</span>
-          <input type="number" id="det-max" min="8" max="60" value="30" style="width:44px">
-          <span style="margin-left:4px">Cluster px:</span>
-          <input type="number" id="det-cluster" min="8" max="40" value="18" style="width:44px">
-        </div>
-
-        <!-- Image + SVG overlay -->
-        <div style="text-align:center">
-          <div id="pvwrap" class="pv-outer">
-            <img id="pi" src="" alt="sky photo">
-            <svg id="ovl" xmlns="http://www.w3.org/2000/svg"></svg>
-          </div>
-        </div>
-
-        <!-- Action row -->
-        <div class="photo-actions">
-          <button id="redetectBtn" class="btn">Re-detect</button>
-          <button id="autoIdBtn" class="btn btn-teal">Auto-ID</button>
-          <button id="clearSightingsBtn" class="btn btn-ghost">Clear sightings</button>
-          <span id="det-note" style="font-size:10px;color:var(--tx3);margin-left:auto"></span>
-        </div>
-
-        <!-- Auto-ID results bar -->
-        <div class="autoid-bar" id="autoid-bar"></div>
-
-        <!-- Sightings list -->
-        <div id="sightings-list" style="margin-top:8px"></div>
-
-        <!-- Photo fix result -->
-        <div id="photo-fix" class="photo-fix" style="display:none"></div>
-
-        <!-- Export to sights -->
-        <button id="exportSightsBtn" class="btn btn-teal" style="display:none;margin-top:8px;width:100%">Export to Sights →</button>
-
-        <!-- Star picker -->
-        <div id="picker-wrap" class="picker-wrap">
-          <div class="picker-hdr">
-            <span class="picker-title" id="picker-title">Identify star</span>
-            <button class="picker-close" id="picker-close">✕</button>
-          </div>
-          <div class="psearch-wrap">
-            <input type="text" id="psearch" class="psearch" placeholder="Search star name…" autocomplete="off" spellcheck="false">
-          </div>
-          <div class="plist" id="plist"></div>
-        </div>
-      </div>
-    </div>
+<header>
+  <div>
+    <h1>&#10022; CELESTIAL NAVIGATOR</h1>
+    <div class="hdr-sub">SIGHT REDUCTION &middot; FIX COMPUTATION &middot; 58-STAR ALMANAC</div>
   </div>
-
-  <div class="right-panel">
-    <div id="navChart"></div>
+  <div class="hdr-right">
+    <div class="utc-live" id="utcLive">--:--:-- UTC</div>
+    <div class="hdr-sub" id="dateDisp">21 MAR 2026</div>
   </div>
+</header>
 
-  <div class="bottom-bar">
-    <div class="input-group">
-      <label class="flbl">AP Lat</label>
-      <input id="apLat" type="text" class="finput" value="34° 00.0' N" placeholder="34° 00.0' N" style="width:110px">
+<div class="layout">
+
+  <!-- ══════ LEFT PANEL ══════ -->
+  <div class="panel-left">
+
+    <div class="mode-tabs">
+      <button class="mode-tab active" onclick="setMode('intercept')">INTERCEPT</button>
+      <button class="mode-tab" onclick="setMode('polaris')">POLARIS</button>
+      <button class="mode-tab" onclick="setMode('transit')">TRANSIT</button>
     </div>
-    <div class="input-group">
-      <label class="flbl">AP Lon</label>
-      <input id="apLon" type="text" class="finput" value="118° 00.0' W" placeholder="118° 00.0' W" style="width:110px">
+
+    <!-- Sextant Setup -->
+    <div class="section">
+      <div class="sec-title">SEXTANT CORRECTIONS</div>
+      <div class="fr"><label>IE</label><input type="number" id="ie" value="0" step="0.1" class="w52"><span class="unit">arcmin (+on / &minus;off arc)</span></div>
+      <div class="fr"><label>HoE</label><input type="number" id="hoe" value="1.5" step="0.1" min="0" class="w52"><span class="unit">metres above sea</span></div>
     </div>
-    <div class="input-group">
-      <label class="flbl">Mag Decl</label>
-      <input id="magDecl" type="number" class="finput" value="12" step="0.1" style="width:55px">
-      <span style="font-size:11px;color:var(--tx3)">°E</span>
+
+    <!-- AP (intercept mode) -->
+    <div class="section" id="apSection">
+      <div class="sec-title">ASSUMED POSITION</div>
+      <div class="fr">
+        <label>LAT</label>
+        <input type="number" id="apLatD" placeholder="45" min="-90" max="90" class="w40">
+        <span class="unit">&deg;</span>
+        <input type="number" id="apLatM" placeholder="00.0" min="0" max="59.9" step="0.1" class="w52">
+        <span class="unit">'</span>
+        <select id="apLatH" class="dir"><option>N</option><option>S</option></select>
+      </div>
+      <div class="fr">
+        <label>LON</label>
+        <input type="number" id="apLonD" placeholder="0" min="0" max="180" class="w40">
+        <span class="unit">&deg;</span>
+        <input type="number" id="apLonM" placeholder="00.0" min="0" max="59.9" step="0.1" class="w52">
+        <span class="unit">'</span>
+        <select id="apLonH" class="dir"><option>W</option><option>E</option></select>
+      </div>
+      <div class="fr dr-row" style="margin-top:6px;padding-top:6px;border-top:1px solid var(--b1)">
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="drEnable"> DR (Running Fix)</label>
+      </div>
+      <div class="fr dr-row hidden" id="drFields">
+        <label>CRS</label><input type="number" id="drCourse" value="0" min="0" max="359" class="w52"><span class="unit">°T</span>
+        <label style="margin-left:8px">SPD</label><input type="number" id="drSpeed" value="6" min="0" step="0.5" class="w52"><span class="unit">kn</span>
+      </div>
     </div>
-    <div class="input-group">
-      <label class="flbl">UTC</label>
-      <input id="utcInput" type="datetime-local" class="finput" style="width:160px">
+
+    <!-- Approx Lon for Polaris a0 -->
+    <div class="section hidden" id="polLonSection">
+      <div class="sec-title">APPROX LONGITUDE (for a&#8320; correction)</div>
+      <div class="fr">
+        <label>LON</label>
+        <input type="number" id="polLonD" placeholder="115" min="0" max="180" class="w40">
+        <span class="unit">&deg;</span>
+        <input type="number" id="polLonM" placeholder="00.0" min="0" max="59.9" step="0.1" class="w52">
+        <span class="unit">'</span>
+        <select id="polLonH" class="dir"><option>E</option><option>W</option></select>
+      </div>
     </div>
-    <div class="fix-readout" id="fixReadout">—</div>
+
+    <!-- Sight Entry -->
+    <div class="section">
+      <div class="sec-title">SIGHT ENTRY</div>
+      <div class="fr">
+        <label>UTC</label>
+        <input type="datetime-local" id="utcIn" class="wfull">
+      </div>
+      <div class="fr">
+        <label>SECS</label>
+        <input type="number" id="utcSec" value="0" min="0" max="59" class="w52">
+        <span class="unit">seconds (timing precision)</span>
+      </div>
+      <div class="fr" id="starRow">
+        <label>BODY</label>
+        <select id="starSel" class="wfull"><option value="">— select body —</option></select>
+      </div>
+      <div class="fr">
+        <label>Hs</label>
+        <input type="number" id="hsDeg" placeholder="22" min="-90" max="90" class="w40">
+        <span class="unit">&deg;</span>
+        <input type="number" id="hsMin" placeholder="19.0" min="0" max="59.9" step="0.1" class="w64">
+        <span class="unit">' (sextant reading)</span>
+      </div>
+      <button class="btn btn-acc" onclick="addSight()">&#8853; ADD SIGHT</button>
+      <div id="sightMsg" class="hidden"></div>
+    </div>
+
+    <div style="margin-top:auto;padding-top:10px;display:flex;gap:6px;border-top:1px solid var(--b1)">
+      <button class="btn btn-ghost btn-sm" style="flex:1" onclick="loadDemo()">LOAD DEMO</button>
+      <button class="btn btn-ghost btn-sm" style="flex:1" onclick="clearAll()">CLEAR ALL</button>
+    </div>
+
+  </div><!-- /panel-left -->
+
+  <!-- ══════ RIGHT PANEL ══════ -->
+  <div class="panel-right">
+
+    <!-- Fix Result + Map -->
+    <div class="fix-row">
+      <div class="fix-panel">
+        <div class="sec-title" style="border:none;margin-bottom:4px">COMPUTED FIX</div>
+        <div id="fixOut"><div class="empty">Add sights to compute a fix</div></div>
+        <div class="fix-toggle" id="fixToggle">
+          <button class="active" onclick="setFixMethod('ls')">INTERCEPT LS</button>
+          <button onclick="setFixMethod('direct')">DIRECT (NO AP)</button>
+        </div>
+      </div>
+      <div class="fix-map-wrap">
+        <div id="fixMap"></div>
+      </div>
+    </div>
+
+    <!-- LOP Plot -->
+    <div class="plot-wrap">
+      <div class="plot-hdr">
+        <span>LINE OF POSITION PLOT</span>
+        <span id="plotScale" style="color:var(--tx3)"></span>
+      </div>
+      <canvas id="plot" width="480" height="380"></canvas>
+    </div>
+
+    <!-- Reduction Workings -->
+    <div class="workings" id="workingsPanel">
+      <div class="wrk-hdr" onclick="toggleWorkings()">
+        <span>REDUCTION WORKINGS</span>
+        <span id="wrkToggleIcon">&#9662;</span>
+      </div>
+      <div class="wrk-body" id="wrkBody">
+        <div style="color:var(--tx3);font-style:italic">Click a sight in the log to show full reduction</div>
+      </div>
+    </div>
+
+  </div><!-- /panel-right -->
+
+</div><!-- /layout -->
+
+<!-- ══════ BOTTOM LOG ══════ -->
+<div class="log-area">
+  <div class="log-header">
+    <span class="log-title">SIGHT LOG</span>
+    <span class="log-count" id="logCount">0 sights</span>
+  </div>
+  <div id="logBody">
+    <div class="empty" style="padding:20px">No sights entered — select a mode and add your first observation above</div>
   </div>
 </div>
 
-<script type="module" src="js/app.js"></script>
+<script>
+// ══════════════════════════════════════════════════════
+//  STAR DATABASE — 58 Navigational Stars (J2000.0)
+//  SHA = 360 - RA_hours*15,  Dec = degrees N(+)/S(-)
+//  Data sourced from project catalog (J2000.0 epoch)
+// ══════════════════════════════════════════════════════
+const STARS = [
+  {n:"Acamar",      sha:315.5,  dec:-40.3,  mag:3.2},
+  {n:"Achernar",    sha:335.6,  dec:-57.2,  mag:0.5},
+  {n:"Acrux",       sha:173.4,  dec:-63.1,  mag:0.8},
+  {n:"Adhara",      sha:255.3,  dec:-29.0,  mag:1.5},
+  {n:"Aldebaran",   sha:291.0,  dec:16.5,   mag:0.9},
+  {n:"Alioth",      sha:166.5,  dec:56.0,   mag:1.8},
+  {n:"Alkaid",      sha:153.1,  dec:49.3,   mag:1.9},
+  {n:"Alnair",      sha:27.9,   dec:-47.0,  mag:1.7},
+  {n:"Alnilam",     sha:276.0,  dec:-1.2,   mag:1.7},
+  {n:"Alphard",     sha:218.1,  dec:-8.7,   mag:2.0},
+  {n:"Alphecca",    sha:126.3,  dec:26.7,   mag:2.2},
+  {n:"Alpheratz",   sha:357.9,  dec:29.1,   mag:2.1},
+  {n:"Altair",      sha:62.3,   dec:8.9,    mag:0.8},
+  {n:"Ankaa",       sha:353.4,  dec:-42.3,  mag:2.4},
+  {n:"Antares",     sha:112.7,  dec:-26.4,  mag:1.1},
+  {n:"Arcturus",    sha:146.1,  dec:19.2,   mag:-0.1},
+  {n:"Atria",       sha:107.8,  dec:-69.0,  mag:1.9},
+  {n:"Avior",       sha:234.4,  dec:-59.5,  mag:1.9},
+  {n:"Bellatrix",   sha:278.7,  dec:6.3,    mag:1.6},
+  {n:"Betelgeuse",  sha:271.2,  dec:7.4,    mag:0.5},
+  {n:"Canopus",     sha:264.0,  dec:-52.7,  mag:-0.7},
+  {n:"Capella",     sha:280.8,  dec:46.0,   mag:0.1},
+  {n:"Deneb",       sha:49.6,   dec:45.3,   mag:1.3},
+  {n:"Denebola",    sha:182.7,  dec:14.6,   mag:2.1},
+  {n:"Diphda",      sha:349.1,  dec:-18.0,  mag:2.0},
+  {n:"Dubhe",       sha:194.1,  dec:61.8,   mag:1.8},
+  {n:"Elnath",      sha:278.4,  dec:28.6,   mag:1.7},
+  {n:"Eltanin",     sha:90.8,   dec:51.5,   mag:2.2},
+  {n:"Enif",        sha:34.0,   dec:9.9,    mag:2.4},
+  {n:"Fomalhaut",   sha:15.6,   dec:-29.6,  mag:1.2},
+  {n:"Gacrux",      sha:172.2,  dec:-57.1,  mag:1.6},
+  {n:"Gienah",      sha:176.0,  dec:-17.5,  mag:2.6},
+  {n:"Hadar",       sha:149.0,  dec:-60.4,  mag:0.6},
+  {n:"Hamal",       sha:328.2,  dec:23.5,   mag:2.1},
+  {n:"Kaus Aus.",   sha:84.0,   dec:-34.4,  mag:1.9},
+  {n:"Kochab",      sha:137.3,  dec:74.2,   mag:2.1},
+  {n:"Markab",      sha:13.8,   dec:15.2,   mag:2.5},
+  {n:"Menkar",      sha:314.4,  dec:4.1,    mag:2.5},
+  {n:"Menkent",     sha:148.3,  dec:-36.4,  mag:2.1},
+  {n:"Miaplacidus", sha:221.7,  dec:-69.7,  mag:1.7},
+  {n:"Mirfak",      sha:308.9,  dec:49.9,   mag:1.8},
+  {n:"Nunki",       sha:76.2,   dec:-26.3,  mag:2.1},
+  {n:"Peacock",     sha:53.6,   dec:-56.7,  mag:1.9},
+  {n:"Polaris",     sha:322.0,  dec:89.3,   mag:2.0},
+  {n:"Pollux",      sha:243.7,  dec:28.0,   mag:1.2},
+  {n:"Procyon",     sha:245.2,  dec:5.2,    mag:0.4},
+  {n:"Rasalhague",  sha:96.3,   dec:12.6,   mag:2.1},
+  {n:"Regulus",     sha:207.9,  dec:12.0,   mag:1.4},
+  {n:"Rigel",       sha:281.4,  dec:-8.2,   mag:0.1},
+  {n:"Rigil Kent",  sha:140.1,  dec:-60.8,  mag:-0.3},
+  {n:"Sabik",       sha:102.4,  dec:-15.7,  mag:2.4},
+  {n:"Schedar",     sha:349.9,  dec:56.5,   mag:2.2},
+  {n:"Shaula",      sha:96.6,   dec:-37.1,  mag:1.6},
+  {n:"Sirius",      sha:258.7,  dec:-16.7,  mag:-1.5},
+  {n:"Spica",       sha:158.7,  dec:-11.2,  mag:1.0},
+  {n:"Suhail",      sha:223.0,  dec:-43.4,  mag:2.2},
+  {n:"Vega",        sha:80.8,   dec:38.8,   mag:0.0},
+  {n:"Zubenelg.",   sha:137.2,  dec:-16.0,  mag:2.8},
+];
+
+// LOP plot colors cycling
+const COLORS=['#5b9fd6','#c8a84b','#52c98a','#e05252','#a78bfa','#f97316','#ec4899','#22d3ee','#84cc16','#fb7185'];
+
+// ══════════════════════════════════════════════════════
+//  ASTRONOMICAL FUNCTIONS
+// ══════════════════════════════════════════════════════
+const R=Math.PI/180, D=180/Math.PI;
+const mod360=x=>((x%360)+360)%360;
+const sin=x=>Math.sin(x*R), cos=x=>Math.cos(x*R), asin=x=>Math.asin(x)*D, acos=x=>Math.acos(Math.max(-1,Math.min(1,x)))*D;
+
+function julianDate(d){
+  let Y=d.getUTCFullYear(),M=d.getUTCMonth()+1,D2=d.getUTCDate();
+  const h=d.getUTCHours()+d.getUTCMinutes()/60+d.getUTCSeconds()/3600;
+  if(M<=2){Y--;M+=12;}
+  const A=Math.floor(Y/100),B=2-A+Math.floor(A/4);
+  return Math.floor(365.25*(Y+4716))+Math.floor(30.6001*(M+1))+D2+B-1524.5+h/24;
+}
+
+function ghaAries(date){
+  const JD=julianDate(date);
+  const D=JD-2451545.0;
+  const T=D/36525;
+  const gha=280.46061837+360.98564736629*D+0.000387933*T*T-T*T*T/38710000;
+  return mod360(gha);
+}
+
+function ghaStar(star,date){return mod360(ghaAries(date)+star.sha);}
+function lhaStar(star,date,lonE){return mod360(ghaStar(star,date)+lonE);}
+
+// Solar position (Meeus Ch.25, ~1' accuracy)
+function solarPosition(date){
+  const JD=julianDate(date);
+  const T=(JD-2451545.0)/36525;
+  const L0=mod360(280.46646+36000.76983*T+0.0003032*T*T);
+  const M=mod360(357.52911+35999.05029*T-0.0001537*T*T);
+  const MR=M*R;
+  const C=(1.914602-0.004817*T-0.000014*T*T)*Math.sin(MR)
+         +(0.019993-0.000101*T)*Math.sin(2*MR)
+         +0.000289*Math.sin(3*MR);
+  const theta=L0+C;
+  const omega=mod360(125.04-1934.136*T);
+  const omR=omega*R;
+  const lambda=theta-0.00569-0.00478*Math.sin(omR);
+  const eps0=23.439291-0.013004*T;
+  const eps=eps0+0.00256*Math.cos(omR);
+  const lamR=lambda*R, epsR=eps*R;
+  const ra=mod360(Math.atan2(Math.cos(epsR)*Math.sin(lamR),Math.cos(lamR))*D);
+  const dec=Math.asin(Math.sin(epsR)*Math.sin(lamR))*D;
+  const sha=mod360(360-ra);
+  return{ra,dec,sha,gha:mod360(ghaAries(date)-ra)};
+}
+
+// Planetary positions — Meeus low-precision using Standish (1992) mean elements
+// Supports Venus, Mars, Jupiter, Saturn (~1-5' accuracy)
+const PLANET_ELEMS={
+  // [L0 deg, Ldot deg/cy, a AU, e0, edot /cy, i0 deg, idot deg/cy, Om0 deg, Omdot deg/cy, pomega0 deg, pomegadot deg/cy]
+  Venus:  {L0:181.97973,Ld:58517.81539,a:0.72333199,e0:0.00677323,ed:-0.00004938,i0:3.39471,id:-0.00163,O0:76.68069, Od:0.90174, w0:131.53298,wd:0.00864},
+  Mars:   {L0:355.45332,Ld:19140.30268,a:1.52366231,e0:0.09341233,ed:0.00011902, i0:1.85061,id:-0.00652,O0:49.57854, Od:0.77099, w0:336.04084,wd:1.84073},
+  Jupiter:{L0:34.40438, Ld:3034.90567, a:5.20336301,e0:0.04839266,ed:-0.00012880,i0:1.30530,id:-0.00186,O0:100.55615,Od:1.01744, w0:14.75385, wd:0.16174},
+  Saturn: {L0:49.94432, Ld:1222.11494, a:9.53707032,e0:0.05415060,ed:-0.00036762,i0:2.48446,id:0.00193, O0:113.71504,Od:0.87594, w0:92.43194, wd:0.16675},
+  Earth:  {L0:100.46435,Ld:36000.76983,a:1.00000011,e0:0.01671022,ed:-0.00003804,i0:0.00005,id:-0.01294,O0:-11.26064,Od:0.18203, w0:102.94719,wd:0.32327},
+};
+
+function helioPos(el,T){
+  const L=mod360(el.L0+el.Ld*T);
+  const e=el.e0+el.ed*T;
+  const i=el.i0+el.id*T;
+  const Om=mod360(el.O0+el.Od*T);
+  const pomega=mod360(el.w0+el.wd*T);
+  const M=mod360(L-pomega)*R; // mean anomaly in radians
+  const omega=(pomega-Om)*R;  // arg of perihelion in radians
+  // Solve Kepler's equation: M = E - e*sin(E)
+  let E=M;
+  for(let j=0;j<15;j++){
+    const dE=(M-E+e*Math.sin(E))/(1-e*Math.cos(E));
+    E+=dE;
+    if(Math.abs(dE)<1e-12)break;
+  }
+  // True anomaly
+  const nu=2*Math.atan2(Math.sqrt(1+e)*Math.sin(E/2),Math.sqrt(1-e)*Math.cos(E/2));
+  const r=el.a*(1-e*Math.cos(E));
+  // Argument of latitude
+  const u=omega+nu;
+  const xp=r*Math.cos(u), yp=r*Math.sin(u);
+  // Rotate to ecliptic
+  const OmR=Om*R, iR=i*R;
+  const cO=Math.cos(OmR),sO=Math.sin(OmR),cI=Math.cos(iR),sI=Math.sin(iR);
+  return{
+    x:cO*xp-sO*cI*yp,
+    y:sO*xp+cO*cI*yp,
+    z:sI*yp
+  };
+}
+
+function planetPosition(name,date){
+  const JD=julianDate(date);
+  const T=(JD-2451545.0)/36525;
+  const p=helioPos(PLANET_ELEMS[name],T);
+  const e=helioPos(PLANET_ELEMS.Earth,T);
+  // Geocentric ecliptic
+  const X=p.x-e.x, Y=p.y-e.y, Z=p.z-e.z;
+  const lam=Math.atan2(Y,X);
+  const bet=Math.atan2(Z,Math.sqrt(X*X+Y*Y));
+  // Obliquity
+  const eps=(23.439291-0.013004*T)*R;
+  // Ecliptic to equatorial
+  const ra=mod360(Math.atan2(Math.sin(lam)*Math.cos(eps)-Math.tan(bet)*Math.sin(eps),Math.cos(lam))*D);
+  const dec=Math.asin(Math.sin(bet)*Math.cos(eps)+Math.cos(bet)*Math.sin(eps)*Math.sin(lam))*D;
+  const sha=mod360(360-ra);
+  return{ra,dec,sha,gha:mod360(ghaAries(date)-ra)};
+}
+
+// Bennett refraction formula — arcminutes, altitude in degrees
+function refraction(alt){
+  if(alt<-1)return 0;
+  return -1.02/Math.tan((alt+10.3/(alt+5.11))*R);
+}
+
+// Dip correction — arcminutes
+function dip(hM){return hM>0?-1.76*Math.sqrt(hM):0;}
+
+// Apply corrections Hs -> Ho, returns {ho,dipC,refC,ha}
+function correct(hsDeg,ieMoa,hoeM){
+  const hs=hsDeg-ieMoa/60;
+  const dipC=dip(hoeM);
+  const ha=hs+dipC/60;
+  const refC=refraction(ha);
+  const ho=ha+refC/60;
+  return {ho,dipC,refC,ha};
+}
+
+// Sight reduction -> {Hc, Zn}
+function reduce(latDeg,decDeg,lhaDeg){
+  const sinHc=sin(latDeg)*sin(decDeg)+cos(latDeg)*cos(decDeg)*cos(lhaDeg);
+  const Hc=asin(sinHc);
+  const cosHc=Math.cos(Hc*R);
+  const cosZ=(sin(decDeg)-sinHc*sin(latDeg))/(cosHc*cos(latDeg));
+  const Z=acos(cosZ);
+  const Zn=lhaDeg>180?Z:360-Z;
+  return{Hc,Zn};
+}
+
+// Polaris latitude — direct computation
+function polarisLat(hoDeg,lhaAriesDeg,month){
+  // polar distance p ~ 42' for 2026
+  const p=42/60; // degrees
+  const a0=-p*cos(lhaAriesDeg);
+  const a1=0.3*sin(lhaAriesDeg)*sin(lhaAriesDeg)/60;
+  const a2=[0.7,0.7,0.7,0.6,0.5,0.4,0.3,0.3,0.3,0.4,0.5,0.6][(month-1)%12]/60;
+  return hoDeg+a0+a1+a2;
+}
+
+// Advance LOPs for running fix (DR)
+// Returns new intercepts adjusted for vessel motion between sights
+function advanceLops(sights, course, speed){
+  if(!sights.length)return sights;
+  // Find latest UTC
+  const latestUTC=Math.max(...sights.map(s=>s.utc.getTime()));
+  return sights.map(s=>{
+    const dt=(latestUTC-s.utc.getTime())/3600000; // hours
+    if(dt<0.001)return{...s,drShift:0}; // current sight, no shift
+    const dist=speed*dt; // nm traveled
+    // Component of motion along LOP azimuth shifts intercept
+    const shift=dist*Math.cos((s.Zn-course)*R);
+    return{...s,intercept:s.intercept+shift,drShift:shift,drDist:dist};
+  });
+}
+
+// Least squares fix from array of {intercept:nm, azimuth:deg}
+// Returns {dx:nm east, dy:nm north} from AP
+function lsFix(lops){
+  if(!lops.length)return null;
+  if(lops.length===1){
+    const l=lops[0],z=l.azimuth*R;
+    return{dx:l.intercept*Math.sin(z),dy:l.intercept*Math.cos(z)};
+  }
+  let A00=0,A01=0,A11=0,b0=0,b1=0;
+  for(const l of lops){
+    const z=l.azimuth*R,s=Math.sin(z),c=Math.cos(z),a=l.intercept;
+    A00+=s*s;A01+=s*c;A11+=c*c;b0+=a*s;b1+=a*c;
+  }
+  const det=A00*A11-A01*A01;
+  if(Math.abs(det)<1e-12)return{dx:0,dy:0};
+  return{dx:(A11*b0-A01*b1)/det,dy:(A00*b1-A01*b0)/det};
+}
+
+// ══════════════════════════════════════════════════════
+//  DIRECT FIX — Circle of Position intersection (no AP needed)
+//  Each sight defines a circle on Earth: center = star GP, radius = 90-Ho
+//  Uses Gauss-Newton iteration to minimize angular distance residuals
+// ══════════════════════════════════════════════════════
+
+// Build circle-of-position data from any sight
+function sightToCOP(s){
+  const star=s.star||{sha:322.0,dec:89.3}; // Polaris fallback
+  const ghaA=ghaAries(s.utc);
+  const ghaSt=mod360(ghaA+star.sha);
+  return{gpLat:star.dec, gpLonE:-ghaSt, ho:s.ho, name:s.star?s.star.n:'Polaris'};
+}
+
+// Angular distance between two points (degrees)
+function angDist(lat1,lon1,lat2,lon2){
+  const v=sin(lat1)*sin(lat2)+cos(lat1)*cos(lat2)*cos(lon1-lon2);
+  return Math.acos(Math.max(-1,Math.min(1,v)))*D;
+}
+
+// Initial guess via linear Cartesian solve (for seeding the iterator)
+function linearSeed(cops){
+  const n=cops.length;
+  const G=[],b=[];
+  for(const c of cops){
+    const decR=c.gpLat*R, lonR=c.gpLonE*R;
+    G.push([Math.cos(decR)*Math.cos(lonR),Math.cos(decR)*Math.sin(lonR),Math.sin(decR)]);
+    b.push(Math.sin(c.ho*R));
+  }
+  if(n===2){
+    // 2-circle intersection
+    const g1=G[0],g2=G[1],b1=b[0],b2=b[1];
+    const d11=g1[0]*g1[0]+g1[1]*g1[1]+g1[2]*g1[2];
+    const d12=g1[0]*g2[0]+g1[1]*g2[1]+g1[2]*g2[2];
+    const d22=g2[0]*g2[0]+g2[1]*g2[1]+g2[2]*g2[2];
+    const det2=d11*d22-d12*d12;
+    if(Math.abs(det2)<1e-15)return null;
+    const al=(b1*d22-b2*d12)/det2, be=(b2*d11-b1*d12)/det2;
+    const pp=[al*g1[0]+be*g2[0],al*g1[1]+be*g2[1],al*g1[2]+be*g2[2]];
+    const dir=[g1[1]*g2[2]-g1[2]*g2[1],g1[2]*g2[0]-g1[0]*g2[2],g1[0]*g2[1]-g1[1]*g2[0]];
+    const ppL2=pp[0]*pp[0]+pp[1]*pp[1]+pp[2]*pp[2];
+    const dL2=dir[0]*dir[0]+dir[1]*dir[1]+dir[2]*dir[2];
+    if(dL2<1e-15)return null;
+    const disc=(1-ppL2)/dL2;
+    if(disc<0)return null;
+    const t=Math.sqrt(disc);
+    const cands=[-t,t].map(tt=>{
+      const x=pp[0]+tt*dir[0],y=pp[1]+tt*dir[1],z=pp[2]+tt*dir[2];
+      return{lat:Math.asin(Math.max(-1,Math.min(1,z)))*D,lon:Math.atan2(y,x)*D};
+    });
+    // Pick northern hemisphere candidate (most nav happens there)
+    cands.sort((a,b)=>b.lat-a.lat);
+    return cands[0];
+  }
+  // n>=3: least squares
+  const GtG=[[0,0,0],[0,0,0],[0,0,0]], Gtb=[0,0,0];
+  for(let i=0;i<n;i++){
+    for(let j=0;j<3;j++){
+      Gtb[j]+=G[i][j]*b[i];
+      for(let k=0;k<3;k++) GtG[j][k]+=G[i][j]*G[i][k];
+    }
+  }
+  const det=GtG[0][0]*(GtG[1][1]*GtG[2][2]-GtG[1][2]*GtG[2][1])
+       -GtG[0][1]*(GtG[1][0]*GtG[2][2]-GtG[1][2]*GtG[2][0])
+       +GtG[0][2]*(GtG[1][0]*GtG[2][1]-GtG[1][1]*GtG[2][0]);
+  if(Math.abs(det)<1e-15)return null;
+  const inv=1/det;
+  const xyz=[
+    inv*(Gtb[0]*(GtG[1][1]*GtG[2][2]-GtG[1][2]*GtG[2][1])-GtG[0][1]*(Gtb[1]*GtG[2][2]-GtG[1][2]*Gtb[2])+GtG[0][2]*(Gtb[1]*GtG[2][1]-GtG[1][1]*Gtb[2])),
+    inv*(GtG[0][0]*(Gtb[1]*GtG[2][2]-GtG[1][2]*Gtb[2])-Gtb[0]*(GtG[1][0]*GtG[2][2]-GtG[1][2]*GtG[2][0])+GtG[0][2]*(GtG[1][0]*Gtb[2]-Gtb[1]*GtG[2][0])),
+    inv*(GtG[0][0]*(GtG[1][1]*Gtb[2]-Gtb[1]*GtG[2][1])-GtG[0][1]*(GtG[1][0]*Gtb[2]-Gtb[1]*GtG[2][0])+Gtb[0]*(GtG[1][0]*GtG[2][1]-GtG[1][1]*GtG[2][0]))
+  ];
+  const len=Math.sqrt(xyz[0]*xyz[0]+xyz[1]*xyz[1]+xyz[2]*xyz[2]);
+  if(len<1e-10)return null;
+  return{lat:Math.asin(Math.max(-1,Math.min(1,xyz[2]/len)))*D, lon:Math.atan2(xyz[1],xyz[0])*D};
+}
+
+// Gauss-Newton iteration on sphere: minimize sum of (angDist - zenithDist)^2
+function directFix(sights){
+  const cops=sights.map(sightToCOP);
+  const n=cops.length;
+  if(n<2)return null;
+
+  // Get initial guess from linear solve
+  let fix=linearSeed(cops);
+  if(!fix) fix={lat:45,lon:0}; // fallback
+
+  // Iterate: Gauss-Newton in (lat,lon) space
+  for(let iter=0;iter<20;iter++){
+    // Build Jacobian J (n x 2) and residual vector r (n x 1)
+    // Residual[i] = angDist(fix, GP_i) - (90 - Ho_i)
+    let J00=0,J01=0,J10=0,J11=0,r0=0,r1=0; // J^T J and J^T r (normal equations)
+    for(const c of cops){
+      const d=angDist(fix.lat,fix.lon,c.gpLat,c.gpLonE);
+      const target=90-c.ho;
+      const resid=(d-target)*R; // in radians for numerical stability
+      if(Math.abs(d)<1e-10||Math.abs(d-180)<1e-10) continue; // degenerate
+      const sinD=Math.sin(d*R);
+      // Partial derivatives of angDist w.r.t. observer lat,lon
+      const dLat=-(cos(fix.lat)*sin(c.gpLat)-sin(fix.lat)*cos(c.gpLat)*cos(fix.lon-c.gpLonE))/sinD;
+      const dLon=(cos(c.gpLat)*Math.sin((fix.lon-c.gpLonE)*R)*cos(fix.lat))/sinD;
+      // Accumulate normal equations: (J^T J) delta = J^T r
+      J00+=dLat*dLat; J01+=dLat*dLon;
+      J10+=dLon*dLat; J11+=dLon*dLon;
+      r0+=dLat*resid; r1+=dLon*resid;
+    }
+    const det=J00*J11-J01*J10;
+    if(Math.abs(det)<1e-20) break;
+    const dLat=-(J11*r0-J01*r1)/det*D; // back to degrees
+    const dLon=-(J00*r1-J10*r0)/det*D;
+    fix.lat+=dLat;
+    fix.lon+=dLon;
+    if(Math.abs(dLat)<1e-8&&Math.abs(dLon)<1e-8) break; // converged
+  }
+
+  // Compute per-sight residuals
+  fix.residuals=cops.map(c=>{
+    const d=angDist(fix.lat,fix.lon,c.gpLat,c.gpLonE);
+    return{name:c.name, resid:(d-(90-c.ho))*60}; // arcmin / nm
+  });
+
+  return fix;
+}
+
+// ══════════════════════════════════════════════════════
+//  APP STATE
+// ══════════════════════════════════════════════════════
+let state={
+  mode:'intercept',
+  fixMethod:'ls',
+  sights:[],
+  nextId:1,
+  workingsOpen:true,
+  selectedSightId:null,
+  // Plot pan/zoom state (in nm offset from AP)
+  plotPanX:0,  // nm east
+  plotPanY:0,  // nm north
+  plotZoom:1,  // multiplier
+  directFix:null, // cached direct fix for LOP overlay
+  drEnabled:false,
+  drCourse:0,   // degrees true
+  drSpeed:6,    // knots
+};
+
+// ══════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════
+(function init(){
+  // Populate star selector
+  const sel=document.getElementById('starSel');
+  // Sun and planets
+  const bodies=[
+    {val:'sun',    lbl:'Sun \u2600'},
+    {val:'venus',  lbl:'Venus \u2640'},
+    {val:'mars',   lbl:'Mars \u2642'},
+    {val:'jupiter',lbl:'Jupiter \u2643'},
+    {val:'saturn', lbl:'Saturn \u2644'},
+  ];
+  bodies.forEach(b=>{
+    const o=document.createElement('option');
+    o.value=b.val;o.textContent=b.lbl;
+    sel.appendChild(o);
+  });
+  // Separator
+  const sepOpt=document.createElement('option');
+  sepOpt.disabled=true;sepOpt.textContent='\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500';
+  sel.appendChild(sepOpt);
+  STARS.forEach((s,i)=>{
+    const o=document.createElement('option');
+    o.value=i;o.textContent=s.n+(s.mag<=1.5?' \u2605':'');
+    sel.appendChild(o);
+  });
+  // Set default AP to London (51°30'N, 0°7'W)
+  document.getElementById('apLatD').value='51';
+  document.getElementById('apLatM').value='30';
+  document.getElementById('apLatH').value='N';
+  document.getElementById('apLonD').value='0';
+  document.getElementById('apLonM').value='7';
+  document.getElementById('apLonH').value='W';
+  // Set default UTC to now
+  const now=new Date();
+  const pad=n=>String(n).padStart(2,'0');
+  document.getElementById('utcIn').value=
+    `${now.getUTCFullYear()}-${pad(now.getUTCMonth()+1)}-${pad(now.getUTCDate())}T${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}`;
+  document.getElementById('utcSec').value=now.getUTCSeconds();
+  // Live clock
+  setInterval(updateClock,1000);
+  updateClock();
+  // Recalculate on AP change
+  ['apLatD','apLatM','apLatH','apLonD','apLonM','apLonH'].forEach(id=>{
+    document.getElementById(id).addEventListener('input',recalcAP);
+    document.getElementById(id).addEventListener('change',recalcAP);
+  });
+  // DR controls
+  document.getElementById('drEnable').addEventListener('change',e=>{
+    state.drEnabled=e.target.checked;
+    document.getElementById('drFields').classList.toggle('hidden',!e.target.checked);
+    render();
+  });
+  ['drCourse','drSpeed'].forEach(id=>{
+    document.getElementById(id).addEventListener('input',()=>{
+      state.drCourse=parseFloat(document.getElementById('drCourse').value)||0;
+      state.drSpeed=parseFloat(document.getElementById('drSpeed').value)||0;
+      render();
+    });
+  });
+  // Set up HiDPI canvas and pan/zoom
+  initPlot();
+  drawPlot();
+})();
+
+function initPlot(){
+  const cv=document.getElementById('plot');
+  // HiDPI: scale canvas backing store to device pixel ratio
+  const dpr=window.devicePixelRatio||1;
+  const rect=cv.getBoundingClientRect();
+  cv.width=rect.width*dpr;
+  cv.height=rect.height*dpr;
+  cv.getContext('2d').scale(dpr,dpr);
+  // Store CSS dimensions for drawing
+  cv._cssW=rect.width;
+  cv._cssH=rect.height;
+
+  // Pan: drag to move
+  let dragging=false,lastX=0,lastY=0;
+  cv.addEventListener('mousedown',e=>{
+    dragging=true;lastX=e.clientX;lastY=e.clientY;
+  });
+  window.addEventListener('mousemove',e=>{
+    if(!dragging)return;
+    const scale=getPlotScale();
+    if(scale<=0)return;
+    const dx=(e.clientX-lastX)/scale; // px -> nm
+    const dy=(e.clientY-lastY)/scale;
+    state.plotPanX-=dx;
+    state.plotPanY+=dy; // canvas Y is inverted
+    lastX=e.clientX;lastY=e.clientY;
+    drawPlot();
+  });
+  window.addEventListener('mouseup',()=>{dragging=false;});
+
+  // Zoom: scroll wheel — zoom toward mouse cursor
+  cv.addEventListener('wheel',e=>{
+    e.preventDefault();
+    const rect=cv.getBoundingClientRect();
+    const W=cv._cssW||480,H=cv._cssH||380;
+    const cx=W/2,cy=H/2;
+    // Mouse position in canvas CSS coords
+    const mx=e.clientX-rect.left;
+    const my=e.clientY-rect.top;
+    // Current scale
+    const iSights=state.sights.filter(s=>s.mode==='intercept'&&s.Hc!=null);
+    const maxA=Math.max(50,...iSights.map(s=>Math.abs(s.intercept)+10));
+    const scale=Math.min(cx,cy)*0.8/maxA*state.plotZoom;
+    if(scale<=0){drawPlot();return;}
+    // Mouse position in nm coordinates
+    const nmX=state.plotPanX+(mx-cx)/scale;
+    const nmY=state.plotPanY-(my-cy)/scale;
+    // Apply zoom
+    const factor=e.deltaY>0?0.85:1.18;
+    const newZoom=Math.max(0.1,Math.min(50,state.plotZoom*factor));
+    const newScale=Math.min(cx,cy)*0.8/maxA*newZoom;
+    // Adjust pan so mouse stays over the same nm coordinate
+    state.plotPanX=nmX-(mx-cx)/newScale;
+    state.plotPanY=nmY+(my-cy)/newScale;
+    state.plotZoom=newZoom;
+    drawPlot();
+  },{passive:false});
+
+  // Double-click to reset view
+  cv.addEventListener('dblclick',()=>{
+    state.plotPanX=0;state.plotPanY=0;state.plotZoom=1;
+    drawPlot();
+  });
+
+  // Resize observer
+  new ResizeObserver(()=>{
+    const dpr=window.devicePixelRatio||1;
+    const rect=cv.getBoundingClientRect();
+    cv.width=rect.width*dpr;
+    cv.height=rect.height*dpr;
+    cv.getContext('2d').scale(dpr,dpr);
+    cv._cssW=rect.width;
+    cv._cssH=rect.height;
+    drawPlot();
+  }).observe(cv);
+}
+
+function getPlotScale(){
+  const cv=document.getElementById('plot');
+  const W=cv._cssW||480,H=cv._cssH||380;
+  const iSights=state.sights.filter(s=>s.mode==='intercept'&&s.Hc!=null);
+  const maxA=Math.max(50,...iSights.map(s=>Math.abs(s.intercept)+10));
+  return Math.min(W/2,H/2)*0.8/maxA*state.plotZoom;
+}
+
+function updateClock(){
+  const n=new Date();
+  const p=x=>String(x).padStart(2,'0');
+  document.getElementById('utcLive').textContent=
+    `${p(n.getUTCHours())}:${p(n.getUTCMinutes())}:${p(n.getUTCSeconds())} UTC`;
+  document.getElementById('dateDisp').textContent=
+    n.toUTCString().slice(0,16).toUpperCase();
+}
+
+// ══════════════════════════════════════════════════════
+//  MODE CONTROL
+// ══════════════════════════════════════════════════════
+function setMode(m){
+  state.mode=m;
+  document.querySelectorAll('.mode-tab').forEach((b,i)=>{
+    b.classList.toggle('active',['intercept','polaris','transit'][i]===m);
+  });
+  document.getElementById('apSection').classList.toggle('hidden',m!=='intercept');
+  document.getElementById('polLonSection').classList.toggle('hidden',m!=='polaris');
+  document.getElementById('starRow').classList.toggle('hidden',m==='polaris');
+}
+
+function setFixMethod(m){
+  state.fixMethod=m;
+  document.querySelectorAll('.fix-toggle button').forEach((b,i)=>{
+    b.classList.toggle('active',['ls','direct'][i]===m);
+  });
+  renderFix();
+  drawPlot();
+}
+
+// ══════════════════════════════════════════════════════
+//  READ INPUTS
+// ══════════════════════════════════════════════════════
+function readAP(){
+  const latD=parseFloat(document.getElementById('apLatD').value)||0;
+  const latM=parseFloat(document.getElementById('apLatM').value)||0;
+  const latH=document.getElementById('apLatH').value;
+  const lonD=parseFloat(document.getElementById('apLonD').value)||0;
+  const lonM=parseFloat(document.getElementById('apLonM').value)||0;
+  const lonH=document.getElementById('apLonH').value;
+  const lat=(latD+latM/60)*(latH==='S'?-1:1);
+  const lon=(lonD+lonM/60)*(lonH==='W'?-1:1);
+  return{lat,lon};
+}
+
+function readPolLon(){
+  const d=parseFloat(document.getElementById('polLonD').value)||0;
+  const m=parseFloat(document.getElementById('polLonM').value)||0;
+  const h=document.getElementById('polLonH').value;
+  return(d+m/60)*(h==='W'?-1:1);
+}
+
+function readHs(){
+  const d=parseFloat(document.getElementById('hsDeg').value)||0;
+  const m=parseFloat(document.getElementById('hsMin').value)||0;
+  const sign=d<0?-1:1;
+  return sign*(Math.abs(d)+m/60);
+}
+
+function readUTC(){
+  const v=document.getElementById('utcIn').value;
+  const sec=parseInt(document.getElementById('utcSec').value)||0;
+  if(!v)return new Date();
+  const d=new Date(v+'Z');
+  d.setUTCSeconds(sec);
+  return d;
+}
+
+const PLANET_NAMES={venus:'Venus',mars:'Mars',jupiter:'Jupiter',saturn:'Saturn'};
+const PLANET_MAGS={venus:-4.0,mars:0.0,jupiter:-2.5,saturn:0.5};
+
+function readStar(){
+  const v=document.getElementById('starSel').value;
+  if(v==='')return null;
+  if(v==='sun'){
+    const utc=readUTC();
+    const sun=solarPosition(utc);
+    return{n:'Sun',sha:sun.sha,dec:sun.dec,mag:-26.7,isBody:true,bodyType:'sun'};
+  }
+  if(PLANET_NAMES[v]){
+    const utc=readUTC();
+    const pos=planetPosition(PLANET_NAMES[v],utc);
+    return{n:PLANET_NAMES[v],sha:pos.sha,dec:pos.dec,mag:PLANET_MAGS[v],isBody:true,bodyType:v};
+  }
+  return STARS[parseInt(v)];
+}
+
+function getIE(){return parseFloat(document.getElementById('ie').value)||0;}
+function getHoE(){return parseFloat(document.getElementById('hoe').value)||0;}
+
+// ══════════════════════════════════════════════════════
+//  ADD SIGHT
+// ══════════════════════════════════════════════════════
+function addSight(){
+  const msg=document.getElementById('sightMsg');
+  const showMsg=(txt,cls)=>{msg.className='status '+cls;msg.textContent=txt;msg.classList.remove('hidden')};
+
+  const mode=state.mode;
+  const ie=getIE(),hoe=getHoE();
+  const utc=readUTC();
+  const hs=readHs();
+
+  if(isNaN(hs)||hs<-90||hs>90){showMsg('Invalid Hs \u2014 enter degrees and minutes','st-err');return;}
+
+  const {ho,dipC,refC,ha}=correct(hs,ie,hoe);
+  const sight={id:state.nextId++,mode,utc,hs,ho,ie,hoe,dipC,refC,ha};
+
+  if(mode==='polaris'){
+    const lon=readPolLon();
+    const lhaA=mod360(ghaAries(utc)+lon);
+    const lat=polarisLat(ho,lhaA,utc.getUTCMonth()+1);
+    Object.assign(sight,{lon,lhaAries:lhaA,polarisLat:lat,
+      ghaAries:ghaAries(utc)});
+    showMsg(`Polaris Lat = ${fmt(lat,'lat')} (click sight to see workings)`,'st-ok');
+
+  } else if(mode==='transit'){
+    const star=readStar();
+    if(!star){showMsg('Select a body','st-err');return;}
+    const ghaA=ghaAries(utc);
+    const ghaSt=mod360(ghaA+star.sha);
+    // At transit LHA=0, so Lon_E = -GHA_star (mod 360)
+    const tLon=mod360(-ghaSt);
+
+    // Latitude from transit altitude
+    const latIfSouth = star.dec + (90-ho); // star transits south of zenith
+    const latIfNorth = star.dec - (90-ho); // star transits north of zenith
+
+    Object.assign(sight,{star,ghaAries:ghaA,ghaStar:ghaSt,transitLon:tLon,
+      transitLatSouth:latIfSouth,transitLatNorth:latIfNorth,z:90-ho});
+    showMsg(`Transit Lon = ${fmt(tLon,'lon')} \u2014 see log for lat options`,'st-ok');
+
+  } else { // intercept
+    const star=readStar();
+    if(!star){showMsg('Select a body','st-err');return;}
+    const ap=readAP();
+    const ghaA=ghaAries(utc);
+    const ghaSt=mod360(ghaA+star.sha);
+    Object.assign(sight,{star,ghaAries:ghaA,ghaStar:ghaSt});
+    // AP is optional — if provided, compute intercept for LOP plot
+    const hasAP=document.getElementById('apLatD').value!==''&&document.getElementById('apLonD').value!=='';
+    if(hasAP){
+      const lha=mod360(ghaSt+ap.lon);
+      const {Hc,Zn}=reduce(ap.lat,star.dec,lha);
+      const intercept=(ho-Hc)*60;
+      Object.assign(sight,{ap,lha,Hc,Zn,intercept});
+      const dir=intercept>=0?'TOWARD':'AWAY';
+      showMsg(`a = ${Math.abs(intercept).toFixed(1)} nm ${dir} ${Zn.toFixed(1)}\u00b0`,'st-ok');
+    }else{
+      showMsg(`${star.n} Ho=${fmtDeg(ho)} stored (use Direct fix)`,'st-ok');
+    }
+  }
+
+  state.sights.push(sight);
+  render();
+}
+
+// ══════════════════════════════════════════════════════
+//  RENDER ALL
+// ══════════════════════════════════════════════════════
+function render(){renderLog();renderFix();drawPlot();}
+
+// ─── FORMAT HELPERS ───
+function fmtDeg(d,frac=1){
+  const s=d<0?'\u2212':'';const a=Math.abs(d);
+  const deg=Math.floor(a);const min=(a-deg)*60;
+  return`${s}${deg}\u00b0${min.toFixed(frac)}'`;
+}
+function fmt(v,type){
+  if(type==='lat'){const ns=v>=0?'N':'S';return fmtDeg(Math.abs(v))+' '+ns;}
+  if(type==='lon'){
+    const lon=((v%360)+360)%360;
+    if(lon<=180)return fmtDeg(lon)+' E';
+    return fmtDeg(360-lon)+' W';
+  }
+  return fmtDeg(v);
+}
+function fmtUTC(d){
+  const p=x=>String(x).padStart(2,'0');
+  return`${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`;
+}
+function fmtDecLon(v){
+  let lon=((v%360)+360)%360;
+  if(lon>180) lon=lon-360;
+  return lon.toFixed(4);
+}
+function colorFor(idx){return COLORS[idx%COLORS.length];}
+
+// ─── SIGHT LOG ───
+function renderLog(){
+  const cnt=document.getElementById('logCount');
+  const body=document.getElementById('logBody');
+  cnt.textContent=`${state.sights.length} sight${state.sights.length!==1?'s':''}`;
+  if(!state.sights.length){
+    body.innerHTML='<div class="empty" style="padding:18px">No sights entered</div>';return;
+  }
+  let html=`<table><thead><tr>
+    <th>#</th><th>MODE</th><th>STAR</th><th>UTC</th>
+    <th>Hs</th><th>Ho</th><th>Hc</th><th>Zn</th>
+    <th>INTERCEPT</th><th>RESULT</th><th></th>
+  </tr></thead><tbody>`;
+  state.sights.forEach((s,i)=>{
+    const c=colorFor(i);
+    const active=state.selectedSightId===s.id?'style="background:rgba(200,168,75,0.06)"':'';
+    html+=`<tr onclick="selectSight(${s.id})" style="cursor:pointer" ${active}>`;
+    html+=`<td><span class="star-dot" style="background:${c}"></span>${s.id}</td>`;
+    // Mode badge
+    if(s.mode==='intercept') html+=`<td><span class="badge b-int">INT</span></td>`;
+    else if(s.mode==='polaris') html+=`<td><span class="badge b-pol">POL</span></td>`;
+    else html+=`<td><span class="badge b-trs">TRS</span></td>`;
+    html+=`<td>${s.star?s.star.n:'Polaris'}</td>`;
+    html+=`<td>${fmtUTC(s.utc)}</td>`;
+    html+=`<td>${fmtDeg(s.hs,1)}</td>`;
+    html+=`<td>${fmtDeg(s.ho,1)}</td>`;
+    if(s.mode==='intercept'&&s.Hc!=null){
+      html+=`<td>${fmtDeg(s.Hc,1)}</td>`;
+      html+=`<td>${s.Zn.toFixed(1)}\u00b0</td>`;
+      const tw=s.intercept>=0;
+      html+=`<td class="${tw?'toward':'away'}">${Math.abs(s.intercept).toFixed(1)} nm ${tw?'\u2192 TWD':'\u2190 AWY'}</td>`;
+      html+=`<td style="color:var(--tx2);font-size:9px">Zn ${s.Zn.toFixed(0)}\u00b0</td>`;
+    }else if(s.mode==='intercept'){
+      html+=`<td colspan="3" style="color:var(--blu)">\u2014 no AP \u2014</td>`;
+      html+=`<td style="color:var(--tx2)">use Direct fix</td>`;
+    }else if(s.mode==='polaris'){
+      html+=`<td colspan="3" style="color:var(--acc)">\u2014</td>`;
+      html+=`<td>Lat ${fmt(s.polarisLat,'lat')}</td>`;
+    }else{
+      html+=`<td colspan="3" style="color:var(--grn)">\u2014</td>`;
+      html+=`<td>Lon ${fmt(s.transitLon,'lon')}</td>`;
+    }
+    html+=`<td style="white-space:nowrap"><button class="btn btn-edit btn-sm" onclick="event.stopPropagation();editSight(${s.id})" title="Edit">\u270e</button> <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteSight(${s.id})" title="Delete">\u2715</button></td>`;
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+  body.innerHTML=html;
+}
+
+// ─── FIX OUTPUT ───
+function renderFix(){
+  const out=document.getElementById('fixOut');
+  const iSights=state.sights.filter(s=>s.mode==='intercept');
+  const iSightsWithAP=iSights.filter(s=>s.Hc!=null);
+  const pSights=state.sights.filter(s=>s.mode==='polaris');
+  const tSights=state.sights.filter(s=>s.mode==='transit');
+  if(!state.sights.length){out.innerHTML='<div class="empty">Add sights to compute a fix</div>';return;}
+
+  // ── DIRECT FIX MODE ──
+  if(state.fixMethod==='direct'){
+    // Collect all sights that have star+Ho+UTC (any mode)
+    const copSights=state.sights.filter(s=>s.star||s.mode==='polaris');
+    if(copSights.length<2){
+      out.innerHTML=`<div class="empty">Direct fix needs 2+ star sights (have ${copSights.length})</div>`;
+      return;
+    }
+    const fix=directFix(copSights);
+    if(!fix){
+      out.innerHTML='<div class="empty">Could not compute direct fix \u2014 circles may not intersect</div>';
+      return;
+    }
+    let html=`<div class="fix-coords">`;
+    html+=`<div class="coord-line"><span class="fix-coord-lbl">LAT</span>${fmt(fix.lat,'lat')} <span style="font-size:15px;color:var(--tx2)">${fix.lat.toFixed(4)}\u00b0</span></div>`;
+    html+=`<div class="coord-line"><span class="fix-coord-lbl">LON</span>${fmt(fix.lon,'lon')} <span style="font-size:15px;color:var(--tx2)">${fmtDecLon(fix.lon)}\u00b0</span></div>`;
+    html+=`</div>`;
+    html+=`<div class="fix-detail">`;
+    html+=`<div>Method: <span>Gauss-Newton COP iteration (no AP)</span></div>`;
+    html+=`<div>Sights used: <span>${copSights.length}</span></div>`;
+    // Fix quality from RMS residual
+    if(fix.residuals){
+      const rms=Math.sqrt(fix.residuals.reduce((s,r)=>s+r.resid*r.resid,0)/fix.residuals.length);
+      const qCls=rms<3?'q-good':rms<10?'q-mod':'q-poor';
+      const qLbl=rms<3?'Good':rms<10?'Moderate':'Poor';
+      html+=`<div style="margin-top:4px">Quality: <span class="${qCls}">${qLbl} (RMS ${rms.toFixed(1)} nm)</span></div>`;
+      let maxR=0;
+      html+=`<div style="margin-top:4px">`;
+      fix.residuals.forEach(r=>{
+        const absR=Math.abs(r.resid);
+        if(absR>maxR)maxR=absR;
+        const color=absR>10?'var(--red)':absR>3?'var(--acc)':'var(--grn)';
+        const sign=r.resid>=0?'+':'\u2212';
+        html+=`<div>${r.name}: <span style="color:${color}">${sign}${absR.toFixed(1)}' (${absR.toFixed(1)} nm)</span></div>`;
+      });
+      html+=`</div>`;
+      if(maxR>10) html+=`<div style="color:var(--red);margin-top:4px">\u26a0 Large residual \u2014 check that sight's Hs and UTC</div>`;
+    }
+    if(copSights.length===2) html+=`<div style="color:var(--acc)">\u26a0 2-sight fix is ambiguous \u2014 add a 3rd sight</div>`;
+    html+=`</div>`;
+    out.innerHTML=html;
+    // Update map
+    updateFixMap(fix.lat,fix.lon,null,null);
+    // Store direct fix for LOP plot
+    state.directFix=fix;
+    return;
+  }
+
+  // ── INTERCEPT LS MODE ──
+  // Polaris latitude — average all
+  let fixLat=null,fixLon=null,latSource='',lonSource='';
+  if(pSights.length){
+    fixLat=pSights.reduce((a,s)=>a+s.polarisLat,0)/pSights.length;
+    latSource=`Polaris (${pSights.length} sight${pSights.length>1?'s':''})`;
+  }
+  // Transit longitude — average all
+  if(tSights.length){
+    let sinSum=0,cosSum=0;
+    tSights.forEach(s=>{const lon=s.transitLon*R;sinSum+=Math.sin(lon);cosSum+=Math.cos(lon);});
+    fixLon=(Math.atan2(sinSum,cosSum)*D+360)%360;
+    lonSource=`Transit (${tSights.length} sight${tSights.length>1?'s':''})`;
+  }
+
+  // Intercept fix — use AP from first intercept sight with AP as reference
+  let lsLat=null,lsLon=null,apRef=null,lsResiduals=null;
+  const drOn=state.drEnabled&&state.drSpeed>0;
+  if(iSightsWithAP.length){
+    apRef=iSightsWithAP[0].ap;
+    const useSights=drOn?advanceLops(iSightsWithAP,state.drCourse,state.drSpeed):iSightsWithAP;
+    const lops=useSights.map(s=>({intercept:s.intercept,azimuth:s.Zn}));
+    const {dx,dy}=lsFix(lops);
+    lsLat=apRef.lat+dy/60;
+    lsLon=apRef.lon+dx/(60*Math.cos(apRef.lat*R));
+    // Per-sight residuals: predicted intercept at fix vs actual
+    lsResiduals=useSights.map(s=>{
+      const pred=dx*Math.sin(s.Zn*R)+dy*Math.cos(s.Zn*R);
+      return{name:s.star.n, resid:s.intercept-pred};
+    });
+  }
+
+  if(fixLat===null&&lsLat!==null){fixLat=lsLat;latSource='Intercept LS';}
+  if(fixLon===null&&lsLon!==null){fixLon=lsLon;lonSource='Intercept LS';}
+
+  if(fixLat===null&&fixLon===null){
+    out.innerHTML='<div class="empty">Insufficient data for fix \u2014 need AP for Intercept LS, or try Direct mode</div>';return;
+  }
+
+  let html='';
+  html+=`<div class="fix-coords">`;
+  if(fixLat!==null) html+=`<div class="coord-line"><span class="fix-coord-lbl">LAT</span>${fmt(fixLat,'lat')} <span style="font-size:15px;color:var(--tx2)">${fixLat.toFixed(4)}\u00b0</span></div>`;
+  if(fixLon!==null) html+=`<div class="coord-line"><span class="fix-coord-lbl">LON</span>${fmt(fixLon,'lon')} <span style="font-size:15px;color:var(--tx2)">${fmtDecLon(fixLon)}\u00b0</span></div>`;
+  html+=`</div>`;
+  html+=`<div class="fix-detail">`;
+  if(latSource) html+=`<div>Lat source: <span>${latSource}</span></div>`;
+  if(lonSource) html+=`<div>Lon source: <span>${lonSource}</span></div>`;
+  if(drOn&&iSightsWithAP.length) html+=`<div>DR: <span>CRS ${state.drCourse}°T, SPD ${state.drSpeed} kn (running fix)</span></div>`;
+  if(iSightsWithAP.length){
+    html+=`<div>Intercept sights: <span>${iSightsWithAP.length}</span></div>`;
+    if(apRef&&lsLat!==null){
+      const dx=(lsLon-apRef.lon)*60*Math.cos(apRef.lat*R);
+      const dy=(lsLat-apRef.lat)*60;
+      html+=`<div>Offset from AP: <span>${Math.abs(dx).toFixed(1)} nm ${dx>=0?'E':'W'}, ${Math.abs(dy).toFixed(1)} nm ${dy>=0?'N':'S'}</span></div>`;
+    }
+  }
+  // LS residual quality
+  if(lsResiduals&&lsResiduals.length>=2){
+    const rms=Math.sqrt(lsResiduals.reduce((s,r)=>s+r.resid*r.resid,0)/lsResiduals.length);
+    const qCls=rms<3?'q-good':rms<10?'q-mod':'q-poor';
+    const qLbl=rms<3?'Good':rms<10?'Moderate':'Poor';
+    html+=`<div>Fix quality: <span class="${qCls}">${qLbl} (RMS ${rms.toFixed(1)} nm)</span></div>`;
+    lsResiduals.forEach(r=>{
+      const absR=Math.abs(r.resid);
+      const color=absR>10?'var(--red)':absR>3?'var(--acc)':'var(--grn)';
+      html+=`<div style="font-size:15px;margin-left:8px">${r.name}: <span style="color:${color}">${absR.toFixed(1)} nm</span></div>`;
+    });
+  }
+  // Azimuth spread quality
+  if(iSightsWithAP.length>=2){
+    const azs=iSightsWithAP.map(s=>s.Zn).sort((a,b)=>a-b);
+    let maxGap=0;
+    for(let i=0;i<azs.length;i++){
+      const gap=i<azs.length-1?azs[i+1]-azs[i]:azs[0]+360-azs[azs.length-1];
+      if(gap>maxGap)maxGap=gap;
+    }
+    const spread=360-maxGap;
+    const quality=spread>=240?'\u2726 Excellent':spread>=180?'\u2713 Good':spread>=120?'\u25b3 Fair':'\u26a0 Poor \u2014 add spread';
+    html+=`<div>Azimuth spread: <span>${spread.toFixed(0)}\u00b0 \u2014 ${quality}</span></div>`;
+  }
+  html+=`</div>`;
+  out.innerHTML=html;
+  // Update map
+  const apM=apRef||readAP();
+  updateFixMap(fixLat,fixLon,apM.lat,apM.lon);
+  // Always compute direct fix for LOP plot overlay
+  const copSightsForPlot=state.sights.filter(s=>s.star||s.mode==='polaris');
+  if(copSightsForPlot.length>=2){
+    state.directFix=directFix(copSightsForPlot);
+  }else{
+    state.directFix=null;
+  }
+}
+
+// ─── WORKINGS ───
+function selectSight(id){
+  state.selectedSightId=id;
+  showWorkings(id);
+  renderLog();
+}
+
+function showWorkings(id){
+  const s=state.sights.find(x=>x.id===id);
+  if(!s){return;}
+  const body=document.getElementById('wrkBody');
+  const row=(lbl,val)=>`<div class="wk"><span class="wl">${lbl}</span><span class="wv">${val}</span></div>`;
+  const sep='<div class="wrk-sep"></div>';
+  let h='';
+
+  if(s.mode==='intercept'){
+    h+=row('Star',`${s.star.n} (mag ${s.star.mag})`);
+    h+=row('SHA',fmtDeg(s.star.sha));
+    h+=row('Dec',fmt(s.star.dec,'lat'));
+    h+=sep;
+    h+=row('UTC',fmtUTC(s.utc));
+    h+=row('GHA Aries',fmtDeg(s.ghaAries));
+    h+=row('GHA Star',`GHA\u2648 + SHA = ${fmtDeg(mod360(s.ghaAries+s.star.sha))}`);
+    h+=row('AP',`${fmt(s.ap.lat,'lat')}, ${fmt(s.ap.lon,'lon')}`);
+    h+=row('LHA',`GHA\u2605 + Lon = ${fmtDeg(s.lha)}`);
+    h+=sep;
+    h+=row('Hs',fmtDeg(s.hs));
+    h+=row('IE',`${s.ie>=0?'+':''}${s.ie.toFixed(1)}'`);
+    h+=row('Dip',`${s.dipC.toFixed(1)}' (HoE ${s.hoe}m)`);
+    h+=row('Ha (app. alt)',fmtDeg(s.ha));
+    h+=row('Refraction',`${s.refC.toFixed(1)}'`);
+    h+=row('Ho (obs. alt)',fmtDeg(s.ho,2));
+    h+=sep;
+    h+=row('Hc (calc. alt)',fmtDeg(s.Hc,2));
+    h+=row('Zn (azimuth)',`${s.Zn.toFixed(1)}\u00b0`);
+    const tw=s.intercept>=0;
+    h+=row('Intercept a',`${Math.abs(s.intercept).toFixed(1)} nm ${tw?'TOWARD':'AWAY'} ${s.Zn.toFixed(1)}\u00b0`);
+
+  }else if(s.mode==='polaris'){
+    h+=row('UTC',fmtUTC(s.utc));
+    h+=row('GHA Aries',fmtDeg(s.ghaAries));
+    h+=row('Approx Lon',fmt(s.lon,'lon'));
+    h+=row('LHA Aries',fmtDeg(s.lhaAries));
+    h+=sep;
+    h+=row('Hs',fmtDeg(s.hs));
+    h+=row('Dip',`${s.dipC.toFixed(1)}'`);
+    h+=row('Refraction',`${s.refC.toFixed(1)}'`);
+    h+=row('Ho',fmtDeg(s.ho,2));
+    h+=sep;
+    h+=row('Polar dist p',"42' (2026)");
+    h+=row('a\u2080',`\u2212p\u00b7cos(LHA\u2648) = ${(-42/60*cos(s.lhaAries)*60).toFixed(1)}'`);
+    h+=row('a\u2081',"\u2248 +0.3'");
+    h+=row('a\u2082',"\u2248 +0.6' (month correction)");
+    h+=row('Latitude',`Ho + a\u2080 + a\u2081 + a\u2082 = ${fmt(s.polarisLat,'lat')}`);
+
+  }else{ // transit
+    h+=row('Star',`${s.star.n}`);
+    h+=row('UTC',fmtUTC(s.utc));
+    h+=row('GHA Aries',fmtDeg(s.ghaAries));
+    h+=row('SHA',fmtDeg(s.star.sha));
+    h+=row('GHA Star',`GHA\u2648 + SHA = ${fmtDeg(mod360(s.ghaAries+s.star.sha))}`);
+    h+=sep;
+    h+=row('At transit','LHA = 0\u00b0');
+    h+=row('Longitude',`GHA\u2605 \u2192 ${fmt(s.transitLon,'lon')}`);
+    h+=sep;
+    h+=row('Hs',fmtDeg(s.hs));
+    h+=row('Ho',fmtDeg(s.ho,2));
+    h+=row('Zenith dist z',`90\u00b0 \u2212 Ho = ${(90-s.ho).toFixed(2)}\u00b0`);
+    h+=row('Dec star',fmt(s.star.dec,'lat'));
+    h+=row('Lat (S transit)',fmt(s.transitLatSouth,'lat'));
+    h+=row('Lat (N transit)',fmt(s.transitLatNorth,'lat'));
+    h+=row('Note','Use S-transit if Dec < Lat, N-transit if Dec > Lat');
+  }
+
+  body.innerHTML=h;
+}
+
+function toggleWorkings(){
+  state.workingsOpen=!state.workingsOpen;
+  document.getElementById('wrkBody').style.display=state.workingsOpen?'block':'none';
+  document.getElementById('wrkToggleIcon').textContent=state.workingsOpen?'\u25be':'\u25b8';
+}
+
+// ─── LOP PLOT ───
+// Convert nm coordinates to canvas px, accounting for pan/zoom
+function nmToPx(nmE,nmN,cx,cy,scale){
+  return{
+    x:cx+(nmE-state.plotPanX)*scale,
+    y:cy-(nmN-state.plotPanY)*scale
+  };
+}
+
+function drawPlot(){
+  const cv=document.getElementById('plot');
+  const ctx=cv.getContext('2d');
+  const W=cv._cssW||480,H=cv._cssH||380;
+  ctx.clearRect(0,0,W,H);
+
+  // Background
+  ctx.fillStyle='#07091a';
+  ctx.fillRect(0,0,W,H);
+
+  const iSights=state.sights.filter(s=>s.mode==='intercept'&&s.Hc!=null);
+
+  const cx=W/2,cy=H/2;
+
+  // Determine scale
+  const maxA=Math.max(50,...iSights.map(s=>Math.abs(s.intercept)+10));
+  const scale=Math.min(cx,cy)*0.8/maxA*state.plotZoom; // px per nm
+
+  // Grid — fixed spacing in nm, drawn relative to pan
+  const gridNm=Math.max(5,Math.round(40/scale/5)*5); // adaptive grid spacing
+  ctx.strokeStyle='rgba(26,50,88,0.6)';ctx.lineWidth=0.5;
+  const startNmX=Math.floor((state.plotPanX-cx/scale)/gridNm)*gridNm;
+  const endNmX=Math.ceil((state.plotPanX+cx/scale)/gridNm)*gridNm;
+  const startNmY=Math.floor((state.plotPanY-cy/scale)/gridNm)*gridNm;
+  const endNmY=Math.ceil((state.plotPanY+cy/scale)/gridNm)*gridNm;
+  ctx.font='10px "Share Tech Mono"';
+  ctx.fillStyle='rgba(61,84,112,0.7)';
+  for(let nmX=startNmX;nmX<=endNmX;nmX+=gridNm){
+    const px=nmToPx(nmX,0,cx,cy,scale).x;
+    ctx.beginPath();ctx.moveTo(px,0);ctx.lineTo(px,H);ctx.stroke();
+    if(nmX!==0&&px>20&&px<W-20){
+      ctx.textAlign='center';
+      ctx.fillText(`${nmX>0?'+':''}${nmX}`,px,H-4);
+    }
+  }
+  for(let nmY=startNmY;nmY<=endNmY;nmY+=gridNm){
+    const py=nmToPx(0,nmY,cx,cy,scale).y;
+    ctx.beginPath();ctx.moveTo(0,py);ctx.lineTo(W,py);ctx.stroke();
+    if(nmY!==0&&py>14&&py<H-10){
+      ctx.textAlign='left';
+      ctx.fillText(`${nmY>0?'+':''}${nmY}`,4,py-3);
+    }
+  }
+
+  if(!iSights.length){
+    ctx.fillStyle='rgba(61,84,112,0.4)';
+    ctx.font='12px "Share Tech Mono"';ctx.textAlign='center';
+    ctx.fillText('Add intercept sights',cx,cy-10);
+    ctx.fillText('to display LOP plot',cx,cy+10);
+    drawCompass(ctx,W-36,36,24);
+    return;
+  }
+
+
+  document.getElementById('plotScale').textContent=`${(1/scale).toFixed(1)} nm/px | grid ${gridNm} nm | dbl-click reset`;
+
+  // AP position in px
+  const ap=nmToPx(0,0,cx,cy,scale);
+
+  // Axis labels
+  ctx.fillStyle='rgba(61,84,112,0.8)';ctx.font='11px "Share Tech Mono"';
+  const apPx=nmToPx(0,0,cx,cy,scale);
+  ctx.textAlign='center';ctx.fillText('N (nm)',apPx.x,14);
+  ctx.textAlign='left';ctx.fillText('E (nm)',W-46,apPx.y-6);
+  ctx.textAlign='right';ctx.fillText('W',12,apPx.y+4);
+  ctx.textAlign='center';ctx.fillText('S',apPx.x,H-6);
+
+  // Crosshair through AP
+  ctx.strokeStyle='rgba(61,84,112,0.5)';ctx.lineWidth=0.5;ctx.setLineDash([4,4]);
+  ctx.beginPath();ctx.moveTo(ap.x,0);ctx.lineTo(ap.x,H);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(0,ap.y);ctx.lineTo(W,ap.y);ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Apply DR advancement if enabled
+  const drOn=state.drEnabled&&state.drSpeed>0;
+  const advSights=drOn?advanceLops(iSights,state.drCourse,state.drSpeed):iSights;
+
+  // Draw LOPs
+  advSights.forEach((s,i)=>{
+    const color=colorFor(state.sights.indexOf(state.sights.find(x=>x.id===s.id)));
+    const znR=s.Zn*R;
+    const len=Math.max(W,H)*1.5;
+    const dx2=Math.cos(znR);
+    const dy2=-Math.sin(znR);
+
+    // If DR is on and this sight was shifted, draw original LOP faintly
+    if(drOn&&s.drShift){
+      const origInt=s.intercept-s.drShift;
+      const oE=origInt*Math.sin(znR);
+      const oN=origInt*Math.cos(znR);
+      const ofp=nmToPx(oE,oN,cx,cy,scale);
+      ctx.strokeStyle=color;ctx.lineWidth=1;ctx.globalAlpha=0.25;
+      ctx.setLineDash([4,4]);
+      ctx.beginPath();
+      ctx.moveTo(ofp.x-len*dx2,ofp.y-len*dy2);
+      ctx.lineTo(ofp.x+len*dx2,ofp.y+len*dy2);
+      ctx.stroke();
+      ctx.setLineDash([]);ctx.globalAlpha=1;
+    }
+
+    // Foot of perpendicular from AP in nm (advanced if DR)
+    const footE=s.intercept*Math.sin(znR);
+    const footN=s.intercept*Math.cos(znR);
+    const fp=nmToPx(footE,footN,cx,cy,scale);
+    // LOP direction: perpendicular to Zn
+
+    ctx.strokeStyle=color;ctx.lineWidth=1.5;ctx.globalAlpha=0.7;
+    ctx.beginPath();
+    ctx.moveTo(fp.x-len*dx2,fp.y-len*dy2);
+    ctx.lineTo(fp.x+len*dx2,fp.y+len*dy2);
+    ctx.stroke();
+    ctx.globalAlpha=1;
+
+    // Label
+    ctx.fillStyle=color;ctx.font='11px "Share Tech Mono"';
+    ctx.textAlign='left';
+    const lx=Math.min(W-60,Math.max(4,fp.x+10));
+    const ly=Math.max(14,Math.min(H-6,fp.y-6));
+    let label=s.star.n;
+    if(drOn&&s.drShift) label+=` +${s.drDist.toFixed(1)}nm`;
+    ctx.fillText(label,lx,ly);
+
+    // Intercept dot on LOP foot
+    ctx.fillStyle=color;ctx.globalAlpha=0.8;
+    ctx.beginPath();ctx.arc(fp.x,fp.y,4,0,2*Math.PI);ctx.fill();
+    ctx.globalAlpha=1;
+  });
+
+  // LS Fix point (uses advanced intercepts if DR)
+  if(advSights.length>=1){
+    const lops=advSights.map(s=>({intercept:s.intercept,azimuth:s.Zn}));
+    const fix=lsFix(lops);
+    const fp=nmToPx(fix.dx,fix.dy,cx,cy,scale);
+
+    // Fix crosshair
+    ctx.strokeStyle='#c8a84b';ctx.lineWidth=2;
+    const cs=10;
+    ctx.beginPath();ctx.moveTo(fp.x-cs,fp.y);ctx.lineTo(fp.x+cs,fp.y);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(fp.x,fp.y-cs);ctx.lineTo(fp.x,fp.y+cs);ctx.stroke();
+    ctx.beginPath();ctx.arc(fp.x,fp.y,cs/2,0,2*Math.PI);ctx.stroke();
+
+    ctx.fillStyle='#c8a84b';ctx.font='bold 11px "Share Tech Mono"';
+    ctx.textAlign='left';ctx.fillText('FIX',fp.x+8,fp.y-8);
+  }
+
+  // Direct fix point (if available)
+  if(state.directFix&&state.directFix.lat!=null){
+    // Compute direct fix position relative to AP in nm
+    const apPos=readAP();
+    const dFixDy=(state.directFix.lat-apPos.lat)*60;
+    const dFixDx=(state.directFix.lon-apPos.lon)*60*Math.cos(apPos.lat*R);
+    const dfp=nmToPx(dFixDx,dFixDy,cx,cy,scale);
+    // Draw diamond marker
+    ctx.strokeStyle='#52c98a';ctx.lineWidth=2;
+    const ds=10;
+    ctx.beginPath();
+    ctx.moveTo(dfp.x,dfp.y-ds);ctx.lineTo(dfp.x+ds,dfp.y);
+    ctx.lineTo(dfp.x,dfp.y+ds);ctx.lineTo(dfp.x-ds,dfp.y);
+    ctx.closePath();ctx.stroke();
+    ctx.fillStyle='#52c98a';ctx.font='bold 11px "Share Tech Mono"';
+    ctx.textAlign='left';ctx.fillText('COP FIX',dfp.x+10,dfp.y-4);
+  }
+
+  // AP dot
+  ctx.fillStyle='rgba(91,159,214,0.9)';
+  ctx.beginPath();ctx.arc(ap.x,ap.y,5,0,2*Math.PI);ctx.fill();
+  ctx.fillStyle='rgba(61,84,112,0.8)';ctx.font='11px "Share Tech Mono"';
+  ctx.textAlign='left';ctx.fillText('AP',ap.x+7,ap.y+4);
+
+  drawCompass(ctx,W-36,36,22);
+}
+
+function drawCompass(ctx,x,y,r){
+  ctx.strokeStyle='rgba(61,84,112,0.8)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.arc(x,y,r,0,2*Math.PI);ctx.stroke();
+  ctx.fillStyle='rgba(61,84,112,0.3)';
+  ctx.beginPath();ctx.arc(x,y,r,0,2*Math.PI);ctx.fill();
+  ctx.strokeStyle='#c8a84b';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x,y-r+4);ctx.stroke();
+  ctx.fillStyle='#c8a84b';ctx.font='10px "Share Tech Mono"';
+  ctx.textAlign='center';ctx.fillText('N',x,y-r-2);
+}
+
+// ══════════════════════════════════════════════════════
+//  DELETE / CLEAR
+// ══════════════════════════════════════════════════════
+function deleteSight(id){
+  state.sights=state.sights.filter(s=>s.id!==id);
+  if(state.selectedSightId===id)state.selectedSightId=null;
+  render();
+}
+
+function clearAll(){
+  if(!state.sights.length||confirm('Clear all sights?')){
+    state.sights=[];state.nextId=1;state.selectedSightId=null;
+    state.plotPanX=0;state.plotPanY=0;state.plotZoom=1;
+    document.getElementById('sightMsg').classList.add('hidden');
+    document.getElementById('wrkBody').innerHTML='<div style="color:var(--tx3);font-style:italic">Click a sight in the log to show full reduction</div>';
+    render();
+  }
+}
+
+// ══════════════════════════════════════════════════════
+//  RECALC ON AP CHANGE — recompute all intercept sights
+// ══════════════════════════════════════════════════════
+function recalcAP(){
+  const ap=readAP();
+  state.sights.forEach(s=>{
+    if(s.mode!=='intercept'||!s.star)return;
+    // Sun/planet SHA changes with time — recompute from UTC
+    if(s.star.isBody){
+      if(s.star.bodyType==='sun'){
+        const sun=solarPosition(s.utc);
+        s.star={n:'Sun',sha:sun.sha,dec:sun.dec,mag:-26.7,isBody:true,bodyType:'sun'};
+      }else{
+        const pos=planetPosition(PLANET_NAMES[s.star.bodyType],s.utc);
+        s.star={n:PLANET_NAMES[s.star.bodyType],sha:pos.sha,dec:pos.dec,mag:PLANET_MAGS[s.star.bodyType],isBody:true,bodyType:s.star.bodyType};
+      }
+      s.ghaAries=ghaAries(s.utc);
+    }
+    const ghaSt=mod360(s.ghaAries+s.star.sha);
+    const lha=mod360(ghaSt+ap.lon);
+    const {Hc,Zn}=reduce(ap.lat,s.star.dec,lha);
+    const intercept=(s.ho-Hc)*60;
+    Object.assign(s,{ap:{lat:ap.lat,lon:ap.lon},lha,Hc,Zn,intercept});
+  });
+  render();
+}
+
+// ══════════════════════════════════════════════════════
+//  DEMO — South China Sea session
+// ══════════════════════════════════════════════════════
+function loadDemo(){
+  clearAll();
+  // Set AP to Firenze (43°46'N, 11°15'E)
+  document.getElementById('apLatD').value='43';document.getElementById('apLatM').value='46';
+  document.getElementById('apLatH').value='N';
+  document.getElementById('apLonD').value='11';document.getElementById('apLonM').value='15';
+  document.getElementById('apLonH').value='E';
+  document.getElementById('ie').value='0';
+  document.getElementById('hoe').value='2';
+  setMode('intercept');
+
+  // Demo: evening twilight over Firenze, 21 Mar 2026 ~18:30 UTC
+  const ap={lat:43+46/60,lon:11+15/60};
+  const demoSights=[
+    {mode:'polaris',utc:'2026-03-21T18:30:00Z',lon:ap.lon,hsDeg:44,hsMin:3.7},
+    {mode:'intercept',utc:'2026-03-21T18:28:00Z',body:'venus',  hsDeg:4, hsMin:34.7},
+    {mode:'intercept',utc:'2026-03-21T18:29:00Z',body:'jupiter',hsDeg:69,hsMin:10.9},
+    {mode:'intercept',utc:'2026-03-21T18:30:00Z',star:'Capella', hsDeg:69,hsMin:36.4},
+    {mode:'intercept',utc:'2026-03-21T18:31:00Z',star:'Sirius',  hsDeg:29,hsMin:17.4},
+    {mode:'intercept',utc:'2026-03-21T18:32:00Z',star:'Betelgeuse',hsDeg:49,hsMin:59.1},
+    {mode:'intercept',utc:'2026-03-21T18:33:00Z',star:'Procyon', hsDeg:51,hsMin:1.9},
+  ];
+
+  demoSights.forEach(ds=>{
+    const utc=new Date(ds.utc);
+    const ie=0,hoe=2;
+    const hs=ds.hsDeg+ds.hsMin/60;
+    const {ho,dipC,refC,ha}=correct(hs,ie,hoe);
+    const sight={id:state.nextId++,mode:ds.mode,utc,hs,ho,ie,hoe,dipC,refC,ha};
+
+    if(ds.mode==='polaris'){
+      const lon=ds.lon;
+      const lhaA=mod360(ghaAries(utc)+lon);
+      const lat=polarisLat(ho,lhaA,utc.getUTCMonth()+1);
+      Object.assign(sight,{lon,lhaAries:lhaA,polarisLat:lat,ghaAries:ghaAries(utc)});
+    }else{
+      let star;
+      if(ds.body){
+        // Planet — compute position from UTC
+        const pos=ds.body==='venus'||ds.body==='mars'||ds.body==='jupiter'||ds.body==='saturn'
+          ?planetPosition(PLANET_NAMES[ds.body]||ds.body.charAt(0).toUpperCase()+ds.body.slice(1),utc)
+          :solarPosition(utc);
+        star={n:PLANET_NAMES[ds.body]||'Sun',sha:pos.sha,dec:pos.dec,mag:PLANET_MAGS[ds.body]||0,isBody:true,bodyType:ds.body};
+      }else{
+        star=STARS.find(s=>s.n===ds.star);
+      }
+      const ghaA=ghaAries(utc);
+      const ghaSt=mod360(ghaA+star.sha);
+      const lha=mod360(ghaSt+ap.lon);
+      const {Hc,Zn}=reduce(ap.lat,star.dec,lha);
+      const intercept=(ho-Hc)*60;
+      Object.assign(sight,{star,ap,ghaAries:ghaA,ghaStar:ghaSt,lha,Hc,Zn,intercept});
+    }
+    state.sights.push(sight);
+  });
+  render();
+  document.getElementById('sightMsg').className='status st-ok';
+  document.getElementById('sightMsg').textContent='Demo: Firenze, 21 Mar 2026 18:30 UTC \u2014 Polaris + Venus + Jupiter + 4 stars';
+  document.getElementById('sightMsg').classList.remove('hidden');
+}
+
+// ══════════════════════════════════════════════════════
+//  EDIT SIGHT — loads sight data back into form for modification
+// ══════════════════════════════════════════════════════
+function editSight(id){
+  const s=state.sights.find(x=>x.id===id);
+  if(!s)return;
+
+  // Set mode
+  setMode(s.mode);
+
+  // Populate UTC
+  const pad=n=>String(n).padStart(2,'0');
+  document.getElementById('utcIn').value=
+    `${s.utc.getUTCFullYear()}-${pad(s.utc.getUTCMonth()+1)}-${pad(s.utc.getUTCDate())}T${pad(s.utc.getUTCHours())}:${pad(s.utc.getUTCMinutes())}`;
+  document.getElementById('utcSec').value=s.utc.getUTCSeconds();
+
+  // Populate Hs
+  const absHs=Math.abs(s.hs);
+  document.getElementById('hsDeg').value=Math.floor(absHs);
+  document.getElementById('hsMin').value=((absHs-Math.floor(absHs))*60).toFixed(1);
+
+  // Populate IE / HoE
+  document.getElementById('ie').value=s.ie;
+  document.getElementById('hoe').value=s.hoe;
+
+  if(s.mode==='intercept'&&s.star){
+    if(s.star.isBody){
+      document.getElementById('starSel').value=s.star.bodyType;
+    }else{
+      const idx=STARS.findIndex(st=>st.n===s.star.n);
+      if(idx>=0) document.getElementById('starSel').value=idx;
+    }
+    if(s.ap){
+      const latAbs=Math.abs(s.ap.lat);
+      document.getElementById('apLatD').value=Math.floor(latAbs);
+      document.getElementById('apLatM').value=((latAbs-Math.floor(latAbs))*60).toFixed(1);
+      document.getElementById('apLatH').value=s.ap.lat>=0?'N':'S';
+      const lonAbs=Math.abs(s.ap.lon);
+      document.getElementById('apLonD').value=Math.floor(lonAbs);
+      document.getElementById('apLonM').value=((lonAbs-Math.floor(lonAbs))*60).toFixed(1);
+      document.getElementById('apLonH').value=s.ap.lon>=0?'E':'W';
+    }
+  }else if(s.mode==='polaris'){
+    const lonAbs=Math.abs(s.lon);
+    document.getElementById('polLonD').value=Math.floor(lonAbs);
+    document.getElementById('polLonM').value=((lonAbs-Math.floor(lonAbs))*60).toFixed(1);
+    document.getElementById('polLonH').value=s.lon>=0?'E':'W';
+  }else if(s.mode==='transit'&&s.star){
+    if(s.star.isBody){
+      document.getElementById('starSel').value=s.star.bodyType;
+    }else{
+      const idx=STARS.findIndex(st=>st.n===s.star.n);
+      if(idx>=0) document.getElementById('starSel').value=idx;
+    }
+  }
+
+  // Remove the old sight
+  state.sights=state.sights.filter(x=>x.id!==id);
+  if(state.selectedSightId===id) state.selectedSightId=null;
+  render();
+
+  // Scroll form into view and flash
+  document.querySelector('.panel-left').scrollTop=0;
+  const msg=document.getElementById('sightMsg');
+  msg.className='status st-warn';
+  msg.textContent='Editing sight \u2014 modify values and click ADD SIGHT';
+  msg.classList.remove('hidden');
+}
+
+// ══════════════════════════════════════════════════════
+//  FIX MAP — Leaflet map showing position fix
+// ══════════════════════════════════════════════════════
+let fixMap=null,fixMarker=null,apMarker=null;
+
+function initFixMap(){
+  fixMap=L.map('fixMap',{
+    center:[45,0],zoom:5,
+    zoomControl:true,
+    attributionControl:false
+  });
+
+  // Dark and themed tile layers
+  const tiles={
+    'Dark'    :L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19}),
+    'Nautical':L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',{maxZoom:18}),
+    'Satellite':L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:18}),
+    'Standard':L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18}),
+  };
+
+  // Dark base + nautical overlay by default
+  const darkBase=L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19});
+  darkBase.addTo(fixMap);
+
+  L.control.layers({
+    'Dark':darkBase,
+    'Satellite':tiles['Satellite'],
+    'Standard':tiles['Standard'],
+  },{
+    'Nautical overlay':tiles['Nautical'],
+  },{position:'topright',collapsed:true}).addTo(fixMap);
+
+  // Fix icon — larger, more visible
+  const fixIcon=L.divIcon({
+    html:`<div style="position:relative">
+      <div style="width:22px;height:22px;border:3px solid #c8a84b;border-radius:50%;background:rgba(200,168,75,0.25);box-shadow:0 0 10px rgba(200,168,75,0.6)"></div>
+      <div style="position:absolute;top:-1px;left:10px;width:2px;height:24px;background:#c8a84b"></div>
+      <div style="position:absolute;top:10px;left:-1px;width:24px;height:2px;background:#c8a84b"></div>
+    </div>`,
+    iconSize:[22,22],iconAnchor:[11,11],className:''
+  });
+  fixMarker=L.marker([0,0],{icon:fixIcon}).addTo(fixMap);
+  fixMarker.setOpacity(0);
+
+  // AP icon
+  const apIcon=L.divIcon({
+    html:'<div style="width:12px;height:12px;border:2px solid #5b9fd6;border-radius:50%;background:rgba(91,159,214,0.3);box-shadow:0 0 6px rgba(91,159,214,0.5)"></div>',
+    iconSize:[12,12],iconAnchor:[6,6],className:''
+  });
+  apMarker=L.marker([0,0],{icon:apIcon}).addTo(fixMap);
+  apMarker.setOpacity(0);
+}
+
+function updateFixMap(fixLat,fixLon,apLat,apLon){
+  if(!fixMap)return;
+  if(fixLat!=null&&fixLon!=null){
+    // Normalize longitude to -180..180
+    let lon=fixLon;
+    if(lon>180)lon-=360;
+    fixMarker.setLatLng([fixLat,lon]);
+    fixMarker.setOpacity(1);
+    fixMarker.bindTooltip(`Fix: ${fmt(fixLat,'lat')}, ${fmt(fixLon,'lon')}`,{permanent:false});
+    fixMap.setView([fixLat,lon],Math.max(fixMap.getZoom(),6));
+  }else{
+    fixMarker.setOpacity(0);
+  }
+  if(apLat!=null&&apLon!=null){
+    let lon=apLon;if(lon>180)lon-=360;
+    apMarker.setLatLng([apLat,lon]);
+    apMarker.setOpacity(1);
+    apMarker.bindTooltip('AP',{permanent:false});
+  }else{
+    apMarker.setOpacity(0);
+  }
+}
+</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// Initialize map after Leaflet loads
+initFixMap();
+// Fix tile rendering after layout settles
+setTimeout(()=>{ if(fixMap) fixMap.invalidateSize(); },200);
+// Register service worker for offline support
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+</script>
 </body>
 </html>

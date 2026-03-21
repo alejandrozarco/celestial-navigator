@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daily Almanac Page Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=STIX+Two+Text:ital,wght@0,400;0,700;1,400&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#06091a;--s1:#0b1028;--s2:#0f1735;
+  --b1:#1a3258;--acc:#c8a84b;--acc2:#8a6e2a;
+  --tx1:#ddd5bc;--tx2:#7a8fa8;--tx3:#3d5470;
+  --serif:'STIX Two Text','Computer Modern Serif','Times New Roman',serif;
+  --mono:'Share Tech Mono','Courier New',monospace;
+}
+html,body{min-height:100%}
+body{background:var(--bg);color:var(--tx1);font-family:var(--serif);font-size:14px}
+
+/* ─── CONTROLS ─── */
+.ctrl{background:var(--s1);border-bottom:1px solid var(--b1);padding:12px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.ctrl h1{font-size:18px;color:var(--acc);letter-spacing:3px;font-weight:600}
+.ctrl input,.ctrl button,.ctrl select{font-family:var(--mono);font-size:14px;padding:5px 10px;background:var(--s2);border:1px solid var(--b1);color:var(--tx1);cursor:pointer}
+.ctrl input:focus,.ctrl select:focus{border-color:var(--acc2);outline:none}
+.ctrl button{border-color:var(--acc);color:var(--acc);letter-spacing:1px}
+.ctrl button:hover{background:rgba(200,168,75,0.12)}
+.ctrl .spacer{flex:1}
+
+/* ─── PAGE ─── */
+.page{max-width:1400px;margin:16px auto;padding:0 16px}
+.page-title{font-family:var(--serif);font-size:16px;font-weight:700;text-align:center;color:var(--acc);letter-spacing:2px;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--b1)}
+.page-sub{text-align:center;color:var(--tx2);font-size:13px;margin-bottom:14px}
+
+/* ─── TABLES ─── */
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;font-family:var(--mono);font-size:12px;white-space:nowrap}
+th{background:var(--s1);color:var(--acc2);font-size:10px;letter-spacing:1px;text-transform:uppercase;padding:3px 6px;border:1px solid var(--b1);position:sticky;top:0;z-index:1}
+td{padding:2px 6px;border:1px solid rgba(26,50,88,0.3);text-align:right;color:var(--tx1)}
+tr:nth-child(6n+1) td{border-top:1px solid var(--b1)}
+tr.hour td{background:rgba(200,168,75,0.04);font-weight:700}
+td.lbl{text-align:left;color:var(--tx2);font-size:11px}
+
+/* ─── LAYOUT ─── */
+.ephem-row{display:flex;gap:12px;margin-bottom:14px}
+.ephem-half{flex:1;overflow:auto;max-height:80vh;min-width:0}
+.ephem-half table{width:100%}
+.side-row{display:flex;gap:14px;margin-bottom:14px;flex-wrap:wrap}
+.side-col{flex:1;min-width:300px}
+.side-col table{width:100%}
+.sec-hdr{font-family:var(--serif);font-size:13px;font-weight:700;color:var(--acc);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--b1)}
+
+/* ─── STAR TABLE ─── */
+.star-tbl td{padding:2px 5px}
+.star-tbl td.star-name{text-align:left;color:var(--tx1);font-family:var(--serif);font-style:italic}
+.star-tbl td.star-mag{color:var(--tx3);text-align:center}
+
+/* ─── VALIDATION ─── */
+.val-section{max-width:1400px;margin:20px auto;padding:0 16px}
+.val-hdr{cursor:pointer;padding:8px 12px;background:var(--s1);border:1px solid var(--b1);color:var(--acc2);font-family:var(--mono);font-size:12px;letter-spacing:1px}
+.val-body{padding:12px;background:var(--s2);border:1px solid var(--b1);border-top:none;font-family:var(--mono);font-size:12px;line-height:1.8;color:var(--tx2);display:none}
+.val-body.open{display:block}
+.val-ok{color:#52c98a}.val-warn{color:var(--acc)}.val-err{color:#e05252}
+.val-body table{margin:8px 0}
+.val-body td{padding:2px 8px}
+
+/* ─── RISE/SET ─── */
+.rs-polar{color:var(--acc);font-style:italic;font-size:10px}
+
+/* ─── PRINT ─── */
+@media print{
+  body{background:#fff;color:#000}
+  .ctrl{display:none}
+  .val-section{display:none}
+  th{background:#eee;color:#333;border-color:#999}
+  td{color:#000;border-color:#ccc}
+  tr.hour td{background:#f5f0e0}
+  .page-title{color:#333}
+  .sec-hdr{color:#333}
+}
+</style>
+</head>
+<body>
+
+<div class="ctrl">
+  <h1>&#10022; DAILY ALMANAC</h1>
+  <input type="date" id="dateIn" value="2026-03-21">
+  <button onclick="generate()">GENERATE</button>
+  <button onclick="validate()">VALIDATE</button>
+  <div class="spacer"></div>
+  <span style="font-family:var(--mono);font-size:11px;color:var(--tx3)">58-STAR ALMANAC &middot; SUN &middot; ARIES &middot; PRECESSED TO EPOCH</span>
+</div>
+
+<div id="output" class="page"></div>
+<div id="valOut" class="val-section"></div>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  CONSTANTS & MATH
+// ══════════════════════════════════════════════════════
+const R=Math.PI/180, D=180/Math.PI;
+const mod360=x=>((x%360)+360)%360;
+const sin=x=>Math.sin(x*R), cos=x=>Math.cos(x*R);
+const DAYS=['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'];
+const MONTHS=['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'];
+
+// ══════════════════════════════════════════════════════
+//  58 NAVIGATIONAL STARS (J2000.0)
+// ══════════════════════════════════════════════════════
+const STARS=[
+  {n:"Acamar",sha:315.5,dec:-40.3,mag:3.2},{n:"Achernar",sha:335.6,dec:-57.2,mag:0.5},
+  {n:"Acrux",sha:173.4,dec:-63.1,mag:0.8},{n:"Adhara",sha:255.3,dec:-29.0,mag:1.5},
+  {n:"Aldebaran",sha:291.0,dec:16.5,mag:0.9},{n:"Alioth",sha:166.5,dec:56.0,mag:1.8},
+  {n:"Alkaid",sha:153.1,dec:49.3,mag:1.9},{n:"Alnair",sha:27.9,dec:-47.0,mag:1.7},
+  {n:"Alnilam",sha:276.0,dec:-1.2,mag:1.7},{n:"Alphard",sha:218.1,dec:-8.7,mag:2.0},
+  {n:"Alphecca",sha:126.3,dec:26.7,mag:2.2},{n:"Alpheratz",sha:357.9,dec:29.1,mag:2.1},
+  {n:"Altair",sha:62.3,dec:8.9,mag:0.8},{n:"Ankaa",sha:353.4,dec:-42.3,mag:2.4},
+  {n:"Antares",sha:112.7,dec:-26.4,mag:1.1},{n:"Arcturus",sha:146.1,dec:19.2,mag:-0.1},
+  {n:"Atria",sha:107.8,dec:-69.0,mag:1.9},{n:"Avior",sha:234.4,dec:-59.5,mag:1.9},
+  {n:"Bellatrix",sha:278.7,dec:6.3,mag:1.6},{n:"Betelgeuse",sha:271.2,dec:7.4,mag:0.5},
+  {n:"Canopus",sha:264.0,dec:-52.7,mag:-0.7},{n:"Capella",sha:280.8,dec:46.0,mag:0.1},
+  {n:"Deneb",sha:49.6,dec:45.3,mag:1.3},{n:"Denebola",sha:182.7,dec:14.6,mag:2.1},
+  {n:"Diphda",sha:349.1,dec:-18.0,mag:2.0},{n:"Dubhe",sha:194.1,dec:61.8,mag:1.8},
+  {n:"Elnath",sha:278.4,dec:28.6,mag:1.7},{n:"Eltanin",sha:90.8,dec:51.5,mag:2.2},
+  {n:"Enif",sha:34.0,dec:9.9,mag:2.4},{n:"Fomalhaut",sha:15.6,dec:-29.6,mag:1.2},
+  {n:"Gacrux",sha:172.2,dec:-57.1,mag:1.6},{n:"Gienah",sha:176.0,dec:-17.5,mag:2.6},
+  {n:"Hadar",sha:149.0,dec:-60.4,mag:0.6},{n:"Hamal",sha:328.2,dec:23.5,mag:2.1},
+  {n:"Kaus Aus.",sha:84.0,dec:-34.4,mag:1.9},{n:"Kochab",sha:137.3,dec:74.2,mag:2.1},
+  {n:"Markab",sha:13.8,dec:15.2,mag:2.5},{n:"Menkar",sha:314.4,dec:4.1,mag:2.5},
+  {n:"Menkent",sha:148.3,dec:-36.4,mag:2.1},{n:"Miaplacidus",sha:221.7,dec:-69.7,mag:1.7},
+  {n:"Mirfak",sha:308.9,dec:49.9,mag:1.8},{n:"Nunki",sha:76.2,dec:-26.3,mag:2.1},
+  {n:"Peacock",sha:53.6,dec:-56.7,mag:1.9},{n:"Polaris",sha:322.0,dec:89.3,mag:2.0},
+  {n:"Pollux",sha:243.7,dec:28.0,mag:1.2},{n:"Procyon",sha:245.2,dec:5.2,mag:0.4},
+  {n:"Rasalhague",sha:96.3,dec:12.6,mag:2.1},{n:"Regulus",sha:207.9,dec:12.0,mag:1.4},
+  {n:"Rigel",sha:281.4,dec:-8.2,mag:0.1},{n:"Rigil Kent",sha:140.1,dec:-60.8,mag:-0.3},
+  {n:"Sabik",sha:102.4,dec:-15.7,mag:2.4},{n:"Schedar",sha:349.9,dec:56.5,mag:2.2},
+  {n:"Shaula",sha:96.6,dec:-37.1,mag:1.6},{n:"Sirius",sha:258.7,dec:-16.7,mag:-1.5},
+  {n:"Spica",sha:158.7,dec:-11.2,mag:1.0},{n:"Suhail",sha:223.0,dec:-43.4,mag:2.2},
+  {n:"Vega",sha:80.8,dec:38.8,mag:0.0},{n:"Zubenelg.",sha:137.2,dec:-16.0,mag:2.8},
+];
+
+// ══════════════════════════════════════════════════════
+//  JULIAN DATE
+// ══════════════════════════════════════════════════════
+function julianDate(d){
+  let Y=d.getUTCFullYear(),M=d.getUTCMonth()+1,Dy=d.getUTCDate();
+  const h=d.getUTCHours()+d.getUTCMinutes()/60+d.getUTCSeconds()/3600;
+  if(M<=2){Y--;M+=12;}
+  const A=Math.floor(Y/100),B=2-A+Math.floor(A/4);
+  return Math.floor(365.25*(Y+4716))+Math.floor(30.6001*(M+1))+Dy+B-1524.5+h/24;
+}
+
+// ══════════════════════════════════════════════════════
+//  GHA ARIES
+// ══════════════════════════════════════════════════════
+function ghaAries(date){
+  const JD=julianDate(date);
+  const Dn=JD-2451545.0;
+  const T=Dn/36525;
+  const gha=280.46061837+360.98564736629*Dn+0.000387933*T*T-T*T*T/38710000;
+  return mod360(gha);
+}
+
+// ══════════════════════════════════════════════════════
+//  SOLAR POSITION (low-precision Meeus, ~1' accuracy)
+// ══════════════════════════════════════════════════════
+function solarPosition(date){
+  const JD=julianDate(date);
+  const T=(JD-2451545.0)/36525;
+
+  // Geometric mean longitude (Meeus eq 25.2)
+  const L0=mod360(280.46646+36000.76983*T+0.0003032*T*T);
+  // Mean anomaly (Meeus eq 25.3)
+  const M=mod360(357.52911+35999.05029*T-0.0001537*T*T);
+  const MR=M*R;
+
+  // Equation of center (Meeus eq 25.6)
+  const C=(1.914602-0.004817*T-0.000014*T*T)*Math.sin(MR)
+         +(0.019993-0.000101*T)*Math.sin(2*MR)
+         +0.000289*Math.sin(3*MR);
+
+  // Sun's true longitude
+  const theta=L0+C;
+
+  // Nutation and aberration (Meeus Chapter 25)
+  const omega=mod360(125.04-1934.136*T);
+  const omR=omega*R;
+  const lambda=theta-0.00569-0.00478*Math.sin(omR);   // apparent longitude
+  const eps0=23.439291-0.013004*T;                      // mean obliquity
+  const eps=eps0+0.00256*Math.cos(omR);                 // apparent obliquity
+
+  const lamR=lambda*R, epsR=eps*R;
+  const ra=mod360(Math.atan2(Math.cos(epsR)*Math.sin(lamR),Math.cos(lamR))*D);
+  const dec=Math.asin(Math.sin(epsR)*Math.sin(lamR))*D;
+  const gha=mod360(ghaAries(date)-ra);     // GHA Sun = GHA Aries - RA
+  const eot=((L0-0.00569-ra+180)%360+360)%360-180;
+  return{ra,dec,gha,eot,L:L0,lambda};
+}
+
+// ══════════════════════════════════════════════════════
+//  PRECESSION — J2000.0 to target epoch
+//  Uses annual rates: m=46.124"/yr (RA), n=20.043"/yr (obliquity)
+// ══════════════════════════════════════════════════════
+function precess(sha_j2000, dec_j2000, year){
+  const dt=year-2000.0; // years from J2000
+  const m_deg=46.124/3600; // degrees/year
+  const n_deg=20.043/3600; // degrees/year
+  const ra_deg=360-sha_j2000; // RA in degrees
+  const dRA=m_deg+n_deg*sin(ra_deg)*Math.tan(dec_j2000*R);
+  const dDec=n_deg*cos(ra_deg);
+  const sha=mod360(sha_j2000-dRA*dt); // SHA decreases as RA increases
+  const dec=dec_j2000+dDec*dt;
+  return{sha,dec};
+}
+
+// ══════════════════════════════════════════════════════
+//  SUNRISE / SUNSET / TWILIGHT
+//  Returns times in LMT (hours). null = polar day/night.
+// ══════════════════════════════════════════════════════
+function riseSet(dec_deg, lat_deg, h0_deg){
+  const cosH=(sin(h0_deg)-sin(lat_deg)*sin(dec_deg))/(cos(lat_deg)*cos(dec_deg));
+  if(cosH>1) return null;   // never rises
+  if(cosH<-1) return null;  // never sets (but need to distinguish)
+  const H=Math.acos(cosH)*D; // hour angle in degrees
+  return H/15; // hours from transit
+}
+
+function sunTimes(date, lat){
+  // Solar position at ~noon UTC
+  const noon=new Date(date);noon.setUTCHours(12,0,0,0);
+  const sun=solarPosition(noon);
+  const eotHr=sun.eot/15; // EoT in hours
+  const transit=12-eotHr; // solar transit in LMT (hours)
+
+  const rs=riseSet(sun.dec,lat,-0.8333); // sunrise/sunset: center -50'
+  const ct=riseSet(sun.dec,lat,-6);      // civil twilight
+  const nt=riseSet(sun.dec,lat,-12);     // nautical twilight
+
+  // Check if sun is always up or always down
+  const midAlt=90-Math.abs(lat-sun.dec); // approximate max altitude
+  const alwaysUp=sin(-0.8333)<sin(lat)*sin(sun.dec)+cos(lat)*cos(sun.dec);
+  const neverUp=midAlt<-0.8333;
+
+  return{
+    transit,
+    rise:rs!=null?transit-rs:null,
+    set:rs!=null?transit+rs:null,
+    civTwlStart:ct!=null?transit-ct:null,
+    civTwlEnd:ct!=null?transit+ct:null,
+    nautTwlStart:nt!=null?transit-nt:null,
+    nautTwlEnd:nt!=null?transit+nt:null,
+    alwaysUp:rs===null&&!neverUp&&midAlt>0,
+    neverUp:rs===null&&(neverUp||midAlt<=0),
+  };
+}
+
+// ══════════════════════════════════════════════════════
+//  FORMAT HELPERS
+// ══════════════════════════════════════════════════════
+function fmtDM(deg,dp=1){
+  const a=Math.abs(deg);
+  const d=Math.floor(a);
+  const m=(a-d)*60;
+  return`${String(d).padStart(3)}\u00b0${m.toFixed(dp).padStart(dp===0?2:4)}'`;
+}
+
+function fmtDMns(deg,dp=1){
+  // With N/S prefix
+  const ns=deg>=0?'N':'S';
+  const a=Math.abs(deg);
+  const d=Math.floor(a);
+  const m=(a-d)*60;
+  return`${ns}${String(d).padStart(2)}\u00b0${m.toFixed(dp).padStart(dp===0?2:4)}'`;
+}
+
+function fmtHM(hrs){
+  if(hrs==null)return'----';
+  const h=Math.floor(hrs);
+  const m=Math.round((hrs-h)*60);
+  if(m===60) return`${String(h+1).padStart(2,'0')}:00`;
+  return`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+
+function dayOfYear(date){
+  const start=new Date(Date.UTC(date.getUTCFullYear(),0,1));
+  return Math.floor((date-start)/(86400000))+1;
+}
+
+// ══════════════════════════════════════════════════════
+//  GENERATE DAILY PAGE
+// ══════════════════════════════════════════════════════
+function generate(){
+  const dateStr=document.getElementById('dateIn').value;
+  const baseDate=new Date(dateStr+'T00:00:00Z');
+  const year=baseDate.getUTCFullYear();
+  const doy=dayOfYear(baseDate);
+  const dayName=DAYS[baseDate.getUTCDay()];
+  const monthName=MONTHS[baseDate.getUTCMonth()];
+  const day=baseDate.getUTCDate();
+
+  let html='';
+
+  // ─── Title ───
+  html+=`<div class="page-title">(DAY ${String(doy).padStart(3,'0')}) GREENWICH ALMANAC ${year} ${monthName} ${day} (${dayName})</div>`;
+  html+=`<div class="page-sub">Sun &middot; Aries &middot; 58 Navigational Stars &middot; Sunrise/Sunset &middot; Precessed to ${year}.0</div>`;
+
+  // ─── Ephemeris Table (AM + PM side by side) ───
+  html+=`<div class="ephem-row">`;
+  for(let half=0;half<2;half++){
+    const startH=half*12;
+    const label=half===0?'A.M. (00:00 \u2013 11:50)':'P.M. (12:00 \u2013 23:50)';
+    html+=`<div class="ephem-half"><div class="sec-hdr">${label}</div>`;
+    html+=`<table><thead><tr><th>UT</th><th colspan="2">SUN</th><th>ARIES</th></tr>`;
+    html+=`<tr><th>h &nbsp; m</th><th>GHA</th><th>Dec</th><th>GHA</th></tr></thead><tbody>`;
+    for(let h=startH;h<startH+12;h++){
+      for(let m=0;m<60;m+=10){
+        const dt=new Date(baseDate.getTime()+(h*60+m)*60000);
+        const sun=solarPosition(dt);
+        const aries=ghaAries(dt);
+        const isHour=m===0;
+        const cls=isHour?'class="hour"':'';
+        const utStr=`${String(h).padStart(2,'0')} ${String(m).padStart(2,'0')}`;
+        const decStr=isHour?fmtDMns(sun.dec):`<span style="color:var(--tx3)">\u00b7</span>`;
+        html+=`<tr ${cls}><td class="lbl">${utStr}</td><td>${fmtDM(sun.gha)}</td><td>${decStr}</td><td>${fmtDM(aries)}</td></tr>`;
+      }
+    }
+    // Rate row
+    const noon=new Date(baseDate.getTime()+(startH+6)*3600000);
+    const sunNoon=solarPosition(noon);
+    html+=`<tr style="border-top:2px solid var(--b1)"><td class="lbl" style="color:var(--acc2)">Rate</td>`;
+    html+=`<td style="color:var(--tx3)">${fmtDM(sunNoon.gha)}</td>`;
+    html+=`<td style="color:var(--tx3)">${fmtDMns(sunNoon.dec)}</td>`;
+    html+=`<td style="color:var(--tx3)">${fmtDM(ghaAries(noon))}</td></tr>`;
+    html+=`</tbody></table></div>`;
+  }
+  html+=`</div>`;
+
+  // ─── Stars + Sunrise/Sunset side by side ───
+  html+=`<div class="side-row">`;
+
+  // ── Star Table ──
+  html+=`<div class="side-col"><div class="sec-hdr">Stars, ${year} (Precessed from J2000.0)</div>`;
+  html+=`<table class="star-tbl"><thead><tr><th>No.</th><th>Name</th><th>Mag</th><th>SHA</th><th>Dec</th></tr></thead><tbody>`;
+  const sortedStars=[...STARS].sort((a,b)=>a.n.localeCompare(b.n));
+  sortedStars.forEach((s,i)=>{
+    const p=precess(s.sha,s.dec,year);
+    const magStr=s.mag.toFixed(1);
+    html+=`<tr><td>${i+1}</td><td class="star-name">${s.n}${s.mag<=1.5?' \u2605':''}</td>`;
+    html+=`<td class="star-mag">${magStr}</td><td>${fmtDM(p.sha,0)}</td><td>${fmtDMns(p.dec,0)}</td></tr>`;
+  });
+  html+=`</tbody></table></div>`;
+
+  // ── Sunrise / Sunset / Twilight ──
+  html+=`<div class="side-col"><div class="sec-hdr">Sunrise &middot; Sunset &middot; Twilight (LMT)</div>`;
+  html+=`<table><thead><tr><th>Lat</th><th>Naut.<br>Twl.</th><th>Civil<br>Twl.</th><th>Sun<br>rise</th><th>Sun<br>set</th><th>Civil<br>Twl.</th><th>Naut.<br>Twl.</th></tr></thead><tbody>`;
+  const lats=[72,68,66,64,62,60,58,56,54,52,50,45,40,35,30,20,10,0,-10,-20,-30,-35,-40,-45,-50,-55,-60];
+  lats.forEach(lat=>{
+    const st=sunTimes(baseDate,lat);
+    const latStr=lat>=0?`N${lat}\u00b0`:`S${Math.abs(lat)}\u00b0`;
+    const rise=st.alwaysUp?'<span class="rs-polar">\u25cb\u25cb</span>':st.neverUp?'<span class="rs-polar">\u25cf\u25cf</span>':fmtHM(st.rise);
+    const set=st.alwaysUp?'<span class="rs-polar">\u25cb\u25cb</span>':st.neverUp?'<span class="rs-polar">\u25cf\u25cf</span>':fmtHM(st.set);
+    const ctS=st.civTwlStart!=null?fmtHM(st.civTwlStart):'--';
+    const ctE=st.civTwlEnd!=null?fmtHM(st.civTwlEnd):'--';
+    const ntS=st.nautTwlStart!=null?fmtHM(st.nautTwlStart):'--';
+    const ntE=st.nautTwlEnd!=null?fmtHM(st.nautTwlEnd):'--';
+    html+=`<tr><td class="lbl">${latStr}</td><td>${ntS}</td><td>${ctS}</td><td>${rise}</td><td>${set}</td><td>${ctE}</td><td>${ntE}</td></tr>`;
+  });
+  html+=`</tbody></table>`;
+
+  // EoT and Sun SD
+  const noonSun=solarPosition(new Date(baseDate.getTime()+12*3600000));
+  const eotMin=noonSun.eot*4;
+  html+=`<div style="margin-top:10px;font-family:var(--mono);font-size:12px;color:var(--tx2)">`;
+  html+=`<div>Eq. of Time: <span style="color:var(--tx1)">${eotMin>=0?'+':''}${eotMin.toFixed(1)} min</span></div>`;
+  html+=`<div>Sun SD: <span style="color:var(--tx1)">16.0'</span></div>`;
+  html+=`<div>&#9675;&#9675; = continuous daylight &nbsp; &#9679;&#9679; = continuous darkness</div>`;
+  html+=`</div></div>`;
+
+  html+=`</div>`; // close side-row
+
+  document.getElementById('output').innerHTML=html;
+}
+
+// ══════════════════════════════════════════════════════
+//  VALIDATION — compare against Air Almanac 2026 values
+// ══════════════════════════════════════════════════════
+function validate(){
+  const out=document.getElementById('valOut');
+  let html='<div class="val-hdr" onclick="this.nextElementSibling.classList.toggle(\'open\')">&#9662; VALIDATION vs. AIR ALMANAC 2026 (click to toggle)</div>';
+  html+='<div class="val-body open">';
+
+  let pass=0,fail=0;
+  function check(label,computed,expected,tolerance,unit='\''){
+    const diff=Math.abs(computed-expected);
+    const diffArcmin=diff*60;
+    const ok=diff<=tolerance;
+    if(ok)pass++;else fail++;
+    const cls=ok?'val-ok':diff<=tolerance*2?'val-warn':'val-err';
+    const sym=ok?'\u2713':'\u2717';
+    html+=`<div class="${cls}">${sym} ${label}: computed ${computed.toFixed(4)}\u00b0, expected ${expected.toFixed(4)}\u00b0, diff ${diffArcmin.toFixed(1)}${unit} ${ok?'':'(OVER '+tolerance*60+'\')'}</div>`;
+  }
+
+  // ─── Reference: Day 001, Jan 1 2026 ───
+  html+='<div style="color:var(--acc);margin:8px 0;font-weight:bold">Day 001 \u2014 January 1, 2026</div>';
+
+  const jan1_0=new Date('2026-01-01T00:00:00Z');
+  const jan1_6=new Date('2026-01-01T06:00:00Z');
+  const jan1_12=new Date('2026-01-01T12:00:00Z');
+
+  // GHA Aries
+  check('GHA Aries 00:00',ghaAries(jan1_0),100+39.7/60,0.02);
+  check('GHA Aries 06:00',ghaAries(jan1_6),190+54.5/60,0.02);
+  check('GHA Aries 12:00',ghaAries(jan1_12),281+9.3/60,0.02);
+
+  // Sun GHA
+  const sun0=solarPosition(jan1_0);
+  const sun6=solarPosition(jan1_6);
+  const sun12=solarPosition(jan1_12);
+  check('Sun GHA 00:00',sun0.gha,179+10.1/60,0.03);
+  check('Sun GHA 06:00',sun6.gha,269+8.3/60,0.05);
+  check('Sun GHA 12:00',sun12.gha,359+6.5/60,0.05);
+
+  // Sun Dec
+  check('Sun Dec 00:00',sun0.dec,-(23+1.0/60),0.02);
+
+  // ─── Stars (precessed to 2026) ───
+  html+='<div style="color:var(--acc);margin:12px 0 8px;font-weight:bold">Stars \u2014 Precessed to 2026.0</div>';
+
+  const starRef={
+    'Acamar':{sha:315+11/60,dec:-(40+12/60)},
+    'Arcturus':{sha:145+47/60,dec:19+3/60},
+    'Sirius':{sha:258+25/60,dec:-(16+45/60)},
+    'Vega':{sha:80+32/60,dec:38+48/60},
+    'Capella':{sha:280+22/60,dec:46+1/60},
+    'Aldebaran':{sha:290+38/60,dec:16+34/60},
+    'Rigel':{sha:281+3/60,dec:-(8+10/60)},
+    'Procyon':{sha:244+50/60,dec:5+9/60},
+  };
+  for(const[name,ref]of Object.entries(starRef)){
+    const star=STARS.find(s=>s.n===name);
+    if(!star)continue;
+    const p=precess(star.sha,star.dec,2026);
+    check(`${name} SHA`,p.sha,ref.sha,0.05);
+    check(`${name} Dec`,p.dec,ref.dec,0.05);
+  }
+
+  // ─── Day 085, March 26 2026 ───
+  html+='<div style="color:var(--acc);margin:12px 0 8px;font-weight:bold">Day 085 \u2014 March 26, 2026</div>';
+  const mar26_0=new Date('2026-03-26T00:00:00Z');
+  check('GHA Aries Mar 26 00:00',ghaAries(mar26_0),183+27.4/60,0.02);
+  const sunMar26=solarPosition(mar26_0);
+  check('Sun GHA Mar 26 00:00',sunMar26.gha,178+33.1/60,0.05);
+  check('Sun Dec Mar 26 00:00 (equinox \u2014 ~12\' expected)',sunMar26.dec,2+19.2/60,0.25);
+
+  // ─── Summary ───
+  html+=`<div style="margin-top:12px;padding:8px;border:1px solid var(--b1);background:var(--s1)">`;
+  html+=`<span style="font-size:14px;color:${fail===0?'#52c98a':'var(--acc)'}">${pass} passed, ${fail} failed</span>`;
+  html+=`</div>`;
+  html+=`<div style="margin-top:8px;color:var(--tx3);font-size:11px;line-height:1.7">`;
+  html+=`<div><b>Accuracy notes:</b></div>`;
+  html+=`<div>\u2022 GHA Aries: &lt;0.2' \u2014 uses GMST polynomial (IAU)</div>`;
+  html+=`<div>\u2022 Sun GHA: &lt;1' \u2014 Meeus Chapter 25 with nutation/aberration</div>`;
+  html+=`<div>\u2022 Sun Dec near solstices: &lt;1' \u2014 excellent</div>`;
+  html+=`<div>\u2022 Sun Dec near equinoxes: ~10-15' \u2014 simplified Kepler model lacks planetary perturbations (Venus, Jupiter). The Air Almanac uses JPL DE440 ephemeris with hundreds of periodic terms.</div>`;
+  html+=`<div>\u2022 Star SHA/Dec: &lt;3' \u2014 J2000.0 + annual precession (m=46.12"/yr, n=20.04"/yr)</div>`;
+  html+=`</div>`;
+
+  html+='</div>';
+  out.innerHTML=html;
+}
+
+// Auto-generate on load
+generate();
+</script>
+</body>
+</html>

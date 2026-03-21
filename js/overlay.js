@@ -72,32 +72,25 @@ export function drawOverlay(svgElement, state) {
 }
 
 function project(ra_h, dec_d, solve) {
-  const p = projectToPixel(ra_h, dec_d, solve);
+  const p = projectToPixel(ra_h, dec_d, solve, { clamp: false });
   if (!p) return null;
   return { x: pct(p.px), y: pct(p.py), px: p.px, py: p.py };
 }
 
-function polyline(svgEl, pts, attrs) {
-  if (pts.length < 2) return;
-  const e = document.createElementNS(NS, 'polyline');
-  e.setAttribute('points', pts.join(' '));
-  e.setAttribute('fill', 'none');
-  Object.entries(attrs).forEach(([k, v]) => e.setAttribute(k, v));
-  svgEl.appendChild(e);
-}
-
 function buildPath(svgEl, solve, stepFn, stroke, sw, dash) {
-  let seg = [];
+  const attrs = { stroke, 'stroke-width': sw, ...(dash ? { 'stroke-dasharray': dash } : {}) };
+  let prev = null;
   for (const coord of stepFn()) {
     const p = project(coord[0], coord[1], solve);
-    if (p && p.px >= -0.01 && p.px <= 1.01 && p.py >= -0.01 && p.py <= 1.01) {
-      seg.push(`${p.x},${p.y}`);
+    if (p && p.px >= -0.05 && p.px <= 1.05 && p.py >= -0.05 && p.py <= 1.05) {
+      if (prev) {
+        svgEl.appendChild(el('line', { x1: prev.x, y1: prev.y, x2: p.x, y2: p.y, ...attrs }));
+      }
+      prev = p;
     } else {
-      polyline(svgEl, seg, { stroke, 'stroke-width': sw, ...(dash ? { 'stroke-dasharray': dash } : {}) });
-      seg = [];
+      prev = null;
     }
   }
-  polyline(svgEl, seg, { stroke, 'stroke-width': sw, ...(dash ? { 'stroke-dasharray': dash } : {}) });
 }
 
 function altazToEquatorial(alt, az, lat, lon, utcDate) {
@@ -165,10 +158,25 @@ function drawCelestialGrid(svgEl, solve, overlayFlags, fix, utc) {
 
   if (overlayFlags.radec) {
     for (let rh = 0; rh < 24; rh += raStepH) {
-      buildPath(svgEl, solve, function* () { for (let d = -80; d <= 80; d += 1) yield [rh, d]; }, 'rgba(26,158,122,0.35)', '0.8', null);
+      buildPath(svgEl, solve, function* () { for (let d = -80; d <= 80; d += 1) yield [rh, d]; }, 'rgba(26,188,142,0.55)', '1', null);
     }
     for (let dec = -80; dec <= 80; dec += decStepDeg) {
-      buildPath(svgEl, solve, function* () { for (let rh = 0; rh <= 24.01; rh += 1 / 60) yield [rh, dec]; }, 'rgba(26,158,122,0.35)', '0.8', null);
+      buildPath(svgEl, solve, function* () { for (let rh = 0; rh <= 24.01; rh += 1 / 60) yield [rh, dec]; }, 'rgba(26,188,142,0.55)', '1', null);
+    }
+    // RA/Dec labels at grid intersections
+    for (let rh = 0; rh < 24; rh += raStepH) {
+      for (let dec = -80; dec <= 80; dec += decStepDeg) {
+        const p = project(rh, dec, solve);
+        if (p && p.px > 0.02 && p.px < 0.98 && p.py > 0.02 && p.py < 0.98) {
+          const txt = el('text', {
+            x: pct(p.px + 0.005), y: pct(p.py - 0.005),
+            fill: 'rgba(26,188,142,0.6)', 'font-size': '8', 'font-family': 'sans-serif'
+          });
+          txt.textContent = `${rh}h ${dec}°`;
+          svgEl.appendChild(txt);
+          break; // one label per RA line
+        }
+      }
     }
   }
 
@@ -181,8 +189,8 @@ function drawCelestialGrid(svgEl, solve, overlayFlags, fix, utc) {
       const ln = document.createElementNS(NS, 'line');
       ln.setAttribute('x1', p1.x); ln.setAttribute('y1', p1.y);
       ln.setAttribute('x2', p2.x); ln.setAttribute('y2', p2.y);
-      ln.setAttribute('stroke', 'rgba(100,130,180,0.45)');
-      ln.setAttribute('stroke-width', '1');
+      ln.setAttribute('stroke', 'rgba(120,150,210,0.6)');
+      ln.setAttribute('stroke-width', '1.2');
       svgEl.appendChild(ln);
     }
   }
@@ -190,19 +198,21 @@ function drawCelestialGrid(svgEl, solve, overlayFlags, fix, utc) {
   if (overlayFlags.stars) {
     for (const [name, [ra_h, dec_d, mag]] of CAT_ENTRIES) {
       const p = project(ra_h, dec_d, solve);
-      if (!p || p.px < 0.05 || p.px > 0.95 || p.py < 0.05 || p.py > 0.95) continue;
+      if (!p || p.px < 0.01 || p.px > 0.99 || p.py < 0.01 || p.py > 0.99) continue;
       const r = Math.max(2, 5 - 0.8 * mag);
-      const color = '#5a7898';
+      const color = '#8ab4e0';
       const circ = document.createElementNS(NS, 'circle');
       circ.setAttribute('cx', p.x); circ.setAttribute('cy', p.y);
       circ.setAttribute('r', r.toFixed(1));
-      circ.setAttribute('fill', 'none'); circ.setAttribute('stroke', color);
-      circ.setAttribute('stroke-width', '1.2'); circ.setAttribute('opacity', '0.75');
+      circ.setAttribute('fill', mag < 1.5 ? 'rgba(200,220,255,0.3)' : 'none');
+      circ.setAttribute('stroke', color);
+      circ.setAttribute('stroke-width', '1.5'); circ.setAttribute('opacity', '0.85');
       svgEl.appendChild(circ);
       const txt = document.createElementNS(NS, 'text');
       txt.setAttribute('x', pct(p.px + 0.012)); txt.setAttribute('y', p.y);
-      txt.setAttribute('fill', color); txt.setAttribute('font-size', '9');
-      txt.setAttribute('font-family', 'sans-serif'); txt.setAttribute('opacity', '0.85');
+      txt.setAttribute('fill', color); txt.setAttribute('font-size', '10');
+      txt.setAttribute('font-family', 'sans-serif'); txt.setAttribute('opacity', '0.9');
+      txt.setAttribute('text-shadow', '0 0 4px #000');
       txt.setAttribute('dominant-baseline', 'middle');
       txt.textContent = name;
       svgEl.appendChild(txt);

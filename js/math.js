@@ -26,6 +26,56 @@ export function solve3x3(M, b) {
   ];
 }
 
+/**
+ * Compute observer position from the horizon in a plate-solved image.
+ *
+ * The horizon is a great circle at alt=0°. Its pole is the zenith.
+ * Given ≥2 sky-coordinate points known to lie on the horizon (from pixelToSky
+ * along a level horizon line), the zenith is the unit-sphere cross-product of
+ * two spread-out horizon vectors. Combined with UTC, that gives lat/lon.
+ *
+ * @param {Array<{ra_h, dec_d}>} horizonPoints  ≥2 sky coords on the horizon
+ * @param {{ra_h, dec_d}}        abovePoint      a sky coord known to be ABOVE
+ *                                                the horizon (used to pick the
+ *                                                correct pole — zenith vs nadir)
+ * @param {Date} utc
+ * @returns {{lat, lon}|null}
+ */
+export function horizonFix(horizonPoints, abovePoint, utc) {
+  if (!horizonPoints || horizonPoints.length < 2) return null;
+
+  // Convert to unit vectors on the celestial sphere
+  const vec = p => {
+    const ra = p.ra_h * 15 * D2R, d = p.dec_d * D2R;
+    return [Math.cos(d) * Math.cos(ra), Math.cos(d) * Math.sin(ra), Math.sin(d)];
+  };
+
+  const vecs = horizonPoints.map(vec);
+
+  // Zenith = pole of the horizon great circle = cross-product of two horizon vecs.
+  // Use the most widely separated pair for numerical stability.
+  const v1 = vecs[0], v2 = vecs[vecs.length - 1];
+  let zx = v1[1]*v2[2] - v1[2]*v2[1];
+  let zy = v1[2]*v2[0] - v1[0]*v2[2];
+  let zz = v1[0]*v2[1] - v1[1]*v2[0];
+  const mag = Math.sqrt(zx*zx + zy*zy + zz*zz);
+  if (mag < 1e-9) return null;
+  zx /= mag; zy /= mag; zz /= mag;
+
+  // Pick the pole that is on the same side as the sky (above the horizon).
+  if (abovePoint) {
+    const av = vec(abovePoint);
+    if (zx*av[0] + zy*av[1] + zz*av[2] < 0) { zx = -zx; zy = -zy; zz = -zz; }
+  }
+
+  const lat     = R2D * Math.asin(clamp(zz, -1, 1));
+  const lmst    = R2D * Math.atan2(zy, zx);
+  const gst_deg = gmst(utc instanceof Date ? utc : new Date(utc));
+  const lon     = ((lmst - gst_deg) % 360 + 540) % 360 - 180;   // → -180..180
+
+  return { lat, lon };
+}
+
 export function angSep(ra1_h, dec1_d, ra2_h, dec2_d) {
   const ra1 = ra1_h * 15 * D2R, d1 = dec1_d * D2R;
   const ra2 = ra2_h * 15 * D2R, d2 = dec2_d * D2R;
