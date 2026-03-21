@@ -2,7 +2,7 @@
 
 A browser-based celestial navigation tool for computing position fixes from sextant observations. No server required — runs entirely in the browser as a single HTML file.
 
-**[Live Demo](https://alexanderkeur-del.github.io/celestial/)**
+**[Live App](https://alexanderkeur-del.github.io/celestial-navigator/)** | **[Almanac Generator](https://alexanderkeur-del.github.io/celestial-navigator/almanac.html)**
 
 ![Celestial Navigator](screenshots/demo.png)
 
@@ -32,13 +32,6 @@ A browser-based celestial navigation tool for computing position fixes from sext
 - **Leaflet Map** — dark/satellite/standard tiles with nautical chart overlay
 - **Live AP Recalculation** — all sights update when assumed position changes
 
-### Almanac
-- Separate daily almanac page generator (`almanac.html`)
-- Sun GHA/Dec at 10-minute intervals
-- Precessed star positions for any year
-- Sunrise, sunset, civil and nautical twilight for 27 latitudes
-- Validated against Air Almanac 2026
-
 ### Offline
 - Progressive Web App (PWA) with service worker
 - Works offline after first visit (except map tiles)
@@ -50,10 +43,25 @@ Open `index.html` in any modern browser. No build step, no dependencies to insta
 1. Set your **Assumed Position** (or use default London)
 2. Select a celestial body (star, Sun, or planet)
 3. Enter your **sextant reading** (Hs) and **UTC time**
-4. Click **ADD SIGHT** — the app computes Ho, Hc, Zn, and intercept
+4. Click **ADD SIGHT** &mdash; the app computes Ho, Hc, Zn, and intercept
 5. Add 2+ sights and view the computed fix
 
 Click **LOAD DEMO** for a pre-loaded session (evening twilight over Florence with Polaris, Venus, Jupiter, and 4 stars).
+
+## Almanac Generator
+
+The included [almanac page](https://alexanderkeur-del.github.io/celestial-navigator/almanac.html) generates daily almanac data for any date, similar to the official Air Almanac or Nautical Almanac. Use it to:
+
+- **Verify computations** &mdash; cross-check GHA and Dec values used by the navigator
+- **Plan observations** &mdash; find sunrise/sunset and twilight times for your latitude
+- **Study celestial nav** &mdash; see how GHA Aries, Sun position, and star coordinates change through the day
+
+The almanac includes:
+- Sun GHA and Dec at 10-minute intervals (AM/PM layout)
+- 58 navigational stars precessed to the selected year
+- Sunrise, sunset, civil and nautical twilight for 27 latitudes
+- Equation of Time
+- Validation against Air Almanac 2026 reference data
 
 ## Screenshots
 
@@ -64,13 +72,13 @@ Click **LOAD DEMO** for a pre-loaded session (evening twilight over Florence wit
 ## File Structure
 
 ```
-index.html      — Main app (single-file, self-contained)
-almanac.html    — Daily almanac page generator
-manifest.json   — PWA manifest
-sw.js           — Service worker for offline support
-js/             — Modular ES module version (development)
-tests/          — Unit tests (math, altitude, sight reduction, fix)
-test.html       — Browser test harness
+index.html      Main app (single-file, self-contained)
+almanac.html    Daily almanac page generator / reference tool
+manifest.json   PWA manifest
+sw.js           Service worker for offline support
+js/             Modular ES module version (development)
+tests/          Unit tests (math, altitude, sight reduction, fix)
+test.html       Browser test harness
 ```
 
 ## Running Tests
@@ -78,14 +86,14 @@ test.html       — Browser test harness
 ```bash
 node --input-type=module << 'EOF'
 let pass=0,fail=0;
-global.test=(n,f)=>{try{f();pass++;console.log('✓',n);}catch(e){fail++;console.log('✗',n,e.message);}};
+global.test=(n,f)=>{try{f();pass++;console.log('Pass',n);}catch(e){fail++;console.log('Fail',n,e.message);}};
 global.assert=(c,m)=>{if(!c)throw new Error(m||'failed')};
 global.assertNear=(a,b,t,m)=>{if(Math.abs(a-b)>(t||0.001))throw new Error(`${m||''} expected ${b}, got ${a}`)};
 await import('./tests/math.test.js');
 await import('./tests/altitude.test.js');
 await import('./tests/sight-reduction.test.js');
 await import('./tests/fix.test.js');
-console.log(`\n─── ${pass} passed, ${fail} failed ───`);
+console.log(`\n--- ${pass} passed, ${fail} failed ---`);
 EOF
 ```
 
