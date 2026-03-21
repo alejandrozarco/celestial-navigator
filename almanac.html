@@ -83,7 +83,7 @@ td.lbl{text-align:left;color:var(--tx2);font-size:11px}
 
 <div class="ctrl">
   <h1>&#10022; DAILY ALMANAC</h1>
-  <input type="date" id="dateIn" value="2026-03-21">
+  <input type="date" id="dateIn">
   <button onclick="generate()">GENERATE</button>
   <button onclick="validate()">VALIDATE</button>
   <div class="spacer"></div>
@@ -469,7 +469,9 @@ function validate(){
   out.innerHTML=html;
 }
 
-// Auto-generate on load
+// Default to current date and auto-generate
+const _now=new Date();
+document.getElementById('dateIn').value=_now.getUTCFullYear()+'-'+String(_now.getUTCMonth()+1).padStart(2,'0')+'-'+String(_now.getUTCDate()).padStart(2,'0');
 generate();
 </script>
 </body>

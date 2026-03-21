@@ -1,0 +1,58 @@
+# Changelog
+
+## 2026-03-22
+
+### Added
+- **Moon support** — Meeus Ch.45 lunar ephemeris with horizontal parallax, semi-diameter, and upper/lower limb corrections in the Hs-to-Ho pipeline
+- **Save / Load sessions** — auto-save to localStorage, JSON export/import, CSV sight log export, GPX waypoint export
+- **Star finder** — interactive north polar stereographic sky chart with zoom, pan, horizon line, and switchable azimuthal/equatorial grid overlays
+- **Sight planning** — suggests 5-7 optimal bodies with best azimuth spread for current position and time
+- **LOPs on Leaflet map** — intercept lines of position drawn on the nautical chart with celestial body labels
+- **Confidence ellipse** — 95% error ellipse from fix covariance matrix, displayed on both LOP plot and Leaflet map
+- **Sight averaging** — average multiple sights of the same body to reduce random error, with standard deviation display
+- **LOP plot collapsible** — click header to toggle visibility
+- **Live UTC toggle** — highlighted button shows active state on desktop and mobile
+
+### Fixed
+- Map bottom half not rendering — switched to absolute positioning with ResizeObserver
+- Session restore overwriting longitude direction — moved toggle button property setup before autoRestore
+- Restore confirm dialog blocking initial page render — deferred after first paint
+- Single-sight LOP no longer incorrectly labeled as "FIX"
+- showWorkings crash for intercept sights without AP
+- editSight preserves negative Hs sign
+
+### Changed
+- Reduction workings use plain text labels instead of Unicode symbols
+- Body selector dropdown cleaned up (removed star markers)
+- Suggested bodies label updated (was "SUGGESTED STARS")
+- Duplicate tile layer creation removed from map init
+- Sky plot "above horizon" count excludes auxiliary constellation stars
+
+## 2026-03-20
+
+### Added
+- Magellan route screenshots
+- Sanlúcar de Barrameda screenshot
+- PWA manifest and service worker for offline support
+
+## 2026-03-19
+
+### Added
+- Sun position (Meeus Ch.25)
+- Planet positions (Venus, Mars, Jupiter, Saturn)
+- Running fix with dead reckoning
+- Fix quality labels (Good / Moderate / Poor)
+- Daily almanac page generator
+- Leaflet map with dark/satellite/standard tiles and nautical overlay
+
+## 2026-03-18
+
+### Added
+- Initial release
+- Intercept method (Marcq St. Hilaire)
+- Direct COP fix (Gauss-Newton)
+- Polaris latitude
+- Meridian transit longitude
+- 58 navigational stars (J2000.0)
+- Sextant corrections (IE, dip, refraction)
+- Interactive LOP plot

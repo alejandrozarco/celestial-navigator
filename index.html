@@ -77,6 +77,8 @@ input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
 .w80{width:80px;flex:none}
 .wfull{flex:1;min-width:0}
 select.dir{width:40px;flex:none}
+.dir-toggle{width:40px;flex:none;font-family:var(--mono);font-size:14px;text-align:center;padding:4px 0;background:var(--s2);border:1px solid var(--b1);color:var(--acc);cursor:pointer;user-select:none;letter-spacing:1px}
+.dir-toggle:hover{border-color:var(--acc2);background:rgba(200,168,75,0.08)}
 
 /* ─── BUTTONS ─── */
 .btn{padding:7px 14px;font-family:var(--disp);font-size:14px;letter-spacing:2px;cursor:pointer;border:1px solid;transition:all 0.15s;text-transform:uppercase;background:transparent}
@@ -97,8 +99,9 @@ select.dir{width:40px;flex:none}
 /* ─── FIX ROW ─── */
 .fix-row{display:flex;gap:12px}
 .fix-panel{background:var(--s2);border:1px solid var(--b1);padding:14px;flex:1;min-width:0}
-.fix-map-wrap{flex:1;min-width:0;min-height:220px;background:var(--s2);border:1px solid var(--b1);position:relative}
-#fixMap{width:100%;height:100%;min-height:220px}
+.fix-map-wrap{flex:1;min-width:0;min-height:300px;background:var(--s2);border:1px solid var(--b1);position:relative;overflow:hidden}
+.live-toggle{transition:all 0.15s}.live-toggle.active{color:var(--grn)!important;border-color:var(--grn)!important;background:rgba(82,201,138,0.1)!important;box-shadow:0 0 6px rgba(82,201,138,0.25)}
+#fixMap{position:absolute;top:0;left:0;right:0;bottom:0;width:100%!important;height:100%!important}
 .fix-coords{font-family:var(--mono);font-size:25px;color:var(--acc);margin:10px 0;line-height:1.5}
 .fix-coord-lbl{font-size:15px;color:var(--tx2);min-width:36px;display:inline-block}
 .fix-detail{font-family:var(--mono);font-size:15px;color:var(--tx2);line-height:1.9;margin-top:6px}
@@ -130,6 +133,9 @@ tr:hover td{background:rgba(255,255,255,0.015)}
 .b-int{background:rgba(91,159,214,0.12);color:var(--blu);border-color:rgba(91,159,214,0.3)}
 .b-pol{background:rgba(200,168,75,0.12);color:var(--acc);border-color:rgba(200,168,75,0.3)}
 .b-trs{background:rgba(82,201,138,0.12);color:var(--grn);border-color:rgba(82,201,138,0.3)}
+.b-avg{background:rgba(200,168,75,0.18);color:var(--acc);border-color:rgba(200,168,75,0.4);font-weight:600}
+.avg-prompt{padding:6px 10px;margin-top:6px;font-size:11px;color:var(--tx2);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.avg-prompt button{font-size:10px;padding:2px 8px}
 .toward{color:var(--grn)}.away{color:var(--red)}
 
 /* ─── WORKINGS ─── */
@@ -156,6 +162,14 @@ tr:hover td{background:rgba(255,255,255,0.015)}
 .btn-edit{border-color:var(--b2);color:var(--blu)}
 .btn-edit:hover{background:rgba(91,159,214,0.1)}
 
+/* ─── SKY PLOT ─── */
+canvas#skyPlot{background:#07091a;cursor:grab}
+canvas#skyPlot:active{cursor:grabbing}
+.sky-controls{display:flex;gap:6px;padding:4px 8px;align-items:center;flex-wrap:wrap}
+.sky-btn{background:var(--s2);border:1px solid var(--b2);color:var(--tx2);font:11px var(--mono);padding:2px 8px;cursor:pointer;border-radius:2px}
+.sky-btn.active{color:var(--acc);border-color:var(--acc)}
+.sky-btn:hover{border-color:var(--tx2)}
+
 /* ─── UTILS ─── */
 .hidden{display:none!important}
 ::-webkit-scrollbar{width:3px;height:3px}
@@ -168,7 +182,7 @@ tr:hover td{background:rgba(255,255,255,0.015)}
 <header>
   <div>
     <h1>&#10022; CELESTIAL NAVIGATOR</h1>
-    <div class="hdr-sub">SIGHT REDUCTION &middot; FIX COMPUTATION &middot; 58-STAR ALMANAC</div>
+    <div class="hdr-sub">SIGHT REDUCTION &middot; FIX COMPUTATION &middot; SUN &middot; MOON &middot; PLANETS &middot; 58 STARS</div>
     <div class="hdr-motto"><em>Seguendo il corso del sole</em></div>
   </div>
   <div class="hdr-right">
@@ -204,7 +218,7 @@ tr:hover td{background:rgba(255,255,255,0.015)}
         <span class="unit">&deg;</span>
         <input type="number" id="apLatM" placeholder="00.0" min="0" max="59.9" step="0.1" class="w52">
         <span class="unit">'</span>
-        <select id="apLatH" class="dir"><option>N</option><option>S</option></select>
+        <button type="button" id="apLatH" class="dir-toggle" value="N" onclick="toggleDir(this,'N','S')">N</button>
       </div>
       <div class="fr">
         <label>LON</label>
@@ -212,7 +226,7 @@ tr:hover td{background:rgba(255,255,255,0.015)}
         <span class="unit">&deg;</span>
         <input type="number" id="apLonM" placeholder="00.0" min="0" max="59.9" step="0.1" class="w52">
         <span class="unit">'</span>
-        <select id="apLonH" class="dir"><option>W</option><option>E</option></select>
+        <button type="button" id="apLonH" class="dir-toggle" onclick="toggleDir(this,'W','E')">W</button>
       </div>
       <div class="fr dr-row" style="margin-top:6px;padding-top:6px;border-top:1px solid var(--b1)">
         <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="drEnable"> DR (Running Fix)</label>
@@ -232,7 +246,7 @@ tr:hover td{background:rgba(255,255,255,0.015)}
         <span class="unit">&deg;</span>
         <input type="number" id="polLonM" placeholder="00.0" min="0" max="59.9" step="0.1" class="w52">
         <span class="unit">'</span>
-        <select id="polLonH" class="dir"><option>E</option><option>W</option></select>
+        <button type="button" id="polLonH" class="dir-toggle" onclick="toggleDir(this,'E','W')">E</button>
       </div>
     </div>
 
@@ -246,11 +260,20 @@ tr:hover td{background:rgba(255,255,255,0.015)}
       <div class="fr">
         <label>SECS</label>
         <input type="number" id="utcSec" value="0" min="0" max="59" class="w52">
-        <span class="unit">seconds (timing precision)</span>
+        <button type="button" class="btn btn-ghost btn-sm live-toggle" id="liveUtc" onclick="toggleLive()" style="font-size:11px;padding:2px 8px;letter-spacing:1px">LIVE</button>
       </div>
       <div class="fr" id="starRow">
         <label>BODY</label>
-        <select id="starSel" class="wfull"><option value="">— select body —</option></select>
+        <select id="starSel" class="wfull" onchange="onBodyChange()"><option value="">— select body —</option></select>
+      </div>
+      <div class="fr hidden" id="limbRow">
+        <label>LIMB</label>
+        <select id="limbSel" class="w80">
+          <option value="lower">Lower</option>
+          <option value="upper">Upper</option>
+          <option value="center">Center</option>
+        </select>
+        <span class="unit">(semi-diameter correction)</span>
       </div>
       <div class="fr">
         <label>Hs</label>
@@ -267,6 +290,15 @@ tr:hover td{background:rgba(255,255,255,0.015)}
       <div style="display:flex;gap:6px">
         <button class="btn btn-ghost btn-sm" style="flex:1" onclick="loadDemo()">LOAD DEMO</button>
         <button class="btn btn-ghost btn-sm" style="flex:1" onclick="clearAll()">CLEAR ALL</button>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-ghost btn-sm" style="flex:1" onclick="exportSession()">SAVE</button>
+        <button class="btn btn-ghost btn-sm" style="flex:1" onclick="document.getElementById('importFile').click()">LOAD</button>
+      </div>
+      <input type="file" id="importFile" accept=".json" class="hidden" onchange="importSession(this)">
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-ghost btn-sm" style="flex:1" onclick="exportCSV()">CSV</button>
+        <button class="btn btn-ghost btn-sm" style="flex:1" onclick="exportGPX()">GPX</button>
       </div>
       <a href="almanac.html" class="btn btn-ghost btn-sm" style="text-align:center;text-decoration:none;display:block">ALMANAC GENERATOR</a>
     </div>
@@ -293,11 +325,33 @@ tr:hover td{background:rgba(255,255,255,0.015)}
 
     <!-- LOP Plot -->
     <div class="plot-wrap">
-      <div class="plot-hdr">
+      <div class="plot-hdr" onclick="toggleLopPlot()" style="cursor:pointer">
         <span>LINE OF POSITION PLOT</span>
-        <span id="plotScale" style="color:var(--tx3)"></span>
+        <span><span id="plotScale" style="color:var(--tx3)"></span> <span id="lopToggle">&#9662;</span></span>
       </div>
-      <canvas id="plot" width="480" height="380"></canvas>
+      <div id="lopBody">
+        <canvas id="plot" width="480" height="380"></canvas>
+      </div>
+    </div>
+
+    <!-- Star Finder -->
+    <div class="plot-wrap" id="skySection">
+      <div class="plot-hdr" onclick="toggleSkyPlot()" style="cursor:pointer">
+        <span>STAR FINDER</span>
+        <span id="skyToggle">&#9662;</span>
+      </div>
+      <div id="skyBody">
+        <canvas id="skyPlot" width="400" height="400" style="display:block;width:100%;aspect-ratio:1;max-height:520px"></canvas>
+        <div class="sky-controls">
+          <button class="sky-btn active" id="skyGridAz" onclick="setSkyGrid('az')">AZIMUTHAL</button>
+          <button class="sky-btn" id="skyGridEq" onclick="setSkyGrid('eq')">EQUATORIAL</button>
+          <span style="color:var(--tx3);font-size:10px;margin-left:4px">|</span>
+          <button class="sky-btn" id="skyConst" onclick="toggleConstellations()" style="display:none">CONSTELLATIONS</button>
+          <span style="flex:1"></span>
+          <span style="color:var(--tx3);font-size:10px">scroll to zoom · drag to pan · dbl-click reset</span>
+        </div>
+        <div id="suggestedStars" style="padding:8px 12px;font-family:var(--mono);font-size:14px;color:var(--tx2)"></div>
+      </div>
     </div>
 
     <!-- Reduction Workings -->
@@ -505,6 +559,109 @@ function planetPosition(name,date){
   return{ra,dec,sha,gha:mod360(ghaAries(date)-ra)};
 }
 
+// Moon position — Meeus Ch.45 simplified lunar theory
+// Returns {ra, dec, sha, gha, dist, HP, SD}
+function moonPosition(date){
+  const JD=julianDate(date);
+  const T=(JD-2451545.0)/36525;
+  // Fundamental arguments (degrees)
+  const Lp=mod360(218.3165+481267.8813*T);   // Moon mean longitude
+  const D =mod360(297.8502+445267.1115*T);    // Mean elongation
+  const M =mod360(357.5291+35999.0503*T);     // Sun mean anomaly
+  const Mp=mod360(134.9634+477198.8676*T);    // Moon mean anomaly
+  const F =mod360(93.2721+483202.0175*T);     // Argument of latitude
+  // Additional arguments
+  const A1=mod360(119.75+131.849*T);
+  const A2=mod360(53.09+479264.290*T);
+  const A3=mod360(313.45+481266.484*T);
+  const E=1-0.002516*T-0.0000074*T*T;
+  const E2=E*E;
+  // Periodic terms for longitude (l) and distance (r)
+  // [D, M, Mp, F, sinCoeff_l, cosCoeff_r]
+  const LR=[
+    [0,0,1,0, 6288774,-20905355],[2,0,-1,0, 1274027,-3699111],[2,0,0,0, 658314,-2955968],
+    [0,0,2,0, 213618,-569925],[0,1,0,0, -185116,48888],[0,0,0,2, -114332,-3149],
+    [2,0,-2,0, 58793,246158],[2,-1,-1,0, 57066,-152138],[2,0,1,0, 53322,-170733],
+    [2,-1,0,0, 45758,-204586],[0,1,-1,0, -40923,-129620],[1,0,0,0, -34720,108743],
+    [0,1,1,0, -30383,104755],[2,0,0,-2, 15327,10321],[0,0,1,2, -12528,0],
+    [0,0,1,-2, 10980,79661],[4,0,-1,0, 10675,-34782],[0,0,3,0, 10034,-23210],
+    [4,0,-2,0, 8548,-21636],[2,1,-1,0, -7888,24208],[2,1,0,0, -6766,30824],
+    [1,0,-1,0, -5163,-8379],[1,1,0,0, 4987,-16675],[2,-1,1,0, 4036,-12831],
+    [2,0,2,0, 3994,-10445],[4,0,0,0, 3861,-11650],[2,0,-3,0, 3665,14403],
+    [0,1,-2,0, -2689,-7003],[2,0,-1,2, -2602,0],[2,-1,-2,0, 2390,10056],
+    [1,0,1,0, -2348,6322],[2,-2,0,0, 2236,-9884],[0,1,2,0, -2120,5751],
+    [0,2,0,0, -2069,0],[2,-2,-1,0, 2048,-4950],[2,0,1,-2, -1773,4130],
+    [2,0,0,2, -1595,0],[4,-1,-1,0, 1215,-3958],[0,0,2,2, -1110,0],
+    [3,0,-1,0, -892,3258],[2,1,1,0, -810,2616],[4,-1,-2,0, 759,-1897],
+    [0,2,-1,0, -713,-2117],[2,2,-1,0, -700,2354],[2,1,-2,0, 691,0],
+    [2,-1,0,-2, 596,0],[4,0,1,0, 549,-1423],[0,0,4,0, 537,-1117],
+    [4,-1,0,0, 520,-1571],[1,0,-2,0, -487,-1739],[2,1,0,-2, -399,0],
+    [0,0,2,-2, -381,-4421],[1,1,1,0, 351,0],[3,0,-2,0, -340,0],
+    [4,0,-3,0, 330,0],[2,-1,2,0, 327,0],[0,2,1,0, -323,1165],
+    [1,1,-1,0, 299,0],[2,0,3,0, 294,0],[2,0,-1,-2, 0,8752],
+  ];
+  // Periodic terms for latitude (b)
+  // [D, M, Mp, F, sinCoeff_b]
+  const B=[
+    [0,0,0,1, 5128122],[0,0,1,1, 280602],[0,0,1,-1, 277693],[2,0,0,-1, 173237],
+    [2,0,-1,1, 55413],[2,0,-1,-1, 46271],[2,0,0,1, 32573],[0,0,2,1, 17198],
+    [2,0,1,-1, 9266],[0,0,2,-1, 8822],[2,-1,0,-1, 8216],[2,0,-2,-1, 4324],
+    [2,0,1,1, 4200],[2,1,0,-1, -3359],[2,-1,-1,1, 2463],[2,-1,0,1, 2211],
+    [2,-1,-1,-1, 2065],[0,1,-1,-1, -1870],[4,0,-1,-1, 1828],[0,1,0,1, -1794],
+    [0,0,0,3, -1749],[0,1,-1,1, -1565],[1,0,0,1, -1491],[0,1,1,1, -1475],
+    [0,1,1,-1, -1410],[0,1,0,-1, -1344],[1,0,0,-1, -1335],[0,0,3,1, 1107],
+    [4,0,0,-1, 1021],[4,0,-1,1, 833],
+  ];
+
+  let sumL=0, sumR=0, sumB=0;
+  for(const t of LR){
+    const arg=(t[0]*D+t[1]*M+t[2]*Mp+t[3]*F)*R;
+    let eF=1;
+    if(Math.abs(t[1])===1) eF=E;
+    else if(Math.abs(t[1])===2) eF=E2;
+    sumL+=t[4]*eF*Math.sin(arg);
+    sumR+=t[5]*eF*Math.cos(arg);
+  }
+  for(const t of B){
+    const arg=(t[0]*D+t[1]*M+t[2]*Mp+t[3]*F)*R;
+    let eF=1;
+    if(Math.abs(t[1])===1) eF=E;
+    else if(Math.abs(t[1])===2) eF=E2;
+    sumB+=t[4]*eF*Math.sin(arg);
+  }
+  // Additive corrections
+  sumL+=3958*Math.sin(A1*R)+1962*Math.sin((Lp-F)*R)+318*Math.sin(A2*R);
+  sumB+=-2235*Math.sin(Lp*R)+382*Math.sin(A3*R)+175*Math.sin((A1-F)*R)
+       +175*Math.sin((A1+F)*R)+127*Math.sin((Lp-Mp)*R)-115*Math.sin((Lp+Mp)*R);
+
+  const lambda=Lp+sumL/1000000; // ecliptic longitude (degrees)
+  const beta=sumB/1000000;       // ecliptic latitude (degrees)
+  const dist=385000.56+sumR/1000; // distance in km
+
+  // Nutation in longitude (simplified)
+  const omega=mod360(125.04-1934.136*T);
+  const dPsi=(-17.2*Math.sin(omega*R)-1.32*Math.sin(2*Lp*R))/3600;
+  const lamCorr=lambda+dPsi;
+
+  // Obliquity
+  const eps0=23.439291-0.013004*T;
+  const dEps=(9.2*Math.cos(omega*R))/3600;
+  const eps=eps0+dEps;
+
+  // Ecliptic to equatorial
+  const lamR=lamCorr*R, betR=beta*R, epsR=eps*R;
+  const ra=mod360(Math.atan2(Math.sin(lamR)*Math.cos(epsR)-Math.tan(betR)*Math.sin(epsR),Math.cos(lamR))*D);
+  const dec=Math.asin(Math.sin(betR)*Math.cos(epsR)+Math.cos(betR)*Math.sin(epsR)*Math.sin(lamR))*D;
+  const sha=mod360(360-ra);
+  const gha=mod360(ghaAries(date)-ra);
+
+  // Horizontal parallax and semi-diameter
+  const HP=Math.asin(6378.14/dist)*D*60; // arcminutes
+  const SD=0.2725*HP;                     // arcminutes
+
+  return{ra,dec,sha,gha,dist,HP,SD};
+}
+
 // Bennett refraction formula — arcminutes, altitude in degrees
 function refraction(alt){
   if(alt<-1)return 0;
@@ -514,14 +671,27 @@ function refraction(alt){
 // Dip correction — arcminutes
 function dip(hM){return hM>0?-1.76*Math.sqrt(hM):0;}
 
-// Apply corrections Hs -> Ho, returns {ho,dipC,refC,ha}
-function correct(hsDeg,ieMoa,hoeM){
+// Apply corrections Hs -> Ho
+// Extended for Moon/Sun: parallax (HP arcmin), semi-diameter (SD arcmin), limb ('upper'/'lower'/'center')
+function correct(hsDeg,ieMoa,hoeM,bodyType,HP,SD,limb){
   const hs=hsDeg-ieMoa/60;
   const dipC=dip(hoeM);
   const ha=hs+dipC/60;
   const refC=refraction(ha);
-  const ho=ha+refC/60;
-  return {ho,dipC,refC,ha};
+  let ho=ha+refC/60;
+  // Parallax correction (positive — raises Ho)
+  let parC=0;
+  if(HP&&HP>0){
+    parC=HP*Math.cos(ho*R); // arcminutes
+    ho+=parC/60;
+  }
+  // Semi-diameter correction
+  let sdC=0;
+  if(SD&&SD>0&&limb&&limb!=='center'){
+    sdC=limb==='lower'?SD:-SD; // lower limb: +SD, upper limb: -SD
+    ho+=sdC/60;
+  }
+  return {ho,dipC,refC,ha,parC,sdC};
 }
 
 // Sight reduction -> {Hc, Zn}
@@ -561,13 +731,118 @@ function advanceLops(sights, course, speed){
   });
 }
 
+// Compute visible sky for star finder / sight planning
+// Returns array of {name, alt, az, mag, type, ra, dec} for all bodies
+function computeSky(lat,lon,utc){
+  const ghaA=ghaAries(utc);
+  const bodies=[];
+  // All 58 nav stars
+  STARS.forEach(s=>{
+    const gha=mod360(ghaA+s.sha);
+    const lha=mod360(gha+lon);
+    const {Hc,Zn}=reduce(lat,s.dec,lha);
+    bodies.push({name:s.n,alt:Hc,az:Zn,mag:s.mag,type:'star',ra:mod360(360-s.sha),dec:s.dec});
+  });
+  // Auxiliary stars for constellation figures (unlabeled)
+  AUX_STARS.forEach(s=>{
+    const gha=mod360(ghaA+s.sha);
+    const lha=mod360(gha+lon);
+    const {Hc,Zn}=reduce(lat,s.dec,lha);
+    bodies.push({name:s.n,alt:Hc,az:Zn,mag:s.mag,type:'aux',ra:mod360(360-s.sha),dec:s.dec});
+  });
+  // Sun
+  const sun=solarPosition(utc);
+  const sunLha=mod360(mod360(ghaA+sun.sha)+lon);
+  const sunR=reduce(lat,sun.dec,sunLha);
+  bodies.push({name:'Sun',alt:sunR.Hc,az:sunR.Zn,mag:-26.7,type:'sun',ra:mod360(360-sun.sha),dec:sun.dec});
+  // Planets
+  for(const [key,name] of Object.entries(PLANET_NAMES)){
+    const pos=planetPosition(name,utc);
+    const lha=mod360(mod360(ghaA+pos.sha)+lon);
+    const r=reduce(lat,pos.dec,lha);
+    bodies.push({name,alt:r.Hc,az:r.Zn,mag:PLANET_MAGS[key],type:'planet',ra:mod360(360-pos.sha),dec:pos.dec});
+  }
+  // Moon
+  const moon=moonPosition(utc);
+  const moonLha=mod360(mod360(ghaA+moon.sha)+lon);
+  const moonR=reduce(lat,moon.dec,moonLha);
+  bodies.push({name:'Moon',alt:moonR.Hc,az:moonR.Zn,mag:-12.6,type:'moon',ra:mod360(360-moon.sha),dec:moon.dec});
+  return bodies;
+}
+
+// Suggest optimal stars for sighting (best azimuth spread, good altitude)
+function suggestStars(bodies,count=7){
+  // Filter to sweet spot: altitude 15-70, exclude Sun if it's up (daytime = no stars visible)
+  const sunAlt=bodies.find(b=>b.name==='Sun')?.alt||-90;
+  const candidates=bodies.filter(b=>{
+    if(b.type==='aux')return false;
+    if(b.alt<15||b.alt>70)return false;
+    if(b.name==='Sun')return sunAlt>-6; // only suggest Sun if visible and no twilight stars
+    return true;
+  }).sort((a,b)=>a.mag-b.mag); // brightest first
+
+  if(candidates.length<=count)return candidates;
+
+  // Greedy selection maximizing minimum azimuth separation
+  const selected=[candidates[0]];
+  const remaining=[...candidates.slice(1)];
+
+  while(selected.length<count&&remaining.length>0){
+    let bestIdx=0,bestScore=-Infinity;
+    for(let i=0;i<remaining.length;i++){
+      const c=remaining[i];
+      const minSep=Math.min(...selected.map(s=>{
+        let diff=Math.abs(c.az-s.az);
+        if(diff>180)diff=360-diff;
+        return diff;
+      }));
+      const score=minSep-c.mag*3; // weight azimuth spread heavily
+      if(score>bestScore){bestScore=score;bestIdx=i;}
+    }
+    selected.push(remaining[bestIdx]);
+    remaining.splice(bestIdx,1);
+  }
+  return selected;
+}
+
+// Render suggested stars list below sky plot
+function renderSuggested(suggested){
+  const el=document.getElementById('suggestedStars');
+  if(!el)return;
+  if(!suggested.length){el.innerHTML='';return;}
+  let html='<div style="color:var(--grn);margin-bottom:4px;font-size:13px;letter-spacing:1px">SUGGESTED BODIES</div>';
+  html+='<div style="display:flex;flex-wrap:wrap;gap:4px">';
+  suggested.forEach(s=>{
+    const bodyVal=getBodyValue(s.name);
+    html+=`<span onclick="selectBody('${bodyVal}')" style="cursor:pointer;padding:2px 8px;border:1px solid rgba(82,201,138,0.3);background:rgba(82,201,138,0.08);color:var(--grn);font-size:13px" title="Alt ${s.alt.toFixed(0)}° Az ${s.az.toFixed(0)}° mag ${s.mag}">${s.name}</span>`;
+  });
+  html+='</div>';
+  el.innerHTML=html;
+}
+
+// Map body name to dropdown value
+function getBodyValue(name){
+  if(name==='Sun')return'sun';
+  if(name==='Moon')return'moon';
+  const pKey=Object.entries(PLANET_NAMES).find(([k,v])=>v===name);
+  if(pKey)return pKey[0];
+  const idx=STARS.findIndex(s=>s.n===name);
+  return idx>=0?String(idx):'';
+}
+
+// Auto-populate body selector when clicking a suggested star
+function selectBody(val){
+  document.getElementById('starSel').value=val;
+  onBodyChange();
+}
+
 // Least squares fix from array of {intercept:nm, azimuth:deg}
-// Returns {dx:nm east, dy:nm north} from AP
+// Returns {dx:nm east, dy:nm north, cov:{a,b,c,d}} from AP
 function lsFix(lops){
   if(!lops.length)return null;
   if(lops.length===1){
     const l=lops[0],z=l.azimuth*R;
-    return{dx:l.intercept*Math.sin(z),dy:l.intercept*Math.cos(z)};
+    return{dx:l.intercept*Math.sin(z),dy:l.intercept*Math.cos(z),cov:null};
   }
   let A00=0,A01=0,A11=0,b0=0,b1=0;
   for(const l of lops){
@@ -575,8 +850,39 @@ function lsFix(lops){
     A00+=s*s;A01+=s*c;A11+=c*c;b0+=a*s;b1+=a*c;
   }
   const det=A00*A11-A01*A01;
-  if(Math.abs(det)<1e-12)return{dx:0,dy:0};
-  return{dx:(A11*b0-A01*b1)/det,dy:(A00*b1-A01*b0)/det};
+  if(Math.abs(det)<1e-12)return{dx:0,dy:0,cov:null};
+  const dx=(A11*b0-A01*b1)/det;
+  const dy=(A00*b1-A01*b0)/det;
+  // Compute residual variance
+  let sse=0;
+  for(const l of lops){
+    const z=l.azimuth*R;
+    const pred=dx*Math.sin(z)+dy*Math.cos(z);
+    sse+=(l.intercept-pred)*(l.intercept-pred);
+  }
+  const sigma2=lops.length>2?sse/(lops.length-2):sse; // unbiased if n>2
+  // Covariance matrix = sigma^2 * (A^T A)^{-1}
+  const cov=lops.length>=2?{
+    a:sigma2*A11/det, b:-sigma2*A01/det,
+    c:-sigma2*A01/det, d:sigma2*A00/det
+  }:null;
+  return{dx,dy,cov};
+}
+
+// Convert 2x2 covariance matrix to ellipse parameters
+function covToEllipse(cov,confidence){
+  if(!cov)return null;
+  const chi2=confidence===0.90?4.605:5.991; // 90% or 95%
+  const trace=cov.a+cov.d;
+  const det=cov.a*cov.d-cov.b*cov.c;
+  const disc=Math.sqrt(Math.max(0,trace*trace/4-det));
+  const lam1=trace/2+disc;
+  const lam2=Math.max(0,trace/2-disc);
+  const semiA=Math.sqrt(lam1*chi2);
+  const semiB=Math.sqrt(lam2*chi2);
+  // Orientation: angle of major axis from +Y (North)
+  const theta=Math.atan2(cov.b,lam1-cov.d);
+  return{semiA,semiB,theta};
 }
 
 // ══════════════════════════════════════════════════════
@@ -721,6 +1027,299 @@ let state={
   drEnabled:false,
   drCourse:0,   // degrees true
   drSpeed:6,    // knots
+  lastFixLat:null, lastFixLon:null, // last computed fix position for sky plot
+};
+let skyPlotOpen=true;
+let fixMap=null,fixMarker=null,apMarker=null,lopLayerGroup=null,ellipseLayer=null,apFixLine=null;
+const PLANET_NAMES={venus:'Venus',mars:'Mars',jupiter:'Jupiter',saturn:'Saturn'};
+const PLANET_MAGS={venus:-4.0,mars:0.0,jupiter:-2.5,saturn:0.5};
+
+// LOP plot state
+let lopPlotOpen=true;
+
+// Sky plot state
+let skyGrid='az'; // 'az' = azimuthal (alt/az), 'eq' = equatorial (RA/Dec)
+let skyShowConst=false;
+let skyZoom=1, skyPanX=0, skyPanY=0; // zoom level + pan offset in pixels
+let skyDragging=false, skyDragStartX=0, skyDragStartY=0, skyPanStartX=0, skyPanStartY=0;
+
+// Auxiliary stars for constellation stick figures (not in 58-star nav catalog)
+// J2000.0 positions: SHA = 360 - RA(deg), Dec in degrees
+const AUX_STARS=[
+  // ── Orion ──
+  {n:'Saiph',sha:283.5,dec:-9.7,mag:2.1},      // κ Ori
+  {n:'Mintaka',sha:278.1,dec:-0.3,mag:2.2},      // δ Ori
+  {n:'Alnitak',sha:275.8,dec:-1.9,mag:1.7},      // ζ Ori
+  // ── Ursa Major (Big Dipper) ──
+  {n:'Merak',sha:194.5,dec:56.4,mag:2.4},        // β UMa
+  {n:'Phecda',sha:184.0,dec:53.7,mag:2.4},       // γ UMa
+  {n:'Megrez',sha:176.5,dec:57.0,mag:3.3},       // δ UMa
+  {n:'Mizar',sha:159.1,dec:54.9,mag:2.3},        // ζ UMa
+  // ── Ursa Minor (Little Dipper) ──
+  {n:'Pherkad',sha:131.1,dec:71.8,mag:3.0},      // γ UMi
+  {n:'Yildun',sha:112.8,dec:86.6,mag:4.4},       // δ UMi
+  {n:'UMi-ε',sha:111.4,dec:82.0,mag:4.2},        // ε UMi
+  {n:'UMi-ζ',sha:103.3,dec:77.8,mag:4.3},        // ζ UMi
+  {n:'UMi-η',sha:126.0,dec:75.8,mag:5.0},        // η UMi
+  // ── Cassiopeia ──
+  {n:'Caph',sha:357.2,dec:59.2,mag:2.3},         // β Cas
+  {n:'Cih',sha:350.5,dec:60.7,mag:2.5},          // γ Cas
+  {n:'Ruchbah',sha:344.1,dec:60.2,mag:2.7},      // δ Cas
+  {n:'Segin',sha:340.1,dec:63.7,mag:3.4},        // ε Cas
+  // ── Draco ──
+  {n:'Thuban',sha:148.8,dec:64.4,mag:3.7},       // α Dra
+  {n:'Rastaban',sha:107.3,dec:52.3,mag:2.8},     // β Dra
+  {n:'Grumium',sha:92.8,dec:56.9,mag:3.7},       // ξ Dra
+  {n:'Edasich',sha:128.3,dec:59.0,mag:3.3},      // ι Dra
+  {n:'Dra-δ',sha:109.4,dec:67.7,mag:3.1},        // δ Dra
+  {n:'Dra-ζ',sha:103.1,dec:65.7,mag:3.2},        // ζ Dra
+  {n:'Dra-η',sha:94.6,dec:61.5,mag:2.7},         // η Dra
+  {n:'Dra-θ',sha:93.0,dec:58.6,mag:4.0},         // θ Dra
+  {n:'Dra-κ',sha:144.1,dec:69.8,mag:3.9},        // κ Dra
+  // ── Scorpius ──
+  {n:'Dschubba',sha:122.9,dec:-22.6,mag:2.3},    // δ Sco
+  {n:'Acrab',sha:124.7,dec:-19.8,mag:2.6},       // β Sco
+  {n:'Sargas',sha:93.5,dec:-43.0,mag:1.9},       // θ Sco
+  {n:'Lesath',sha:96.2,dec:-37.3,mag:2.7},       // υ Sco
+  {n:'Epsilon Sco',sha:106.8,dec:-34.3,mag:2.3}, // ε Sco
+  // ── Gemini ──
+  {n:'Castor',sha:246.4,dec:31.9,mag:1.6},       // α Gem
+  {n:'Alhena',sha:261.0,dec:16.4,mag:1.9},       // γ Gem
+  {n:'Wasat',sha:250.1,dec:22.0,mag:3.5},        // δ Gem
+  {n:'Mebsuta',sha:256.0,dec:25.1,mag:3.1},      // ε Gem
+  {n:'Tejat',sha:262.1,dec:22.5,mag:3.0},        // μ Gem
+  // ── Cygnus (Northern Cross) ──
+  {n:'Sadr',sha:54.6,dec:40.3,mag:2.2},          // γ Cyg
+  {n:'Gienah Cyg',sha:59.2,dec:33.9,mag:2.5},    // ε Cyg
+  {n:'Albireo',sha:67.1,dec:27.9,mag:3.1},       // β Cyg
+  // ── Lyra ──
+  {n:'Sheliak',sha:75.4,dec:33.4,mag:3.5},       // β Lyr
+  {n:'Sulafat',sha:73.3,dec:32.7,mag:3.3},       // γ Lyr
+  {n:'Lyr-δ2',sha:77.4,dec:36.9,mag:4.2},       // δ² Lyr
+  {n:'Lyr-ζ',sha:74.2,dec:37.3,mag:4.4},        // ζ Lyr
+  // ── Canis Minor ──
+  {n:'Gomeisa',sha:243.6,dec:8.3,mag:2.9},       // β CMi
+  // ── Leo ──
+  {n:'Algieba',sha:202.2,dec:19.8,mag:2.1},      // γ Leo
+  {n:'Zosma',sha:186.8,dec:20.5,mag:2.6},        // δ Leo
+  // ── Virgo ──
+  {n:'Porrima',sha:169.6,dec:-1.4,mag:2.7},      // γ Vir
+  {n:'Vindemiatrix',sha:141.0,dec:10.9,mag:2.8},  // ε Vir
+  // ── Boötes ──
+  {n:'Izar',sha:138.5,dec:27.1,mag:2.4},         // ε Boo
+  {n:'Muphrid',sha:148.2,dec:18.4,mag:2.7},      // η Boo
+  // ── Aquila ──
+  {n:'Tarazed',sha:61.1,dec:10.6,mag:2.7},       // γ Aql
+  {n:'Alshain',sha:63.6,dec:6.4,mag:3.7},        // β Aql
+  // ── Perseus ──
+  {n:'Algol',sha:309.0,dec:40.9,mag:2.1},        // β Per
+  {n:'Per-δ',sha:314.4,dec:47.8,mag:3.0},        // δ Per
+  {n:'Per-ε',sha:315.6,dec:40.0,mag:2.9},        // ε Per
+  // ── Auriga ──
+  {n:'Menkalinan',sha:277.1,dec:44.9,mag:1.9},   // β Aur
+  {n:'Aur-θ',sha:270.3,dec:37.2,mag:2.6},        // θ Aur
+  // ── Sagittarius (Teapot) ──
+  {n:'Ascella',sha:76.6,dec:-29.9,mag:2.6},      // ζ Sgr
+  {n:'Kaus Med.',sha:80.3,dec:-29.8,mag:2.7},    // δ Sgr
+  {n:'Kaus Bor.',sha:84.3,dec:-25.4,mag:2.8},    // λ Sgr
+  {n:'Sgr-φ',sha:79.4,dec:-27.0,mag:3.2},        // φ Sgr
+  // ── Pegasus ──
+  {n:'Scheat',sha:15.5,dec:28.1,mag:2.4},        // β Peg
+  {n:'Algenib',sha:357.5,dec:15.2,mag:2.8},      // γ Peg
+  // ── Andromeda ──
+  {n:'Mirach',sha:349.6,dec:35.6,mag:2.1},       // β And
+  {n:'Almach',sha:340.6,dec:42.3,mag:2.1},       // γ And
+  // ── Crux (Southern Cross) ──
+  {n:'Mimosa',sha:168.3,dec:-59.7,mag:1.3},      // β Cru
+  {n:'δ Cru',sha:174.4,dec:-58.7,mag:2.8},       // δ Cru
+  // ── Triangulum Australe ──
+  {n:'TrA-β',sha:111.5,dec:-63.4,mag:2.9},       // β TrA
+  {n:'TrA-γ',sha:106.2,dec:-68.7,mag:2.9},       // γ TrA
+  // ── Corvus ──
+  {n:'Kraz',sha:178.5,dec:-23.4,mag:2.6},        // β Crv
+  {n:'Algorab',sha:172.5,dec:-16.5,mag:2.9},     // δ Crv
+  {n:'Minkar',sha:181.8,dec:-22.6,mag:3.0},      // ε Crv
+  // ── Aries ──
+  {n:'Sheratan',sha:331.4,dec:20.8,mag:2.6},     // β Ari
+  // ── Grus ──
+  {n:'Gru-β',sha:19.4,dec:-46.9,mag:2.1},        // β Gru
+  // ── Libra ──
+  {n:'Zubenesc.',sha:130.8,dec:-9.4,mag:2.6},    // β Lib
+  // ── Phoenix ──
+  {n:'Phe-β',sha:343.5,dec:-46.7,mag:3.3},       // β Phe
+  // ── Pavo ──
+  {n:'Pav-β',sha:48.8,dec:-66.2,mag:3.4},        // β Pav
+  // ── Corona Borealis ──
+  {n:'Nusakan',sha:128.1,dec:29.1,mag:3.7},      // β CrB
+  // ── Vela ──
+  {n:'Vel-δ',sha:216.1,dec:-54.7,mag:1.9},       // δ Vel
+  {n:'Vel-κ',sha:220.0,dec:-55.0,mag:2.5},       // κ Vel
+  // ── Canis Major ──
+  {n:'Wezen',sha:252.8,dec:-26.4,mag:1.8},       // δ CMa
+  {n:'Aludra',sha:248.0,dec:-29.3,mag:2.4},      // η CMa
+  // ── Ophiuchus ──
+  {n:'Cebalrai',sha:94.5,dec:4.6,mag:2.8},       // β Oph
+  {n:'Yed Prior',sha:108.2,dec:-3.7,mag:2.7},    // δ Oph
+  // ── Taurus (Hyades V) ──
+  {n:'Tau-ζ',sha:295.9,dec:21.1,mag:3.0},        // ζ Tau (tip of south horn)
+  // ── Centaurus ──
+  {n:'Cen-ε',sha:143.5,dec:-53.5,mag:2.3},       // ε Cen
+  // ── Eridanus (key waypoints) ──
+  {n:'Zaurak',sha:304.3,dec:-13.5,mag:2.9},      // γ Eri
+  {n:'Eri-δ',sha:308.9,dec:-9.8,mag:3.5},        // δ Eri
+  // ── Hydra ──
+  {n:'Hya-γ',sha:222.1,dec:-23.3,mag:3.0},       // γ Hya
+  // ── Piscis Austrinus ──
+  {n:'PsA-ε',sha:18.6,dec:-27.0,mag:4.2},        // ε PsA
+  // ── Cetus ──
+  {n:'Mira',sha:326.5,dec:-3.0,mag:2.0},         // ο Cet (Mira, variable)
+];
+// ═══════════════════════════════════════════════════
+//  CONSTELLATION STICK FIGURES
+//  Each line connects two stars by name (from STARS or AUX_STARS)
+//  Stars ONLY connect within their own constellation
+// ═══════════════════════════════════════════════════
+const CONSTELLATIONS={
+  // ── Orion (the Hunter) ──
+  'Orion':[
+    ['Betelgeuse','Bellatrix'],                    // shoulders
+    ['Betelgeuse','Alnilam'],['Bellatrix','Alnilam'], // shoulders to belt center
+    ['Mintaka','Alnilam'],['Alnilam','Alnitak'],   // belt
+    ['Rigel','Saiph'],                             // feet
+    ['Bellatrix','Rigel'],['Betelgeuse','Saiph'],  // torso sides
+  ],
+  // ── Ursa Major (Big Dipper / Plough) ──
+  'UMa':[
+    ['Dubhe','Merak'],['Merak','Phecda'],['Phecda','Megrez'],['Megrez','Dubhe'], // bowl
+    ['Megrez','Alioth'],['Alioth','Mizar'],['Mizar','Alkaid'],                   // handle
+  ],
+  // ── Ursa Minor (Little Dipper) ──
+  'UMi':[
+    ['Polaris','Yildun'],['Yildun','UMi-ε'],['UMi-ε','UMi-ζ'],['UMi-ζ','Kochab'], // handle + bowl side
+    ['Kochab','Pherkad'],['Pherkad','UMi-η'],['UMi-η','UMi-ζ'],                    // bowl
+  ],
+  // ── Cassiopeia (the W) ──
+  'Cassiopeia':[
+    ['Segin','Ruchbah'],['Ruchbah','Cih'],['Cih','Schedar'],['Schedar','Caph'],
+  ],
+  // ── Draco (the Dragon) ──
+  'Draco':[
+    ['Eltanin','Rastaban'],['Rastaban','Grumium'],['Grumium','Dra-θ'],  // head lozenge
+    ['Dra-θ','Eltanin'],
+    ['Eltanin','Dra-η'],['Dra-η','Dra-ζ'],       // neck
+    ['Dra-ζ','Dra-δ'],['Dra-δ','Edasich'],        // body
+    ['Edasich','Dra-κ'],['Dra-κ','Thuban'],        // tail
+  ],
+  // ── Scorpius (the Scorpion) ──
+  'Scorpius':[
+    ['Acrab','Dschubba'],['Dschubba','Antares'],   // head to heart
+    ['Antares','Epsilon Sco'],['Epsilon Sco','Shaula'], // body to stinger
+    ['Shaula','Lesath'],                            // stinger pair
+    ['Epsilon Sco','Sargas'],                       // tail fork
+  ],
+  // ── Crux (Southern Cross) ──
+  'Crux':[['Acrux','Gacrux'],['Mimosa','δ Cru']],
+  // ── Centaurus ──
+  'Centaurus':[
+    ['Rigil Kent','Hadar'],['Hadar','Cen-ε'],['Hadar','Menkent'],
+  ],
+  // ── Canis Major (Great Dog) ──
+  'CMa':[
+    ['Sirius','Wezen'],['Wezen','Adhara'],['Wezen','Aludra'],
+  ],
+  // ── Leo (the Lion) ──
+  'Leo':[
+    ['Regulus','Algieba'],['Algieba','Zosma'],['Zosma','Denebola'],
+  ],
+  // ── Gemini (the Twins) ──
+  'Gemini':[
+    ['Castor','Pollux'],                            // heads
+    ['Castor','Mebsuta'],['Mebsuta','Tejat'],      // Castor's body
+    ['Pollux','Wasat'],['Wasat','Alhena'],          // Pollux's body
+  ],
+  // ── Sagittarius (Teapot) ──
+  'Sagittarius':[
+    ['Kaus Aus.','Kaus Med.'],['Kaus Med.','Kaus Bor.'],  // bow (left side)
+    ['Kaus Bor.','Sgr-φ'],['Sgr-φ','Nunki'],              // lid
+    ['Nunki','Ascella'],['Ascella','Kaus Aus.'],           // base + handle
+    ['Kaus Med.','Sgr-φ'],                                 // cross-brace
+  ],
+  // ── Taurus (the Bull) ──
+  'Taurus':[
+    ['Aldebaran','Elnath'],['Aldebaran','Tau-ζ'],  // horns from face
+  ],
+  // ── Carina (Ship's Keel) ──
+  'Carina':[['Canopus','Avior'],['Avior','Miaplacidus']],
+  // ── Vela (Ship's Sails) ──
+  'Vela':[['Suhail','Vel-δ'],['Vel-δ','Vel-κ']],
+  // ── Cygnus (Northern Cross / Swan) ──
+  'Cygnus':[
+    ['Deneb','Sadr'],['Sadr','Albireo'],           // body (long axis)
+    ['Gienah Cyg','Sadr'],                         // wing (half cross)
+  ],
+  // ── Lyra (the Lyre) ──
+  'Lyra':[
+    ['Vega','Lyr-ζ'],['Vega','Lyr-δ2'],           // top V
+    ['Lyr-ζ','Sheliak'],['Lyr-δ2','Sulafat'],     // sides
+    ['Sheliak','Sulafat'],                          // bottom
+  ],
+  // ── Pegasus (Great Square + head) ──
+  'Pegasus':[
+    ['Markab','Scheat'],['Scheat','Alpheratz'],['Alpheratz','Algenib'],['Algenib','Markab'], // Great Square
+    ['Markab','Enif'],                             // neck/head
+  ],
+  // ── Andromeda ──
+  'Andromeda':[['Alpheratz','Mirach'],['Mirach','Almach']],
+  // ── Eridanus (the River) ──
+  'Eridanus':[
+    ['Zaurak','Eri-δ'],['Eri-δ','Acamar'],['Acamar','Achernar'],
+  ],
+  // ── Ophiuchus (Serpent Bearer) ──
+  'Ophiuchus':[
+    ['Rasalhague','Cebalrai'],['Rasalhague','Yed Prior'],['Yed Prior','Sabik'],
+  ],
+  // ── Cetus (the Whale) ──
+  'Cetus':[['Menkar','Mira'],['Mira','Diphda']],
+  // ── Boötes (the Herdsman) ──
+  'Boötes':[['Arcturus','Izar'],['Arcturus','Muphrid']],
+  // ── Aquila (the Eagle) ──
+  'Aquila':[['Tarazed','Altair'],['Altair','Alshain']],
+  // ── Auriga (the Charioteer) ──
+  'Auriga':[
+    ['Capella','Menkalinan'],['Capella','Aur-θ'],['Aur-θ','Menkalinan'],
+  ],
+  // ── Perseus ──
+  'Perseus':[['Mirfak','Algol'],['Mirfak','Per-δ'],['Mirfak','Per-ε']],
+  // ── Triangulum Australe ──
+  'TrA':[['Atria','TrA-β'],['TrA-β','TrA-γ'],['TrA-γ','Atria']],
+  // ── Corvus (the Crow) ──
+  'Corvus':[['Gienah','Algorab'],['Algorab','Minkar'],['Minkar','Kraz'],['Kraz','Gienah']],
+  // ── Canis Minor ──
+  'CMi':[['Procyon','Gomeisa']],
+  // ── Aries (the Ram) ──
+  'Aries':[['Hamal','Sheratan']],
+  // ── Grus (the Crane) ──
+  'Grus':[['Alnair','Gru-β']],
+  // ── Libra (the Scales) ──
+  'Libra':[['Zubenelg.','Zubenesc.']],
+  // ── Virgo ──
+  'Virgo':[['Spica','Porrima'],['Porrima','Vindemiatrix']],
+  // ── Phoenix ──
+  'Phoenix':[['Ankaa','Phe-β']],
+  // ── Pavo (the Peacock) ──
+  'Pavo':[['Peacock','Pav-β']],
+  // ── Corona Borealis (Northern Crown) ──
+  'CrB':[['Alphecca','Nusakan']],
+  // ── Hydra (head region only) ──
+  'Hydra':[['Alphard','Hya-γ']],
+  // ── Piscis Austrinus ──
+  'PsA':[['Fomalhaut','PsA-ε']],
+};
+// Navigational asterisms (not true constellations but useful for orientation)
+const ASTERISMS={
+  'Summer \u25b3':[['Vega','Deneb'],['Deneb','Altair'],['Altair','Vega']],
+  'Winter \u25b3':[['Betelgeuse','Sirius'],['Sirius','Procyon'],['Procyon','Betelgeuse']],
+  'Pointers':[['Dubhe','Polaris']],
 };
 
 // ══════════════════════════════════════════════════════
@@ -736,6 +1335,7 @@ let state={
     {val:'mars',   lbl:'Mars \u2642'},
     {val:'jupiter',lbl:'Jupiter \u2643'},
     {val:'saturn', lbl:'Saturn \u2644'},
+    {val:'moon',   lbl:'Moon \u263D'},
   ];
   bodies.forEach(b=>{
     const o=document.createElement('option');
@@ -748,7 +1348,7 @@ let state={
   sel.appendChild(sepOpt);
   STARS.forEach((s,i)=>{
     const o=document.createElement('option');
-    o.value=i;o.textContent=s.n+(s.mag<=1.5?' \u2605':'');
+    o.value=i;o.textContent=s.n;
     sel.appendChild(o);
   });
   // Set default AP to London (51°30'N, 0°7'W)
@@ -764,11 +1364,16 @@ let state={
   document.getElementById('utcIn').value=
     `${now.getUTCFullYear()}-${pad(now.getUTCMonth()+1)}-${pad(now.getUTCDate())}T${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}`;
   document.getElementById('utcSec').value=now.getUTCSeconds();
-  // Live clock
+  // Live clock — start active
+  document.getElementById('liveUtc').classList.add('active');
   setInterval(updateClock,1000);
   updateClock();
+  // Uncheck live UTC when user manually edits time
+  ['utcIn','utcSec'].forEach(id=>{
+    document.getElementById(id).addEventListener('input',()=>{document.getElementById('liveUtc').classList.remove('active');});
+  });
   // Recalculate on AP change
-  ['apLatD','apLatM','apLatH','apLonD','apLonM','apLonH'].forEach(id=>{
+  ['apLatD','apLatM','apLonD','apLonM'].forEach(id=>{
     document.getElementById(id).addEventListener('input',recalcAP);
     document.getElementById(id).addEventListener('change',recalcAP);
   });
@@ -788,7 +1393,97 @@ let state={
   // Set up HiDPI canvas and pan/zoom
   initPlot();
   drawPlot();
+  drawSkyPlot();
+  initSkyPlotInteraction();
+  // Sync dir-toggle buttons BEFORE autoRestore so restored values use the custom setter
+  document.querySelectorAll('.dir-toggle').forEach(btn=>{
+    let _val=btn.getAttribute('value')||btn.textContent;
+    Object.defineProperty(btn,'value',{
+      get(){return _val;},
+      set(v){_val=v;btn.textContent=v;}
+    });
+  });
+  // Restore previous session after initial paint
+  setTimeout(autoRestore,50);
 })();
+
+function toggleDir(btn,a,b){
+  const cur=btn.value;
+  btn.value=(cur===a)?b:a;
+  btn.textContent=btn.value;
+  recalcAP();
+}
+
+// ─── SKY PLOT CONTROLS ───
+function setSkyGrid(mode){
+  skyGrid=mode;
+  document.getElementById('skyGridAz').classList.toggle('active',mode==='az');
+  document.getElementById('skyGridEq').classList.toggle('active',mode==='eq');
+  drawSkyPlot();
+}
+function toggleConstellations(){
+  skyShowConst=!skyShowConst;
+  document.getElementById('skyConst').classList.toggle('active',skyShowConst);
+  drawSkyPlot();
+}
+function initSkyPlotInteraction(){
+  const cv=document.getElementById('skyPlot');
+  if(!cv)return;
+  cv.addEventListener('wheel',e=>{
+    e.preventDefault();
+    const oldZoom=skyZoom;
+    const factor=e.deltaY<0?1.15:1/1.15;
+    skyZoom=Math.max(0.5,Math.min(8,skyZoom*factor));
+    // Scale pan to keep content centered
+    skyPanX=skyPanX*skyZoom/oldZoom;
+    skyPanY=skyPanY*skyZoom/oldZoom;
+    drawSkyPlot();
+  },{passive:false});
+  cv.addEventListener('mousedown',e=>{
+    skyDragging=true;skyDragStartX=e.clientX;skyDragStartY=e.clientY;
+    skyPanStartX=skyPanX;skyPanStartY=skyPanY;
+  });
+  cv.addEventListener('mousemove',e=>{
+    if(!skyDragging)return;
+    skyPanX=skyPanStartX+(e.clientX-skyDragStartX);
+    skyPanY=skyPanStartY+(e.clientY-skyDragStartY);
+    drawSkyPlot();
+  });
+  cv.addEventListener('mouseup',()=>{skyDragging=false;});
+  cv.addEventListener('mouseleave',()=>{skyDragging=false;});
+  cv.addEventListener('dblclick',()=>{skyZoom=1;skyPanX=0;skyPanY=0;drawSkyPlot();});
+  // Touch support
+  let lastTouchDist=0;
+  cv.addEventListener('touchstart',e=>{
+    if(e.touches.length===1){
+      skyDragging=true;skyDragStartX=e.touches[0].clientX;skyDragStartY=e.touches[0].clientY;
+      skyPanStartX=skyPanX;skyPanStartY=skyPanY;
+    }
+    if(e.touches.length===2){
+      const dx=e.touches[0].clientX-e.touches[1].clientX;
+      const dy=e.touches[0].clientY-e.touches[1].clientY;
+      lastTouchDist=Math.sqrt(dx*dx+dy*dy);
+    }
+  },{passive:true});
+  cv.addEventListener('touchmove',e=>{
+    if(e.touches.length===1&&skyDragging){
+      skyPanX=skyPanStartX+(e.touches[0].clientX-skyDragStartX);
+      skyPanY=skyPanStartY+(e.touches[0].clientY-skyDragStartY);
+      drawSkyPlot();
+    }
+    if(e.touches.length===2){
+      const dx=e.touches[0].clientX-e.touches[1].clientX;
+      const dy=e.touches[0].clientY-e.touches[1].clientY;
+      const dist=Math.sqrt(dx*dx+dy*dy);
+      if(lastTouchDist>0){
+        skyZoom=Math.max(0.5,Math.min(8,skyZoom*dist/lastTouchDist));
+      }
+      lastTouchDist=dist;
+      drawSkyPlot();
+    }
+  },{passive:true});
+  cv.addEventListener('touchend',()=>{skyDragging=false;lastTouchDist=0;});
+}
 
 function initPlot(){
   const cv=document.getElementById('plot');
@@ -875,6 +1570,9 @@ function getPlotScale(){
   return Math.min(W/2,H/2)*0.8/maxA*state.plotZoom;
 }
 
+function toggleLive(){
+  document.getElementById('liveUtc').classList.toggle('active');
+}
 function updateClock(){
   const n=new Date();
   const p=x=>String(x).padStart(2,'0');
@@ -882,6 +1580,12 @@ function updateClock(){
     `${p(n.getUTCHours())}:${p(n.getUTCMinutes())}:${p(n.getUTCSeconds())} UTC`;
   document.getElementById('dateDisp').textContent=
     n.toUTCString().slice(0,16).toUpperCase();
+  // Update sight entry UTC if live mode is on
+  if(document.getElementById('liveUtc').classList.contains('active')){
+    document.getElementById('utcIn').value=
+      `${n.getUTCFullYear()}-${p(n.getUTCMonth()+1)}-${p(n.getUTCDate())}T${p(n.getUTCHours())}:${p(n.getUTCMinutes())}`;
+    document.getElementById('utcSec').value=n.getUTCSeconds();
+  }
 }
 
 // ══════════════════════════════════════════════════════
@@ -944,8 +1648,6 @@ function readUTC(){
   return d;
 }
 
-const PLANET_NAMES={venus:'Venus',mars:'Mars',jupiter:'Jupiter',saturn:'Saturn'};
-const PLANET_MAGS={venus:-4.0,mars:0.0,jupiter:-2.5,saturn:0.5};
 
 function readStar(){
   const v=document.getElementById('starSel').value;
@@ -955,12 +1657,23 @@ function readStar(){
     const sun=solarPosition(utc);
     return{n:'Sun',sha:sun.sha,dec:sun.dec,mag:-26.7,isBody:true,bodyType:'sun'};
   }
+  if(v==='moon'){
+    const utc=readUTC();
+    const moon=moonPosition(utc);
+    return{n:'Moon',sha:moon.sha,dec:moon.dec,mag:-12.6,isBody:true,bodyType:'moon',HP:moon.HP,SD:moon.SD};
+  }
   if(PLANET_NAMES[v]){
     const utc=readUTC();
     const pos=planetPosition(PLANET_NAMES[v],utc);
     return{n:PLANET_NAMES[v],sha:pos.sha,dec:pos.dec,mag:PLANET_MAGS[v],isBody:true,bodyType:v};
   }
   return STARS[parseInt(v)];
+}
+
+function onBodyChange(){
+  const v=document.getElementById('starSel').value;
+  const show=v==='moon'||v==='sun';
+  document.getElementById('limbRow').classList.toggle('hidden',!show);
 }
 
 function getIE(){return parseFloat(document.getElementById('ie').value)||0;}
@@ -980,8 +1693,25 @@ function addSight(){
 
   if(isNaN(hs)||hs<-90||hs>90){showMsg('Invalid Hs \u2014 enter degrees and minutes','st-err');return;}
 
-  const {ho,dipC,refC,ha}=correct(hs,ie,hoe);
-  const sight={id:state.nextId++,mode,utc,hs,ho,ie,hoe,dipC,refC,ha};
+  // Read body first to check for Moon/Sun limb+parallax
+  let bodyHP=0, bodySD=0, bodyType=null, limb='center';
+  if(mode==='intercept'||mode==='transit'){
+    const star=readStar();
+    if(star&&star.isBody){
+      bodyType=star.bodyType;
+      if(bodyType==='moon'){
+        bodyHP=star.HP; bodySD=star.SD;
+        limb=document.getElementById('limbSel').value;
+      }else if(bodyType==='sun'){
+        // Sun HP ~0.15', SD ~16'
+        bodyHP=0.15; bodySD=16.0;
+        limb=document.getElementById('limbSel').value;
+      }
+    }
+  }
+
+  const {ho,dipC,refC,ha,parC,sdC}=correct(hs,ie,hoe,bodyType,bodyHP,bodySD,limb);
+  const sight={id:state.nextId++,mode,utc,hs,ho,ie,hoe,dipC,refC,ha,parC:parC||0,sdC:sdC||0,limb};
 
   if(mode==='polaris'){
     const lon=readPolLon();
@@ -1035,7 +1765,7 @@ function addSight(){
 // ══════════════════════════════════════════════════════
 //  RENDER ALL
 // ══════════════════════════════════════════════════════
-function render(){renderLog();renderFix();drawPlot();}
+function render(){renderLog();renderFix();drawPlot();drawSkyPlot();autoSave();}
 
 // ─── FORMAT HELPERS ───
 function fmtDeg(d,frac=1){
@@ -1082,7 +1812,8 @@ function renderLog(){
     html+=`<tr onclick="selectSight(${s.id})" style="cursor:pointer" ${active}>`;
     html+=`<td><span class="star-dot" style="background:${c}"></span>${s.id}</td>`;
     // Mode badge
-    if(s.mode==='intercept') html+=`<td><span class="badge b-int">INT</span></td>`;
+    if(s.isAverage) html+=`<td><span class="badge b-avg">AVG</span></td>`;
+    else if(s.mode==='intercept') html+=`<td><span class="badge b-int">INT</span></td>`;
     else if(s.mode==='polaris') html+=`<td><span class="badge b-pol">POL</span></td>`;
     else html+=`<td><span class="badge b-trs">TRS</span></td>`;
     html+=`<td>${s.star?s.star.n:'Polaris'}</td>`;
@@ -1109,6 +1840,17 @@ function renderLog(){
     html+='</tr>';
   });
   html+='</tbody></table>';
+
+  // Averaging prompts
+  const avgGroups=getAverageableGroups();
+  if(avgGroups.length){
+    html+='<div class="avg-prompt">';
+    avgGroups.forEach(([name,sights])=>{
+      html+=`<span>${sights.length}\u00d7 ${name}</span><button class="btn btn-ghost btn-sm" onclick="averageGroup('${name.replace(/'/g,"\\'")}')">AVERAGE</button>`;
+    });
+    html+='</div>';
+  }
+
   body.innerHTML=html;
 }
 
@@ -1162,6 +1904,8 @@ function renderFix(){
     if(copSights.length===2) html+=`<div style="color:var(--acc)">\u26a0 2-sight fix is ambiguous \u2014 add a 3rd sight</div>`;
     html+=`</div>`;
     out.innerHTML=html;
+    // Store fix for sky plot reference
+    state.lastFixLat=fix.lat;state.lastFixLon=fix.lon;
     // Update map
     updateFixMap(fix.lat,fix.lon,null,null);
     // Store direct fix for LOP plot
@@ -1222,7 +1966,8 @@ function renderFix(){
     if(apRef&&lsLat!==null){
       const dx=(lsLon-apRef.lon)*60*Math.cos(apRef.lat*R);
       const dy=(lsLat-apRef.lat)*60;
-      html+=`<div>Offset from AP: <span>${Math.abs(dx).toFixed(1)} nm ${dx>=0?'E':'W'}, ${Math.abs(dy).toFixed(1)} nm ${dy>=0?'N':'S'}</span></div>`;
+      const dist=Math.sqrt(dx*dx+dy*dy);
+      html+=`<div>Offset from AP: <span>${Math.abs(dx).toFixed(1)} nm ${dx>=0?'E':'W'}, ${Math.abs(dy).toFixed(1)} nm ${dy>=0?'N':'S'} (${dist.toFixed(1)} nm)</span></div>`;
     }
   }
   // LS residual quality
@@ -1249,8 +1994,26 @@ function renderFix(){
     const quality=spread>=240?'\u2726 Excellent':spread>=180?'\u2713 Good':spread>=120?'\u25b3 Fair':'\u26a0 Poor \u2014 add spread';
     html+=`<div>Azimuth spread: <span>${spread.toFixed(0)}\u00b0 \u2014 ${quality}</span></div>`;
   }
+  // Confidence ellipse info
+  if(iSightsWithAP.length>=2&&lsLat!==null){
+    const drOn2=state.drEnabled&&state.drSpeed>0;
+    const useSights2=drOn2?advanceLops(iSightsWithAP,state.drCourse,state.drSpeed):iSightsWithAP;
+    const lops2=useSights2.map(s=>({intercept:s.intercept,azimuth:s.Zn}));
+    const fix2=lsFix(lops2);
+    if(fix2.cov){
+      const ell=covToEllipse(fix2.cov,0.95);
+      if(ell&&ell.semiA>0.01){
+        const bearing=mod360(ell.theta*D);
+        html+=`<div>95% Confidence: <span>${ell.semiA.toFixed(1)} \u00d7 ${ell.semiB.toFixed(1)} nm (${bearing.toFixed(0)}\u00b0)</span></div>`;
+        // Draw ellipse on map
+        drawMapEllipse(lsLat,lsLon,ell);
+      }
+    }
+  }
   html+=`</div>`;
   out.innerHTML=html;
+  // Store fix for sky plot reference
+  state.lastFixLat=fixLat;state.lastFixLon=fixLon;
   // Update map
   const apM=apRef||readAP();
   updateFixMap(fixLat,fixLon,apM.lat,apM.lon);
@@ -1285,21 +2048,40 @@ function showWorkings(id){
     h+=sep;
     h+=row('UTC',fmtUTC(s.utc));
     h+=row('GHA Aries',fmtDeg(s.ghaAries));
-    h+=row('GHA Star',`GHA\u2648 + SHA = ${fmtDeg(mod360(s.ghaAries+s.star.sha))}`);
-    h+=row('AP',`${fmt(s.ap.lat,'lat')}, ${fmt(s.ap.lon,'lon')}`);
-    h+=row('LHA',`GHA\u2605 + Lon = ${fmtDeg(s.lha)}`);
+    h+=row('GHA Star',`GHA Aries + SHA = ${fmtDeg(mod360(s.ghaAries+s.star.sha))}`);
+    if(s.ap){
+      h+=row('AP',`${fmt(s.ap.lat,'lat')}, ${fmt(s.ap.lon,'lon')}`);
+      h+=row('LHA',`GHA Star + Lon = ${fmtDeg(s.lha)}`);
+    }
     h+=sep;
     h+=row('Hs',fmtDeg(s.hs));
     h+=row('IE',`${s.ie>=0?'+':''}${s.ie.toFixed(1)}'`);
     h+=row('Dip',`${s.dipC.toFixed(1)}' (HoE ${s.hoe}m)`);
     h+=row('Ha (app. alt)',fmtDeg(s.ha));
     h+=row('Refraction',`${s.refC.toFixed(1)}'`);
+    if(s.parC) h+=row('Parallax',`+${s.parC.toFixed(1)}' (HP \u00d7 cos Ha)`);
+    if(s.sdC) h+=row('Semi-diameter',`${s.sdC>=0?'+':''}${s.sdC.toFixed(1)}' (${s.limb} limb)`);
     h+=row('Ho (obs. alt)',fmtDeg(s.ho,2));
-    h+=sep;
-    h+=row('Hc (calc. alt)',fmtDeg(s.Hc,2));
-    h+=row('Zn (azimuth)',`${s.Zn.toFixed(1)}\u00b0`);
-    const tw=s.intercept>=0;
-    h+=row('Intercept a',`${Math.abs(s.intercept).toFixed(1)} nm ${tw?'TOWARD':'AWAY'} ${s.Zn.toFixed(1)}\u00b0`);
+    if(s.Hc!=null){
+      h+=sep;
+      h+=row('Hc (calc. alt)',fmtDeg(s.Hc,2));
+      h+=row('Zn (azimuth)',`${s.Zn.toFixed(1)}\u00b0`);
+      const tw=s.intercept>=0;
+      h+=row('Intercept a',`${Math.abs(s.intercept).toFixed(1)} nm ${tw?'TOWARD':'AWAY'} ${s.Zn.toFixed(1)}\u00b0`);
+    }
+
+    // Averaged sight details
+    if(s.isAverage){
+      h+=sep;
+      h+=row('Averaged from',`${s.avgCount} sights of ${s.star.n}`);
+      h+=row('Source sights',s.sourceIds.map(id=>'#'+id).join(', '));
+      h+=row('Mean Ho',fmtDeg(s.ho,2));
+      h+=row('SD of Ho',`\u00b1${s.avgSD.toFixed(1)}'`);
+      const sources=s.sourceIds.map(id=>state.sights.find(x=>x.id===id)).filter(Boolean);
+      sources.forEach(src=>{
+        h+=row(`  #${src.id} Ho`,fmtDeg(src.ho,2));
+      });
+    }
 
   }else if(s.mode==='polaris'){
     h+=row('UTC',fmtUTC(s.utc));
@@ -1313,20 +2095,20 @@ function showWorkings(id){
     h+=row('Ho',fmtDeg(s.ho,2));
     h+=sep;
     h+=row('Polar dist p',"42' (2026)");
-    h+=row('a\u2080',`\u2212p\u00b7cos(LHA\u2648) = ${(-42/60*cos(s.lhaAries)*60).toFixed(1)}'`);
-    h+=row('a\u2081',"\u2248 +0.3'");
-    h+=row('a\u2082',"\u2248 +0.6' (month correction)");
-    h+=row('Latitude',`Ho + a\u2080 + a\u2081 + a\u2082 = ${fmt(s.polarisLat,'lat')}`);
+    h+=row('a0',`-p\u00b7cos(LHA Aries) = ${(-42/60*cos(s.lhaAries)*60).toFixed(1)}'`);
+    h+=row('a1',"\u2248 +0.3'");
+    h+=row('a2',"\u2248 +0.6' (month correction)");
+    h+=row('Latitude',`Ho + a0 + a1 + a2 = ${fmt(s.polarisLat,'lat')}`);
 
   }else{ // transit
     h+=row('Star',`${s.star.n}`);
     h+=row('UTC',fmtUTC(s.utc));
     h+=row('GHA Aries',fmtDeg(s.ghaAries));
     h+=row('SHA',fmtDeg(s.star.sha));
-    h+=row('GHA Star',`GHA\u2648 + SHA = ${fmtDeg(mod360(s.ghaAries+s.star.sha))}`);
+    h+=row('GHA Star',`GHA Aries + SHA = ${fmtDeg(mod360(s.ghaAries+s.star.sha))}`);
     h+=sep;
     h+=row('At transit','LHA = 0\u00b0');
-    h+=row('Longitude',`GHA\u2605 \u2192 ${fmt(s.transitLon,'lon')}`);
+    h+=row('Longitude',`GHA Star = ${fmt(s.transitLon,'lon')}`);
     h+=sep;
     h+=row('Hs',fmtDeg(s.hs));
     h+=row('Ho',fmtDeg(s.ho,2));
@@ -1489,15 +2271,37 @@ function drawPlot(){
     const fix=lsFix(lops);
     const fp=nmToPx(fix.dx,fix.dy,cx,cy,scale);
 
-    // Fix crosshair
-    ctx.strokeStyle='#c8a84b';ctx.lineWidth=2;
-    const cs=10;
-    ctx.beginPath();ctx.moveTo(fp.x-cs,fp.y);ctx.lineTo(fp.x+cs,fp.y);ctx.stroke();
-    ctx.beginPath();ctx.moveTo(fp.x,fp.y-cs);ctx.lineTo(fp.x,fp.y+cs);ctx.stroke();
-    ctx.beginPath();ctx.arc(fp.x,fp.y,cs/2,0,2*Math.PI);ctx.stroke();
+    // Fix crosshair (only show for 2+ sights — single sight is just a line, not a fix)
+    if(advSights.length>=2){
+      ctx.strokeStyle='#c8a84b';ctx.lineWidth=2;
+      const cs=10;
+      ctx.beginPath();ctx.moveTo(fp.x-cs,fp.y);ctx.lineTo(fp.x+cs,fp.y);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(fp.x,fp.y-cs);ctx.lineTo(fp.x,fp.y+cs);ctx.stroke();
+      ctx.beginPath();ctx.arc(fp.x,fp.y,cs/2,0,2*Math.PI);ctx.stroke();
 
-    ctx.fillStyle='#c8a84b';ctx.font='bold 11px "Share Tech Mono"';
-    ctx.textAlign='left';ctx.fillText('FIX',fp.x+8,fp.y-8);
+      ctx.fillStyle='#c8a84b';ctx.font='bold 11px "Share Tech Mono"';
+      ctx.textAlign='left';ctx.fillText('FIX',fp.x+8,fp.y-8);
+    }
+
+    // Confidence ellipse
+    if(fix.cov){
+      const ell=covToEllipse(fix.cov,0.95);
+      if(ell&&ell.semiA>0.1){
+        ctx.save();
+        ctx.translate(fp.x,fp.y);
+        ctx.rotate(-ell.theta); // canvas Y is inverted
+        ctx.beginPath();
+        ctx.ellipse(0,0,ell.semiA*scale,ell.semiB*scale,0,0,2*Math.PI);
+        ctx.strokeStyle='rgba(200,168,75,0.5)';
+        ctx.lineWidth=1.5;
+        ctx.setLineDash([4,4]);
+        ctx.stroke();
+        ctx.fillStyle='rgba(200,168,75,0.06)';
+        ctx.fill();
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
+    }
   }
 
   // Direct fix point (if available)
@@ -1527,6 +2331,216 @@ function drawPlot(){
   drawCompass(ctx,W-36,36,22);
 }
 
+// ─── SKY PLOT (Star Finder) ───
+function toggleLopPlot(){
+  lopPlotOpen=!lopPlotOpen;
+  document.getElementById('lopBody').style.display=lopPlotOpen?'block':'none';
+  document.getElementById('lopToggle').textContent=lopPlotOpen?'\u25be':'\u25b8';
+}
+function toggleSkyPlot(){
+  skyPlotOpen=!skyPlotOpen;
+  document.getElementById('skyBody').style.display=skyPlotOpen?'block':'none';
+  document.getElementById('skyToggle').textContent=skyPlotOpen?'\u25be':'\u25b8';
+}
+
+function drawSkyPlot(){
+  const cv=document.getElementById('skyPlot');
+  if(!cv||!skyPlotOpen)return;
+  const dpr=window.devicePixelRatio||1;
+  const rect=cv.getBoundingClientRect();
+  cv.width=rect.width*dpr;cv.height=rect.height*dpr;
+  const ctx=cv.getContext('2d');
+  ctx.scale(dpr,dpr);
+  const W=rect.width,H=rect.height,S=Math.min(W,H);
+  const cx=W/2,cy=H/2;
+  const baseRadius=S*0.42; // maps to 90° polar distance (equator)
+
+  ctx.fillStyle='#07091a';ctx.fillRect(0,0,W,H);
+
+  // Use fix position if available, otherwise AP
+  const rawAp=readAP();
+  const ap=(state.lastFixLat!=null&&state.lastFixLon!=null)
+    ?{lat:state.lastFixLat,lon:state.lastFixLon>180?state.lastFixLon-360:state.lastFixLon}
+    :rawAp;
+  const utc=readUTC();
+  const bodies=computeSky(ap.lat,ap.lon,utc);
+  const sunAlt=bodies.find(b=>b.name==='Sun')?.alt||-90;
+  const ghaA=ghaAries(utc);
+  const lst=mod360(ghaA+ap.lon);
+  const isEq=(skyGrid==='eq');
+
+  // ══ NORTH POLAR STEREOGRAPHIC — NCP (Polaris) at center ══
+  // polarDist = 90 - dec; angle = RA - LST - 90 (meridian at top, east on right)
+  function projectRaDec(ra,dec){
+    const polarDist=90-dec;
+    const r=baseRadius*skyZoom*polarDist/90;
+    const angle=(ra-lst-90)*R;
+    return{x:cx+skyPanX+r*Math.cos(angle),y:cy+skyPanY+r*Math.sin(angle)};
+  }
+  function projectBody(b){return projectRaDec(b.ra,b.dec);}
+
+  // Convert alt/az to RA/Dec for grid overlays
+  function altAzToRaDec(alt,az){
+    const altR=alt*R,azR=az*R,latR=ap.lat*R;
+    const sinDec=Math.sin(latR)*Math.sin(altR)+Math.cos(latR)*Math.cos(altR)*Math.cos(azR);
+    const dec=Math.asin(Math.max(-1,Math.min(1,sinDec)))*D;
+    const cosDec=Math.sqrt(Math.max(0,1-sinDec*sinDec));
+    if(cosDec<1e-10)return{ra:0,dec};
+    const cosH=(Math.sin(altR)-Math.sin(latR)*sinDec)/(Math.cos(latR)*cosDec);
+    const sinH=-Math.sin(azR)*Math.cos(altR)/cosDec;
+    const ha=Math.atan2(sinH,Math.max(-1,Math.min(1,cosH)))*D;
+    return{ra:mod360(lst-ha),dec};
+  }
+  function projectAltAz(alt,az){const rd=altAzToRaDec(alt,az);return projectRaDec(rd.ra,rd.dec);}
+
+  function drawCurve(pts,close){
+    if(!pts||pts.length<2)return;
+    ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);
+    for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i].x,pts[i].y);
+    if(close)ctx.closePath();ctx.stroke();
+  }
+
+  ctx.save();ctx.beginPath();ctx.rect(0,0,W,H);ctx.clip();
+
+  // Twilight background
+  if(sunAlt<0&&sunAlt>-18){
+    const tw=Math.max(0,(sunAlt+18)/18);
+    ctx.fillStyle=`rgba(30,50,90,${tw*0.15})`;
+    const hr=baseRadius*skyZoom*1.5;
+    ctx.beginPath();ctx.arc(cx+skyPanX,cy+skyPanY,hr,0,2*Math.PI);ctx.fill();
+  }
+
+  // ── EQUATORIAL GRID (natural for polar projection — circles + radials) ──
+  if(isEq){
+    ctx.strokeStyle='rgba(70,50,120,0.4)';ctx.lineWidth=0.5;
+    [75,60,45,30,15,0,-15,-30,-45,-60].forEach(dec=>{
+      const r=baseRadius*skyZoom*(90-dec)/90;
+      ctx.beginPath();ctx.arc(cx+skyPanX,cy+skyPanY,r,0,2*Math.PI);ctx.stroke();
+      const lAngle=(-lst-90)*R;
+      ctx.fillStyle='rgba(100,80,160,0.5)';ctx.font='9px "Share Tech Mono"';
+      ctx.textAlign='left';ctx.textBaseline='bottom';
+      ctx.fillText(dec+'°',cx+skyPanX+r*Math.cos(lAngle)+3,cy+skyPanY+r*Math.sin(lAngle)-2);
+    });
+    for(let h=0;h<24;h+=2){
+      const ra=h*15,angle=(ra-lst-90)*R;
+      const rMax=baseRadius*skyZoom*2;
+      ctx.strokeStyle='rgba(70,50,120,0.3)';ctx.lineWidth=0.5;
+      ctx.beginPath();ctx.moveTo(cx+skyPanX,cy+skyPanY);
+      ctx.lineTo(cx+skyPanX+rMax*Math.cos(angle),cy+skyPanY+rMax*Math.sin(angle));ctx.stroke();
+      const lr=baseRadius*skyZoom+14;
+      ctx.fillStyle='rgba(100,80,160,0.6)';ctx.font='10px "Share Tech Mono"';
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(h+'h',cx+skyPanX+lr*Math.cos(angle),cy+skyPanY+lr*Math.sin(angle));
+    }
+  }
+
+  // ── HORIZON (traced alt=0 curve through polar projection) ──
+  const hPts=[];
+  for(let i=0;i<72;i++) hPts.push(projectAltAz(0,i*5));
+  ctx.strokeStyle='rgba(100,60,20,0.7)';ctx.lineWidth=1.5;
+  drawCurve(hPts,true);
+
+  // ── AZIMUTHAL GRID (alt/az curves on polar projection) ──
+  if(!isEq){
+    [15,30,45,60,75].forEach(alt=>{
+      const pts=[];for(let i=0;i<72;i++)pts.push(projectAltAz(alt,i*5));
+      ctx.strokeStyle='rgba(26,50,88,0.5)';ctx.lineWidth=0.5;drawCurve(pts,true);
+      const lbl=projectAltAz(alt,0);
+      ctx.fillStyle='rgba(61,84,112,0.5)';ctx.font='9px "Share Tech Mono"';
+      ctx.textAlign='left';ctx.textBaseline='bottom';ctx.fillText(alt+'°',lbl.x+3,lbl.y-2);
+    });
+    const cardinals=[['N',0],['NE',45],['E',90],['SE',135],['S',180],['SW',225],['W',270],['NW',315]];
+    cardinals.forEach(([lbl,az])=>{
+      const pts=[];for(let alt=85;alt>=-5;alt-=5)pts.push(projectAltAz(alt,az));
+      ctx.strokeStyle='rgba(26,50,88,0.3)';ctx.lineWidth=0.5;drawCurve(pts,false);
+      const lp=projectAltAz(-5,az);
+      ctx.fillStyle=lbl==='N'?'#c8a84b':'rgba(61,84,112,0.7)';
+      ctx.font=lbl.length===1?'bold 12px "Share Tech Mono"':'10px "Share Tech Mono"';
+      ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(lbl,lp.x,lp.y);
+    });
+    const zenP=projectAltAz(90,0);
+    ctx.fillStyle='rgba(200,168,75,0.4)';ctx.beginPath();ctx.arc(zenP.x,zenP.y,2,0,2*Math.PI);ctx.fill();
+    ctx.fillStyle='rgba(61,84,112,0.6)';ctx.font='9px "Share Tech Mono"';
+    ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText('zenith',zenP.x,zenP.y+4);
+  }
+
+  // NCP marker
+  const ncpP=projectRaDec(0,90);
+  ctx.fillStyle='rgba(200,168,75,0.4)';ctx.beginPath();ctx.arc(ncpP.x,ncpP.y,2,0,2*Math.PI);ctx.fill();
+
+  // ── SUGGESTED STARS ──
+  const suggested=suggestStars(bodies);
+  const sugNames=new Set(suggested.map(s=>s.name));
+
+  // ── CONSTELLATIONS + ASTERISMS ──
+  if(skyShowConst){
+    const posMap={};bodies.forEach(b=>{posMap[b.name]=projectBody(b);});
+    [CONSTELLATIONS,ASTERISMS].forEach((dict,di)=>{
+      ctx.strokeStyle=di===0?'rgba(80,100,140,0.35)':'rgba(120,100,60,0.3)';
+      ctx.lineWidth=di===0?0.8:0.6;
+      if(di===1)ctx.setLineDash([4,4]);
+      Object.entries(dict).forEach(([name,lines])=>{
+        lines.forEach(([s1,s2])=>{
+          const p1=posMap[s1],p2=posMap[s2];
+          if(p1&&p2){ctx.beginPath();ctx.moveTo(p1.x,p1.y);ctx.lineTo(p2.x,p2.y);ctx.stroke();}
+        });
+        const pts=[];lines.flat().forEach(s=>{if(posMap[s])pts.push(posMap[s]);});
+        if(pts.length>=2){
+          const mx=pts.reduce((a,p)=>a+p.x,0)/pts.length;
+          const my=pts.reduce((a,p)=>a+p.y,0)/pts.length;
+          ctx.fillStyle=di===0?'rgba(80,100,140,0.4)':'rgba(120,100,60,0.35)';
+          ctx.font='italic 8px "Crimson Pro"';ctx.textAlign='center';ctx.textBaseline='bottom';
+          ctx.fillText(name,mx,my-6);
+        }
+      });
+      if(di===1)ctx.setLineDash([]);
+    });
+  }
+
+  // ── PLOT BODIES ──
+  bodies.sort((a,b)=>b.mag-a.mag);
+  bodies.forEach(b=>{
+    const p=projectBody(b);
+    if(p.x<-100||p.x>W+100||p.y<-100||p.y>H+100)return;
+    const isAux=(b.type==='aux');
+    const dotR=isAux
+      ?Math.max(0.8,Math.min(3,3-b.mag*0.4))*Math.min(skyZoom*0.5+0.5,1.2)
+      :Math.max(1.5,Math.min(6,4-b.mag*0.6))*Math.min(skyZoom*0.5+0.5,1.5);
+    let color=isAux?'rgba(160,155,140,0.6)':'rgba(220,215,200,0.9)';
+    if(b.type==='sun')color='#c8a84b';
+    else if(b.type==='planet')color='#f97316';
+    else if(b.type==='moon')color='#b8c4d0';
+    if(b.alt<0)color=isAux?'rgba(60,50,40,0.25)':'rgba(80,70,60,0.4)';
+    if(!isAux&&sugNames.has(b.name)&&b.alt>0){
+      ctx.beginPath();ctx.arc(p.x,p.y,dotR+5,0,2*Math.PI);
+      ctx.fillStyle='rgba(82,201,138,0.15)';ctx.fill();
+      ctx.strokeStyle='rgba(82,201,138,0.5)';ctx.lineWidth=1;
+      ctx.beginPath();ctx.arc(p.x,p.y,dotR+5,0,2*Math.PI);ctx.stroke();
+    }
+    ctx.fillStyle=color;ctx.beginPath();ctx.arc(p.x,p.y,dotR,0,2*Math.PI);ctx.fill();
+    // Label nav stars, Sun, planets, Moon — never aux stars
+    if(!isAux&&(b.mag<=2.5||b.type!=='star')&&(b.alt>0||b.dec>0)){
+      ctx.fillStyle=sugNames.has(b.name)?'rgba(82,201,138,0.9)':color;
+      ctx.font=`${Math.max(8,9*Math.min(skyZoom*0.3+0.7,1.2))}px "Share Tech Mono"`;
+      ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(b.name,p.x+dotR+3,p.y);
+    }
+  });
+
+  ctx.restore();
+
+  // Info text
+  ctx.fillStyle='rgba(61,84,112,0.6)';ctx.font='10px "Share Tech Mono"';
+  ctx.textAlign='left';ctx.textBaseline='bottom';
+  const gridLabel=isEq?'EQUATORIAL GRID':'AZIMUTHAL GRID';
+  const posSource=state.lastFixLat!=null?' (fix)':' (AP)';
+  ctx.fillText(`${fmt(ap.lat,'lat')} ${fmt(ap.lon,'lon')}${posSource}  ${fmtUTC(utc)} UTC  ${gridLabel}`,8,H-4);
+  const aboveCount=bodies.filter(b=>b.alt>0&&b.type!=='aux').length;
+  ctx.textAlign='right';
+  const zoomTxt=skyZoom>1.05?` ${skyZoom.toFixed(1)}\u00d7`:'';
+  ctx.fillText(`${aboveCount} above horizon${zoomTxt}`,W-8,H-4);
+  renderSuggested(suggested);
+}
+
 function drawCompass(ctx,x,y,r){
   ctx.strokeStyle='rgba(61,84,112,0.8)';ctx.lineWidth=1;
   ctx.beginPath();ctx.arc(x,y,r,0,2*Math.PI);ctx.stroke();
@@ -1551,10 +2565,243 @@ function clearAll(){
   if(!state.sights.length||confirm('Clear all sights?')){
     state.sights=[];state.nextId=1;state.selectedSightId=null;
     state.plotPanX=0;state.plotPanY=0;state.plotZoom=1;
+    state.lastFixLat=null;state.lastFixLon=null;state.directFix=null;
+    // Reset sky plot view
+    skyZoom=1;skyPanX=0;skyPanY=0;
+    // Reset map
+    if(fixMap){
+      fixMarker.setOpacity(0);apMarker.setOpacity(0);
+      if(lopLayerGroup)lopLayerGroup.clearLayers();
+      if(ellipseLayer){fixMap.removeLayer(ellipseLayer);ellipseLayer=null;}
+      if(apFixLine){fixMap.removeLayer(apFixLine);apFixLine=null;}
+    }
     document.getElementById('sightMsg').classList.add('hidden');
     document.getElementById('wrkBody').innerHTML='<div style="color:var(--tx3);font-style:italic">Click a sight in the log to show full reduction</div>';
     render();
   }
+}
+
+// ══════════════════════════════════════════════════════
+//  SIGHT AVERAGING
+// ══════════════════════════════════════════════════════
+function getAverageableGroups(){
+  const groups={};
+  state.sights.forEach(s=>{
+    if(s.mode!=='intercept'||!s.star||s.isAverage)return;
+    const key=s.star.n;
+    if(!groups[key])groups[key]=[];
+    groups[key].push(s);
+  });
+  return Object.entries(groups).filter(([name,sights])=>sights.length>=2);
+}
+
+function averageGroup(bodyName){
+  const sights=state.sights.filter(s=>s.mode==='intercept'&&s.star&&s.star.n===bodyName&&!s.isAverage);
+  if(sights.length<2)return;
+
+  // Mean Ho
+  const meanHo=sights.reduce((sum,s)=>sum+s.ho,0)/sights.length;
+  // Mean UTC (average timestamps)
+  const meanTime=sights.reduce((sum,s)=>sum+s.utc.getTime(),0)/sights.length;
+  const meanUTC=new Date(meanTime);
+  // Mean Hs
+  const meanHs=sights.reduce((sum,s)=>sum+s.hs,0)/sights.length;
+  // Standard deviation of Ho (in arcminutes)
+  const sdHo=Math.sqrt(sights.reduce((sum,s)=>sum+(s.ho-meanHo)*(s.ho-meanHo),0)/(sights.length-1))*60;
+
+  // Create averaged sight using the first sight as template
+  const template=sights[0];
+  const ie=template.ie, hoe=template.hoe;
+
+  // Recompute with averaged Ho — create the sight with averaged values
+  const sight={
+    id:state.nextId++, mode:'intercept', utc:meanUTC,
+    hs:meanHs, ho:meanHo, ie, hoe,
+    dipC:template.dipC, refC:template.refC, ha:template.ha,
+    parC:template.parC||0, sdC:template.sdC||0, limb:template.limb||'center',
+    star:{...template.star},
+    isAverage:true, sourceIds:sights.map(s=>s.id), avgCount:sights.length, avgSD:sdHo,
+    ghaAries:ghaAries(meanUTC)
+  };
+
+  // Compute intercept if AP available
+  const hasAP=document.getElementById('apLatD').value!==''&&document.getElementById('apLonD').value!=='';
+  if(hasAP){
+    const ap=readAP();
+    // Recompute star position for averaged time (important for Sun/Moon/planets)
+    if(sight.star.isBody){
+      if(sight.star.bodyType==='sun'){
+        const sun=solarPosition(meanUTC);
+        sight.star={n:'Sun',sha:sun.sha,dec:sun.dec,mag:-26.7,isBody:true,bodyType:'sun'};
+      }else if(sight.star.bodyType==='moon'){
+        const moon=moonPosition(meanUTC);
+        sight.star={n:'Moon',sha:moon.sha,dec:moon.dec,mag:-12.6,isBody:true,bodyType:'moon',HP:moon.HP,SD:moon.SD};
+      }else if(PLANET_NAMES[sight.star.bodyType]){
+        const pos=planetPosition(PLANET_NAMES[sight.star.bodyType],meanUTC);
+        sight.star={n:PLANET_NAMES[sight.star.bodyType],sha:pos.sha,dec:pos.dec,mag:PLANET_MAGS[sight.star.bodyType],isBody:true,bodyType:sight.star.bodyType};
+      }
+    }
+    sight.ghaAries=ghaAries(meanUTC);
+    const ghaSt=mod360(sight.ghaAries+sight.star.sha);
+    sight.ghaStar=ghaSt;
+    const lha=mod360(ghaSt+ap.lon);
+    const {Hc,Zn}=reduce(ap.lat,sight.star.dec,lha);
+    const intercept=(meanHo-Hc)*60;
+    Object.assign(sight,{ap,lha,Hc,Zn,intercept});
+  }
+
+  state.sights.push(sight);
+  render();
+}
+
+// ══════════════════════════════════════════════════════
+//  SAVE / LOAD / EXPORT
+// ══════════════════════════════════════════════════════
+function serializeState(){
+  return{
+    version:1,
+    exported:new Date().toISOString(),
+    ie:getIE(), hoe:getHoE(),
+    ap:readAP(),
+    mode:state.mode, fixMethod:state.fixMethod,
+    drEnabled:state.drEnabled, drCourse:state.drCourse, drSpeed:state.drSpeed,
+    sights:state.sights.map(s=>({...s, utc:s.utc.toISOString()}))
+  };
+}
+
+function deserializeState(data){
+  // Restore corrections
+  document.getElementById('ie').value=data.ie||0;
+  document.getElementById('hoe').value=data.hoe||1.5;
+  // Restore AP
+  if(data.ap){
+    const latAbs=Math.abs(data.ap.lat);
+    document.getElementById('apLatD').value=Math.floor(latAbs);
+    document.getElementById('apLatM').value=((latAbs-Math.floor(latAbs))*60).toFixed(1);
+    document.getElementById('apLatH').value=data.ap.lat>=0?'N':'S';
+    const lonAbs=Math.abs(data.ap.lon);
+    document.getElementById('apLonD').value=Math.floor(lonAbs);
+    document.getElementById('apLonM').value=((lonAbs-Math.floor(lonAbs))*60).toFixed(1);
+    document.getElementById('apLonH').value=data.ap.lon>=0?'E':'W';
+  }
+  // Restore mode/method
+  if(data.mode) setMode(data.mode);
+  if(data.fixMethod) setFixMethod(data.fixMethod);
+  // Restore DR
+  if(data.drEnabled!=null){
+    state.drEnabled=data.drEnabled;
+    state.drCourse=data.drCourse||0;
+    state.drSpeed=data.drSpeed||6;
+    document.getElementById('drEnable').checked=state.drEnabled;
+    document.getElementById('drFields').classList.toggle('hidden',!state.drEnabled);
+    document.getElementById('drCourse').value=state.drCourse;
+    document.getElementById('drSpeed').value=state.drSpeed;
+  }
+  // Restore sights
+  state.sights=data.sights.map(s=>({...s, utc:new Date(s.utc)}));
+  state.nextId=Math.max(1,...state.sights.map(s=>s.id))+1;
+  state.selectedSightId=null;
+  state.plotPanX=0;state.plotPanY=0;state.plotZoom=1;
+  render();
+}
+
+function exportSession(){
+  const data=serializeState();
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`celnav-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function importSession(input){
+  const file=input.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const data=JSON.parse(e.target.result);
+      if(!data.sights||!Array.isArray(data.sights)){throw new Error('Invalid session file');}
+      deserializeState(data);
+      const msg=document.getElementById('sightMsg');
+      msg.className='status st-ok';
+      msg.textContent=`Loaded ${data.sights.length} sights from ${file.name}`;
+      msg.classList.remove('hidden');
+    }catch(err){
+      alert('Could not load session: '+err.message);
+    }
+  };
+  reader.readAsText(file);
+  input.value=''; // reset for re-import
+}
+
+function exportCSV(){
+  const rows=[['#','Mode','Body','UTC','Hs','Ho','Hc','Zn','Intercept'].join(',')];
+  state.sights.forEach(s=>{
+    const body=s.star?s.star.n:(s.mode==='polaris'?'Polaris':'—');
+    const hc=s.Hc!=null?s.Hc.toFixed(2):'';
+    const zn=s.Zn!=null?s.Zn.toFixed(1):'';
+    const intc=s.intercept!=null?s.intercept.toFixed(1):'';
+    rows.push([s.id,s.mode,body,s.utc.toISOString(),s.hs.toFixed(3),s.ho.toFixed(3),hc,zn,intc].join(','));
+  });
+  const blob=new Blob([rows.join('\n')],{type:'text/csv'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`celnav-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function exportGPX(){
+  // Find current fix position
+  const iSights=state.sights.filter(s=>s.mode==='intercept'&&s.Hc!=null);
+  let lat=null,lon=null;
+  if(state.fixMethod==='direct'){
+    const copSights=state.sights.filter(s=>s.star||s.mode==='polaris');
+    if(copSights.length>=2){const fix=directFix(copSights);if(fix){lat=fix.lat;lon=fix.lon;}}
+  }else if(iSights.length){
+    const ap=iSights[0].ap;
+    const drOn=state.drEnabled&&state.drSpeed>0;
+    const useSights=drOn?advanceLops(iSights,state.drCourse,state.drSpeed):iSights;
+    const lops=useSights.map(s=>({intercept:s.intercept,azimuth:s.Zn}));
+    const fix=lsFix(lops);
+    lat=ap.lat+fix.dy/60;
+    lon=ap.lon+fix.dx/(60*Math.cos(ap.lat*R));
+  }
+  if(lat===null){alert('No fix computed to export');return;}
+  let gpxLon=lon;if(gpxLon>180)gpxLon-=360;
+  const gpx=`<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="CelestialNavigator">
+  <wpt lat="${lat.toFixed(6)}" lon="${gpxLon.toFixed(6)}">
+    <name>CelNav Fix</name>
+    <time>${new Date().toISOString()}</time>
+    <desc>Celestial navigation fix from ${state.sights.length} sights</desc>
+  </wpt>
+</gpx>`;
+  const blob=new Blob([gpx],{type:'application/gpx+xml'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`celnav-fix-${new Date().toISOString().slice(0,10)}.gpx`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// Auto-save to localStorage
+function autoSave(){
+  try{localStorage.setItem('celnav_session',JSON.stringify(serializeState()));}catch(e){}
+}
+
+function autoRestore(){
+  try{
+    const raw=localStorage.getItem('celnav_session');
+    if(!raw)return;
+    const data=JSON.parse(raw);
+    if(!data.sights||!data.sights.length)return;
+    if(confirm(`Restore previous session (${data.sights.length} sights)?`)){
+      deserializeState(data);
+    }
+  }catch(e){}
 }
 
 // ══════════════════════════════════════════════════════
@@ -1564,11 +2811,14 @@ function recalcAP(){
   const ap=readAP();
   state.sights.forEach(s=>{
     if(s.mode!=='intercept'||!s.star)return;
-    // Sun/planet SHA changes with time — recompute from UTC
+    // Sun/Moon/planet SHA changes with time — recompute from UTC
     if(s.star.isBody){
       if(s.star.bodyType==='sun'){
         const sun=solarPosition(s.utc);
         s.star={n:'Sun',sha:sun.sha,dec:sun.dec,mag:-26.7,isBody:true,bodyType:'sun'};
+      }else if(s.star.bodyType==='moon'){
+        const moon=moonPosition(s.utc);
+        s.star={n:'Moon',sha:moon.sha,dec:moon.dec,mag:-12.6,isBody:true,bodyType:'moon',HP:moon.HP,SD:moon.SD};
       }else{
         const pos=planetPosition(PLANET_NAMES[s.star.bodyType],s.utc);
         s.star={n:PLANET_NAMES[s.star.bodyType],sha:pos.sha,dec:pos.dec,mag:PLANET_MAGS[s.star.bodyType],isBody:true,bodyType:s.star.bodyType};
@@ -1596,6 +2846,7 @@ function loadDemo(){
   document.getElementById('apLonH').value='E';
   document.getElementById('ie').value='0';
   document.getElementById('hoe').value='2';
+  document.getElementById('liveUtc').classList.remove('active');
   setMode('intercept');
 
   // Demo: evening twilight over Firenze, 21 Mar 2026 ~18:30 UTC
@@ -1643,6 +2894,7 @@ function loadDemo(){
     state.sights.push(sight);
   });
   render();
+  if(fixMap) setTimeout(()=>fixMap.invalidateSize(),200);
   document.getElementById('sightMsg').className='status st-ok';
   document.getElementById('sightMsg').textContent='Demo: Firenze, 21 Mar 2026 18:30 UTC \u2014 Polaris + Venus + Jupiter + 4 stars';
   document.getElementById('sightMsg').classList.remove('hidden');
@@ -1664,10 +2916,11 @@ function editSight(id){
     `${s.utc.getUTCFullYear()}-${pad(s.utc.getUTCMonth()+1)}-${pad(s.utc.getUTCDate())}T${pad(s.utc.getUTCHours())}:${pad(s.utc.getUTCMinutes())}`;
   document.getElementById('utcSec').value=s.utc.getUTCSeconds();
 
-  // Populate Hs
-  const absHs=Math.abs(s.hs);
-  document.getElementById('hsDeg').value=Math.floor(absHs);
-  document.getElementById('hsMin').value=((absHs-Math.floor(absHs))*60).toFixed(1);
+  // Populate Hs (preserve sign for sub-horizon observations)
+  const hsDeg=Math.floor(s.hs);
+  const hsMin=Math.abs((s.hs-hsDeg)*60);
+  document.getElementById('hsDeg').value=hsDeg;
+  document.getElementById('hsMin').value=hsMin.toFixed(1);
 
   // Populate IE / HoE
   document.getElementById('ie').value=s.ie;
@@ -1676,9 +2929,12 @@ function editSight(id){
   if(s.mode==='intercept'&&s.star){
     if(s.star.isBody){
       document.getElementById('starSel').value=s.star.bodyType;
+      onBodyChange();
+      if(s.limb) document.getElementById('limbSel').value=s.limb;
     }else{
       const idx=STARS.findIndex(st=>st.n===s.star.n);
       if(idx>=0) document.getElementById('starSel').value=idx;
+      onBodyChange();
     }
     if(s.ap){
       const latAbs=Math.abs(s.ap.lat);
@@ -1720,8 +2976,6 @@ function editSight(id){
 // ══════════════════════════════════════════════════════
 //  FIX MAP — Leaflet map showing position fix
 // ══════════════════════════════════════════════════════
-let fixMap=null,fixMarker=null,apMarker=null;
-
 function initFixMap(){
   fixMap=L.map('fixMap',{
     center:[45,0],zoom:5,
@@ -1729,24 +2983,16 @@ function initFixMap(){
     attributionControl:false
   });
 
-  // Dark and themed tile layers
-  const tiles={
-    'Dark'    :L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19}),
-    'Nautical':L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',{maxZoom:18}),
-    'Satellite':L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:18}),
-    'Standard':L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18}),
-  };
-
-  // Dark base + nautical overlay by default
+  // Tile layers
   const darkBase=L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19});
   darkBase.addTo(fixMap);
 
   L.control.layers({
     'Dark':darkBase,
-    'Satellite':tiles['Satellite'],
-    'Standard':tiles['Standard'],
+    'Satellite':L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:18}),
+    'Standard':L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18}),
   },{
-    'Nautical overlay':tiles['Nautical'],
+    'Nautical overlay':L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',{maxZoom:18}),
   },{position:'topright',collapsed:true}).addTo(fixMap);
 
   // Fix icon — larger, more visible
@@ -1768,12 +3014,99 @@ function initFixMap(){
   });
   apMarker=L.marker([0,0],{icon:apIcon}).addTo(fixMap);
   apMarker.setOpacity(0);
+  lopLayerGroup=L.layerGroup().addTo(fixMap);
+}
+
+// Draw LOPs on the Leaflet map
+function drawMapLOPs(){
+  if(!fixMap||!lopLayerGroup)return;
+  lopLayerGroup.clearLayers();
+
+  const iSights=state.sights.filter(s=>s.mode==='intercept'&&s.Hc!=null);
+  if(!iSights.length)return;
+
+  const drOn=state.drEnabled&&state.drSpeed>0;
+  const advSights=drOn?advanceLops(iSights,state.drCourse,state.drSpeed):iSights;
+  const apRef=advSights[0].ap;
+  if(!apRef)return;
+  const cosLat=Math.cos(apRef.lat*R);
+
+  advSights.forEach((s,i)=>{
+    const color=colorFor(state.sights.indexOf(state.sights.find(x=>x.id===s.id)));
+    const znR=s.Zn*R;
+    // LOP foot: AP shifted by intercept along azimuth
+    const footLat=apRef.lat+s.intercept*Math.cos(znR)/60;
+    const footLon=apRef.lon+s.intercept*Math.sin(znR)/(60*cosLat);
+    // LOP extends perpendicular to azimuth, 80nm each direction
+    const extent=80; // nm
+    const perpR=(s.Zn+90)*R;
+    const dLatPx=Math.cos(perpR)/60;
+    const dLonPx=Math.sin(perpR)/(60*cosLat);
+
+    const p1=[footLat+dLatPx*extent, normLon(footLon+dLonPx*extent)];
+    const p2=[footLat-dLatPx*extent, normLon(footLon-dLonPx*extent)];
+
+    // If DR, draw original LOP (faint dashed)
+    if(drOn&&s.drShift){
+      const origInt=s.intercept-s.drShift;
+      const oFootLat=apRef.lat+origInt*Math.cos(znR)/60;
+      const oFootLon=apRef.lon+origInt*Math.sin(znR)/(60*cosLat);
+      const op1=[oFootLat+dLatPx*extent, normLon(oFootLon+dLonPx*extent)];
+      const op2=[oFootLat-dLatPx*extent, normLon(oFootLon-dLonPx*extent)];
+      L.polyline([op1,op2],{color,weight:1,opacity:0.3,dashArray:'6,6'}).addTo(lopLayerGroup);
+    }
+
+    // Main LOP
+    L.polyline([p1,p2],{color,weight:2,opacity:0.7}).addTo(lopLayerGroup);
+    // Intercept dot
+    const lon2=normLon(footLon);
+    L.circleMarker([footLat,lon2],{
+      radius:4,fillColor:color,fillOpacity:0.8,color,weight:1,opacity:0.8
+    }).bindTooltip(`${s.star.n} ${s.Zn.toFixed(0)}°`,{permanent:false}).addTo(lopLayerGroup);
+    // Body label along azimuth direction (placed ~30nm from AP toward the body)
+    const lblDist=30; // nm from AP along azimuth
+    const lblLat=apRef.lat+lblDist*Math.cos(znR)/60;
+    const lblLon=normLon(apRef.lon+lblDist*Math.sin(znR)/(60*cosLat));
+    const lblIcon=L.divIcon({
+      html:`<div style="font:bold 10px 'Share Tech Mono';color:${color};white-space:nowrap;text-shadow:0 0 3px #000,0 0 6px #000">${s.star.n}</div>`,
+      iconSize:[0,0],iconAnchor:[-4,5],className:''
+    });
+    L.marker([lblLat,lblLon],{icon:lblIcon,interactive:false}).addTo(lopLayerGroup);
+  });
+}
+
+function normLon(lon){let l=lon;if(l>180)l-=360;if(l<-180)l+=360;return l;}
+
+// Draw confidence ellipse on Leaflet map
+function drawMapEllipse(lat,lon,ell){
+  if(!fixMap)return;
+  if(ellipseLayer){fixMap.removeLayer(ellipseLayer);ellipseLayer=null;}
+  if(!ell||ell.semiA<0.01)return;
+  const points=[];
+  const cosLat=Math.cos(lat*R);
+  for(let i=0;i<36;i++){
+    const angle=i*10*R;
+    const x=ell.semiA*Math.cos(angle);
+    const y=ell.semiB*Math.sin(angle);
+    // Rotate by theta
+    const rx=x*Math.cos(ell.theta)-y*Math.sin(ell.theta);
+    const ry=x*Math.sin(ell.theta)+y*Math.cos(ell.theta);
+    // Convert nm offset to lat/lon
+    const ptLat=lat+ry/60;
+    const ptLon=normLon(lon+rx/(60*cosLat));
+    points.push([ptLat,ptLon]);
+  }
+  ellipseLayer=L.polygon(points,{
+    color:'#c8a84b',weight:1.5,dashArray:'4,4',
+    fillColor:'#c8a84b',fillOpacity:0.08
+  }).addTo(fixMap);
 }
 
 function updateFixMap(fixLat,fixLon,apLat,apLon){
   if(!fixMap)return;
+  // Remove previous AP-Fix line
+  if(apFixLine){fixMap.removeLayer(apFixLine);apFixLine=null;}
   if(fixLat!=null&&fixLon!=null){
-    // Normalize longitude to -180..180
     let lon=fixLon;
     if(lon>180)lon-=360;
     fixMarker.setLatLng([fixLat,lon]);
@@ -1791,14 +3124,35 @@ function updateFixMap(fixLat,fixLon,apLat,apLon){
   }else{
     apMarker.setOpacity(0);
   }
+  // Dashed line between AP and Fix
+  if(fixLat!=null&&fixLon!=null&&apLat!=null&&apLon!=null){
+    let fLon=fixLon>180?fixLon-360:fixLon;
+    let aLon=apLon>180?apLon-360:apLon;
+    const dLat=(fixLat-apLat)*60;
+    const dLon=(fLon-aLon)*60*Math.cos(apLat*R);
+    const dist=Math.sqrt(dLat*dLat+dLon*dLon);
+    apFixLine=L.polyline([[apLat,aLon],[fixLat,fLon]],{
+      color:'#c8a84b',weight:1.5,opacity:0.6,dashArray:'6,6'
+    }).bindTooltip(`${dist.toFixed(1)} nm`,{permanent:false}).addTo(fixMap);
+  }
+  drawMapLOPs();
 }
 </script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 // Initialize map after Leaflet loads
 initFixMap();
-// Fix tile rendering after layout settles
-setTimeout(()=>{ if(fixMap) fixMap.invalidateSize(); },200);
+// Re-render fix to draw LOPs/ellipse/markers now that map exists
+renderFix();
+// Fix tile rendering — Leaflet needs the container to have final dimensions
+// Use multiple strategies to ensure tiles fill the container
+requestAnimationFrame(()=>{
+  if(fixMap) fixMap.invalidateSize();
+  setTimeout(()=>{ if(fixMap) fixMap.invalidateSize(); },100);
+  setTimeout(()=>{ if(fixMap) fixMap.invalidateSize(); },500);
+  setTimeout(()=>{ if(fixMap) fixMap.invalidateSize(); },2000);
+});
+new ResizeObserver(()=>{ if(fixMap) fixMap.invalidateSize(); }).observe(document.getElementById('fixMap'));
 // Register service worker for offline support
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
