@@ -413,9 +413,9 @@ function julianDate(d){
 
 function ghaAries(date){
   const JD=julianDate(date);
-  const D=JD-2451545.0;
-  const T=D/36525;
-  const gha=280.46061837+360.98564736629*D+0.000387933*T*T-T*T*T/38710000;
+  const dJ=JD-2451545.0;
+  const T=dJ/36525;
+  const gha=280.46061837+360.98564736629*dJ+0.000387933*T*T-T*T*T/38710000;
   return mod360(gha);
 }
 

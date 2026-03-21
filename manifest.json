@@ -2,7 +2,7 @@
   "name": "Celestial Navigator",
   "short_name": "CelNav",
   "description": "Browser-based celestial navigation tool with sight reduction, LOP fixes, and almanac",
-  "start_url": "/index.html",
+  "start_url": "index.html",
   "display": "standalone",
   "background_color": "#06091a",
   "theme_color": "#c8a84b",

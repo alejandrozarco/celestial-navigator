@@ -82,9 +82,8 @@ The almanac includes:
 ## File Structure
 
 ```
-index.html          App shell (dual-mode CSS layout, d3 + EXIF CDN)
+index.html          Main app (self-contained, no build step)
 almanac.html        Daily almanac page generator
-js/                 ES modules (math, catalog, sight-reduction, fix, etc.)
 manifest.json       PWA manifest
 sw.js               Service worker for offline support
 screenshots/        README screenshots
