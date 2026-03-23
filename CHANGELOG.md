@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-23
+
+### Fixed
+- LOP plot perpendicular direction was incorrect at non-cardinal azimuths — sign error in canvas Y component caused lines to not be truly perpendicular to the azimuth bearing
+
 ## 2026-03-22
 
 ### Added
