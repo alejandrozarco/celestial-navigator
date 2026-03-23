@@ -2275,10 +2275,28 @@ function drawPlot(){
   if(advSights.length>=1){
     const lops=advSights.map(s=>({intercept:s.intercept,azimuth:s.Zn}));
     const fix=lsFix(lops);
-    const fp=nmToPx(fix.dx,fix.dy,cx,cy,scale);
 
-    // Fix crosshair (only show for 2+ sights — single sight is just a line, not a fix)
-    if(advSights.length>=2){
+    // Compute blended fix (same as renderFix): Polaris lat / Transit lon override LS
+    const apRef0=advSights[0].ap;
+    let blendDx=fix.dx, blendDy=fix.dy;
+    const pSightsP=state.sights.filter(s=>s.mode==='polaris'&&s.polarisLat!=null);
+    if(pSightsP.length&&apRef0){
+      const polarisLat=pSightsP.reduce((a,s)=>a+s.polarisLat,0)/pSightsP.length;
+      blendDy=(polarisLat-apRef0.lat)*60;
+    }
+    const tSightsP=state.sights.filter(s=>s.mode==='transit'&&s.transitLon!=null);
+    if(tSightsP.length&&apRef0){
+      let sinS=0,cosS=0;
+      tSightsP.forEach(s=>{const lon=s.transitLon*R;sinS+=Math.sin(lon);cosS+=Math.cos(lon);});
+      const transitLon=(Math.atan2(sinS,cosS)*D+360)%360;
+      blendDx=(transitLon-apRef0.lon)*60*Math.cos(apRef0.lat*R);
+    }
+
+    const fp=nmToPx(blendDx,blendDy,cx,cy,scale);
+
+    // Fix crosshair (only show for 2+ sights or blended with Polaris/Transit)
+    const hasBlendedFix=advSights.length>=2||pSightsP.length||tSightsP.length;
+    if(hasBlendedFix){
       ctx.strokeStyle='#c8a84b';ctx.lineWidth=2;
       const cs=10;
       ctx.beginPath();ctx.moveTo(fp.x-cs,fp.y);ctx.lineTo(fp.x+cs,fp.y);ctx.stroke();
