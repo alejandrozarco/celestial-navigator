@@ -5,6 +5,7 @@
 ### Added
 - **COP fix on map** — green diamond marker showing the direct circle-of-position fix on the Leaflet map, matching the LOP plot overlay
 - **Intercept lines** — dashed azimuth lines from AP to each LOP foot on both the LOP plot and map, showing intercept direction and distance
+- **Residual error heatmap** — toggleable overlay on the LOP plot visualizing RMS residual error across the plot area (blue = low, red = high), showing why the fix is where it is
 
 ### Fixed
 - LOP plot perpendicular direction was incorrect at non-cardinal azimuths — sign error in canvas Y component caused lines to not be truly perpendicular to the azimuth bearing
