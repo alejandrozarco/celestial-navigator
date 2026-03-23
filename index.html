@@ -1874,11 +1874,15 @@ function renderFix(){
     const copSights=state.sights.filter(s=>s.star||s.mode==='polaris');
     if(copSights.length<2){
       out.innerHTML=`<div class="empty">Direct fix needs 2+ star sights (have ${copSights.length})</div>`;
+      state.directFix=null;
+      updateFixMap(null,null,null,null);
       return;
     }
     const fix=directFix(copSights);
     if(!fix){
       out.innerHTML='<div class="empty">Could not compute direct fix \u2014 circles may not intersect</div>';
+      state.directFix=null;
+      updateFixMap(null,null,null,null);
       return;
     }
     let html=`<div class="fix-coords">`;
