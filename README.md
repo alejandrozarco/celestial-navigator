@@ -129,12 +129,21 @@ node test-almanac.js
 
 ### Current status
 
-**152/152 tests passing.** All celestial bodies (Sun, Moon, planets, stars), sight reduction, sextant corrections, and almanac data are validated against reference data.
+**176/176 tests passing.** All celestial bodies validated against NASA/JPL Horizons apparent positions (equator of date):
+
+| Body | Dec accuracy | GHA/SHA accuracy |
+|------|-------------|-----------------|
+| Sun | < 0.1' | < 0.1' |
+| Moon | < 0.5' | < 1' |
+| Jupiter | < 3' | < 7' |
+| Saturn | < 2' | < 4' |
+| Mars | < 5' | < 15' |
+| Venus | < 5' | < 16' |
 
 ### Possible future refinements
 
 - **Star precession** — the catalog uses pre-precessed ~2026 epoch values. Adding runtime precession with proper motion corrections (especially for high-PM stars like Polaris) would keep the catalog accurate across years.
-- **Planet accuracy** — Standish orbital elements give ~1-5' accuracy; perturbation terms (especially for Jupiter-Saturn interaction) could improve this to sub-arcminute.
+- **Planet accuracy** — Standish orbital elements give ~5-16' SHA accuracy; perturbation terms (especially for Jupiter-Saturn interaction and Venus) could improve this to sub-arcminute.
 - **Sun ephemeris** — already within ~1' of Air Almanac values; periodic perturbation terms from Meeus could push this to sub-arcminute.
 - **Additional test coverage** — end-to-end fix computation tests (known sights &rarr; known position), almanac page output validation, edge cases (polar regions, bodies near horizon).
 - **Southern hemisphere star finder** — the sky chart is currently north polar only; a south polar view would complete coverage.

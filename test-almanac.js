@@ -495,64 +495,66 @@ function hms(h,m,s){ return (h + m/60 + s/3600) * 15; }
 // Helper: convert DMS to degrees
 function dms(d,m,s){ return d + m/60 + s/3600; }
 
-console.log('\n\x1b[1mJPL Horizons — Sun\x1b[0m');
+// NOTE: All JPL values below use APPARENT RA/Dec (QUANTITIES='2'),
+// which is in the true equator and equinox of date — matching our code's output frame.
+// Earlier tests used ASTROMETRIC (ICRF/J2000) which has a ~23' precession offset.
 
-// Sun 2026-Jan-01 00:00 UT: RA 18h44m25.37s  Dec -23°02'35.1"
-const jplSunJan1RA = hms(18,44,25.37);   // 281.106°
-const jplSunJan1Dec = -dms(23,2,35.1);    // -23.043°
+console.log('\n\x1b[1mJPL Horizons — Sun (apparent)\x1b[0m');
+
+// Sun 2026-Jan-01 00:00 UT: RA 18h45m58.73s  Dec -23°01'02.1"
+const jplSunJan1RA = hms(18,45,58.73);
+const jplSunJan1Dec = -dms(23,1,2.1);
 const sunJan1 = calc("solarPosition(new Date('2026-01-01T00:00:00Z'))");
-assert('Sun Jan 1 Dec vs JPL', sunJan1.dec, jplSunJan1Dec, 0.05);
-// Compare GHA: expected = ghaAries - RA (mod 360)
-// Tolerance 0.5° accounts for combined GHA Aries + Sun RA errors
+assert('Sun Jan 1 Dec vs JPL', sunJan1.dec, jplSunJan1Dec, 0.02);
 const ariesJan1 = calc("ghaAries(new Date('2026-01-01T00:00:00Z'))");
 const expSunGHAJan1 = ((ariesJan1 - jplSunJan1RA) % 360 + 360) % 360;
-assert('Sun Jan 1 GHA vs JPL', sunJan1.gha, expSunGHAJan1, 0.5);
+assert('Sun Jan 1 GHA vs JPL', sunJan1.gha, expSunGHAJan1, 0.02);
 
-// Sun 2026-Jun-21 00:00 UT: RA 05h56m56.71s  Dec +23°26'02.2"
-const jplSunJun21RA = hms(5,56,56.71);    // 89.236°
-const jplSunJun21Dec = dms(23,26,2.2);     // +23.434°
+// Sun 2026-Jun-21 00:00 UT: RA 05h58m32.53s  Dec +23°26'15.1"
+const jplSunJun21RA = hms(5,58,32.53);
+const jplSunJun21Dec = dms(23,26,15.1);
 const sunJun21 = calc("solarPosition(new Date('2026-06-21T00:00:00Z'))");
-assert('Sun Jun 21 Dec vs JPL', sunJun21.dec, jplSunJun21Dec, 0.05);
+assert('Sun Jun 21 Dec vs JPL', sunJun21.dec, jplSunJun21Dec, 0.02);
 const ariesJun21 = calc("ghaAries(new Date('2026-06-21T00:00:00Z'))");
 const expSunGHAJun21 = ((ariesJun21 - jplSunJun21RA) % 360 + 360) % 360;
-assert('Sun Jun 21 GHA vs JPL', sunJun21.gha, expSunGHAJun21, 0.5);
+assert('Sun Jun 21 GHA vs JPL', sunJun21.gha, expSunGHAJun21, 0.02);
 
-console.log('\n\x1b[1mJPL Horizons — Moon\x1b[0m (tolerance: 30\')');
+console.log('\n\x1b[1mJPL Horizons — Moon (apparent)\x1b[0m (tolerance: 2\')');
 
-// Moon 2026-Jan-01 00:00 UT: RA 04h14m03.96s  Dec +26°20'10.4"
-const jplMoonJan1RA = hms(4,14,3.96);     // 63.517°
-const jplMoonJan1Dec = dms(26,20,10.4);    // +26.336°
+// Moon 2026-Jan-01 00:00 UT: RA 04h15m40.87s  Dec +26°24'13.3"
+const jplMoonJan1RA = hms(4,15,40.87);
+const jplMoonJan1Dec = dms(26,24,13.3);
 const moonJan1 = calc("moonPosition(new Date('2026-01-01T00:00:00Z'))");
-assert('Moon Jan 1 Dec vs JPL', moonJan1.dec, jplMoonJan1Dec, 0.5);
-assert('Moon Jan 1 RA vs JPL', moonJan1.ra, jplMoonJan1RA, 0.5);
+assert('Moon Jan 1 Dec vs JPL', moonJan1.dec, jplMoonJan1Dec, 0.05);
+assert('Moon Jan 1 RA vs JPL', moonJan1.ra, jplMoonJan1RA, 0.05);
 
-// Moon 2026-Jun-21 00:00 UT: RA 11h14m45.54s  Dec +03°15'39.5"
-const jplMoonJun21RA = hms(11,14,45.54);   // 168.690°
-const jplMoonJun21Dec = dms(3,15,39.5);     // +3.261°
+// Moon 2026-Jun-21 00:00 UT: RA 11h16m07.57s  Dec +03°06'58.5"
+const jplMoonJun21RA = hms(11,16,7.57);
+const jplMoonJun21Dec = dms(3,6,58.5);
 const moonJun21 = calc("moonPosition(new Date('2026-06-21T00:00:00Z'))");
-assert('Moon Jun 21 Dec vs JPL', moonJun21.dec, jplMoonJun21Dec, 0.5);
-assert('Moon Jun 21 RA vs JPL', moonJun21.ra, jplMoonJun21RA, 0.5);
+assert('Moon Jun 21 Dec vs JPL', moonJun21.dec, jplMoonJun21Dec, 0.05);
+assert('Moon Jun 21 RA vs JPL', moonJun21.ra, jplMoonJun21RA, 0.05);
 
-console.log('\n\x1b[1mJPL Horizons — Planets\x1b[0m (tolerance: 20\')');
+console.log('\n\x1b[1mJPL Horizons — Planets (apparent)\x1b[0m (tolerance: 20\')');
 
-// JPL reference data: [body, date, RA_deg, Dec_deg, SHA_deg]
+// JPL reference data (apparent): [body, date, RA_deg, Dec_deg, SHA_deg]
 const jplPlanets = [
-  // Venus 2026-Jan-01: RA 18h38m39.71s  Dec -23°38'40.9"
-  ['Venus', '2026-01-01T00:00:00Z', hms(18,38,39.71), -dms(23,38,40.9), 360-hms(18,38,39.71)],
-  // Venus 2026-Jun-21: RA 08h45m26.16s  Dec +20°05'05.0"
-  ['Venus', '2026-06-21T00:00:00Z', hms(8,45,26.16), dms(20,5,5.0), 360-hms(8,45,26.16)],
-  // Mars 2026-Jan-01: RA 18h53m57.37s  Dec -23°45'06.0"
-  ['Mars', '2026-01-01T00:00:00Z', hms(18,53,57.37), -dms(23,45,6.0), 360-hms(18,53,57.37)],
-  // Mars 2026-Jun-21: RA 03h27m02.75s  Dec +18°22'24.6"
-  ['Mars', '2026-06-21T00:00:00Z', hms(3,27,2.75), dms(18,22,24.6), 360-hms(3,27,2.75)],
-  // Jupiter 2026-Jan-01: RA 07h30m55.04s  Dec +22°02'04.5"
-  ['Jupiter', '2026-01-01T00:00:00Z', hms(7,30,55.04), dms(22,2,4.5), 360-hms(7,30,55.04)],
-  // Jupiter 2026-Jun-21: RA 07h59m24.29s  Dec +21°02'33.0"
-  ['Jupiter', '2026-06-21T00:00:00Z', hms(7,59,24.29), dms(21,2,33.0), 360-hms(7,59,24.29)],
-  // Saturn 2026-Jan-01: RA 23h48m11.31s  Dec -03°44'26.4"
-  ['Saturn', '2026-01-01T00:00:00Z', hms(23,48,11.31), -dms(3,44,26.4), 360-hms(23,48,11.31)],
-  // Saturn 2026-Jun-21: RA 00h52m37.63s  Dec +03°05'50.6"
-  ['Saturn', '2026-06-21T00:00:00Z', hms(0,52,37.63), dms(3,5,50.6), 360-hms(0,52,37.63)],
+  // Venus 2026-Jan-01: RA 18h40m13.55s  Dec -23°37'20.7"
+  ['Venus', '2026-01-01T00:00:00Z', hms(18,40,13.55), -dms(23,37,20.7), 360-hms(18,40,13.55)],
+  // Venus 2026-Jun-21: RA 08h46m56.80s  Dec +19°59'21.4"
+  ['Venus', '2026-06-21T00:00:00Z', hms(8,46,56.80), dms(19,59,21.4), 360-hms(8,46,56.80)],
+  // Mars 2026-Jan-01: RA 18h55m31.11s  Dec -23°43'12.0"
+  ['Mars', '2026-01-01T00:00:00Z', hms(18,55,31.11), -dms(23,43,12.0), 360-hms(18,55,31.11)],
+  // Mars 2026-Jun-21: RA 03h28m32.71s  Dec +18°27'55.6"
+  ['Mars', '2026-06-21T00:00:00Z', hms(3,28,32.71), dms(18,27,55.6), 360-hms(3,28,32.71)],
+  // Jupiter 2026-Jan-01: RA 07h32m29.84s  Dec +21°58'44.9"
+  ['Jupiter', '2026-01-01T00:00:00Z', hms(7,32,29.84), dms(21,58,44.9), 360-hms(7,32,29.84)],
+  // Jupiter 2026-Jun-21: RA 08h00m56.84s  Dec +20°58'16.1"
+  ['Jupiter', '2026-06-21T00:00:00Z', hms(8,0,56.84), dms(20,58,16.1), 360-hms(8,0,56.84)],
+  // Saturn 2026-Jan-01: RA 23h49m31.43s  Dec -03°35'47.0"
+  ['Saturn', '2026-01-01T00:00:00Z', hms(23,49,31.43), -dms(3,35,47.0), 360-hms(23,49,31.43)],
+  // Saturn 2026-Jun-21: RA 00h53m59.59s  Dec +03°14'30.4"
+  ['Saturn', '2026-06-21T00:00:00Z', hms(0,53,59.59), dms(3,14,30.4), 360-hms(0,53,59.59)],
 ];
 
 for (const [name, date, jplRA, jplDec, jplSHA] of jplPlanets) {
