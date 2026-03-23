@@ -2014,16 +2014,16 @@ function renderFix(){
   out.innerHTML=html;
   // Store fix for sky plot reference
   state.lastFixLat=fixLat;state.lastFixLon=fixLon;
-  // Update map
-  const apM=apRef||readAP();
-  updateFixMap(fixLat,fixLon,apM.lat,apM.lon);
-  // Always compute direct fix for LOP plot overlay
+  // Always compute direct fix for LOP plot overlay (before updateFixMap so map can show it)
   const copSightsForPlot=state.sights.filter(s=>s.star||s.mode==='polaris');
   if(copSightsForPlot.length>=2){
     state.directFix=directFix(copSightsForPlot);
   }else{
     state.directFix=null;
   }
+  // Update map
+  const apM=apRef||readAP();
+  updateFixMap(fixLat,fixLon,apM.lat,apM.lon);
 }
 
 // ─── WORKINGS ───
