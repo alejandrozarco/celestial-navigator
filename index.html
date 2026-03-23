@@ -566,7 +566,7 @@ function moonPosition(date){
   const T=(JD-2451545.0)/36525;
   // Fundamental arguments (degrees)
   const Lp=mod360(218.3165+481267.8813*T);   // Moon mean longitude
-  const D =mod360(297.8502+445267.1115*T);    // Mean elongation
+  const Dm=mod360(297.8502+445267.1115*T);    // Mean elongation
   const M =mod360(357.5291+35999.0503*T);     // Sun mean anomaly
   const Mp=mod360(134.9634+477198.8676*T);    // Moon mean anomaly
   const F =mod360(93.2721+483202.0175*T);     // Argument of latitude
@@ -615,7 +615,7 @@ function moonPosition(date){
 
   let sumL=0, sumR=0, sumB=0;
   for(const t of LR){
-    const arg=(t[0]*D+t[1]*M+t[2]*Mp+t[3]*F)*R;
+    const arg=(t[0]*Dm+t[1]*M+t[2]*Mp+t[3]*F)*R;
     let eF=1;
     if(Math.abs(t[1])===1) eF=E;
     else if(Math.abs(t[1])===2) eF=E2;
@@ -623,7 +623,7 @@ function moonPosition(date){
     sumR+=t[5]*eF*Math.cos(arg);
   }
   for(const t of B){
-    const arg=(t[0]*D+t[1]*M+t[2]*Mp+t[3]*F)*R;
+    const arg=(t[0]*Dm+t[1]*M+t[2]*Mp+t[3]*F)*R;
     let eF=1;
     if(Math.abs(t[1])===1) eF=E;
     else if(Math.abs(t[1])===2) eF=E2;

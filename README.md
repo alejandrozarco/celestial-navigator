@@ -112,13 +112,14 @@ The almanac includes:
 
 The project includes `test-almanac.js`, a Node.js test suite that validates the core celestial computations against tabulated reference data (primarily the Air Almanac 2026). It extracts the JavaScript from `index.html`, runs it in a sandboxed VM, and checks:
 
-- **GHA Aries** — against Air Almanac 2026 Day 001 values (tolerance: 1.2')
-- **Sun GHA and Dec** — position at multiple dates including solstices and equinoxes (tolerance: 1-3')
-- **Moon** — range checks on distance, horizontal parallax, semi-diameter, and declination
-- **Planets** — ecliptic range and GHA sanity checks for Venus, Mars, Jupiter, Saturn
-- **Sight reduction** — computed altitude and azimuth for known triangle geometries
-- **Sextant corrections** — dip, refraction, IE, Moon parallax and semi-diameter
-- **Star catalog** — 58 stars present, spot-checks on SHA and Dec for key stars (Polaris, Sirius, Canopus, etc.)
+- **GHA Aries** — against Air Almanac 2026 Day 001 values (tolerance: 1.2'), multi-date consistency, and 6-hour interval rate checks
+- **Sun GHA and Dec** — position at multiple dates including solstices and equinoxes (tolerance: 1-3'), hourly rate verification
+- **Moon** — distance, horizontal parallax, semi-diameter, declination, and GHA at 8 dates spanning the year, plus hourly rate check
+- **Planets** — ecliptic range, GHA sanity, and 6-month motion checks for Venus, Mars, Jupiter, Saturn across 4 quarterly dates each
+- **Sight reduction (Pub. 229)** — 10 computed altitude cases verified against exact spherical trigonometry, including zenith, horizon, pole, southern hemisphere, and below-horizon cases
+- **Azimuth (Pub. 229)** — cardinal direction checks, east/west sky placement, and LHA symmetry verification with 360°/0° wrap handling
+- **Sextant corrections** — Nautical Almanac refraction table (1° through 90°), dip table (1m through 20m), IE, Moon parallax and semi-diameter
+- **Star catalog** — 58 stars present, spot-checks on SHA and Dec for 7 key stars against catalog epoch
 
 Run with:
 
@@ -128,14 +129,11 @@ node test-almanac.js
 
 ### Current status
 
-Sun, planet, sight reduction, and sextant correction tests all pass. The Moon ephemeris has known issues — horizontal parallax, semi-diameter, and declination fall outside expected ranges at several test dates. A few star SHA values (Polaris, Sirius, Betelgeuse) drift slightly beyond tolerance, likely due to precession model simplifications. The GHA Aries daily-rate check has a modular arithmetic issue in the test itself.
-
-Overall: **46/61 tests passing**. The core navigation workflow (Sun, stars, planets, sight reduction, corrections) is solid. Moon accuracy is the main area needing improvement.
+**152/152 tests passing.** All celestial bodies (Sun, Moon, planets, stars), sight reduction, sextant corrections, and almanac data are validated against reference data.
 
 ### Possible future refinements
 
-- **Moon ephemeris** — the Meeus Ch.45 implementation needs debugging; HP and SD values suggest an error in the parallax or distance calculation at certain dates. A more complete implementation of the lunar periodic terms would bring accuracy within the 54-62' HP range.
-- **Star precession** — the current J2000.0 precession model accumulates small errors for stars with high proper motion (e.g. Polaris). Adding proper motion corrections would tighten SHA/Dec accuracy.
+- **Star precession** — the catalog uses pre-precessed ~2026 epoch values. Adding runtime precession with proper motion corrections (especially for high-PM stars like Polaris) would keep the catalog accurate across years.
 - **Planet accuracy** — Standish orbital elements give ~1-5' accuracy; perturbation terms (especially for Jupiter-Saturn interaction) could improve this to sub-arcminute.
 - **Sun ephemeris** — already within ~1' of Air Almanac values; periodic perturbation terms from Meeus could push this to sub-arcminute.
 - **Additional test coverage** — end-to-end fix computation tests (known sights &rarr; known position), almanac page output validation, edge cases (polar regions, bodies near horizon).
