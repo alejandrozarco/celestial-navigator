@@ -2,8 +2,15 @@
 
 ## 2026-03-23
 
+### Added
+- **COP fix on map** — green diamond marker showing the direct circle-of-position fix on the Leaflet map, matching the LOP plot overlay
+- **Intercept lines** — dashed azimuth lines from AP to each LOP foot on both the LOP plot and map, showing intercept direction and distance
+
 ### Fixed
 - LOP plot perpendicular direction was incorrect at non-cardinal azimuths — sign error in canvas Y component caused lines to not be truly perpendicular to the azimuth bearing
+- LOP plot fix marker now matches the map's blended fix position when Polaris or transit sights override LS fix components
+- COP fix marker on map now appears on initial load in LS intercept mode
+- Map markers (fix, AP, LOPs, confidence ellipse, COP fix) no longer persist after deleting all sights
 
 ## 2026-03-22
 
