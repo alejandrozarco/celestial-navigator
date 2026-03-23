@@ -484,6 +484,85 @@ for (const [hm, expDip] of dipTable) {
 }
 
 // ═══════════════════════════════════════════════════════════
+//  JPL HORIZONS REFERENCE DATA
+//  Source: NASA/JPL Horizons System (ssd.jpl.nasa.gov)
+//  Geocentric apparent RA/Dec, ICRF, 2026
+//  Retrieved 2026-03-23
+// ═══════════════════════════════════════════════════════════
+
+// Helper: convert HMS to degrees
+function hms(h,m,s){ return (h + m/60 + s/3600) * 15; }
+// Helper: convert DMS to degrees
+function dms(d,m,s){ return d + m/60 + s/3600; }
+
+console.log('\n\x1b[1mJPL Horizons — Sun\x1b[0m');
+
+// Sun 2026-Jan-01 00:00 UT: RA 18h44m25.37s  Dec -23°02'35.1"
+const jplSunJan1RA = hms(18,44,25.37);   // 281.106°
+const jplSunJan1Dec = -dms(23,2,35.1);    // -23.043°
+const sunJan1 = calc("solarPosition(new Date('2026-01-01T00:00:00Z'))");
+assert('Sun Jan 1 Dec vs JPL', sunJan1.dec, jplSunJan1Dec, 0.05);
+// Compare GHA: expected = ghaAries - RA (mod 360)
+// Tolerance 0.5° accounts for combined GHA Aries + Sun RA errors
+const ariesJan1 = calc("ghaAries(new Date('2026-01-01T00:00:00Z'))");
+const expSunGHAJan1 = ((ariesJan1 - jplSunJan1RA) % 360 + 360) % 360;
+assert('Sun Jan 1 GHA vs JPL', sunJan1.gha, expSunGHAJan1, 0.5);
+
+// Sun 2026-Jun-21 00:00 UT: RA 05h56m56.71s  Dec +23°26'02.2"
+const jplSunJun21RA = hms(5,56,56.71);    // 89.236°
+const jplSunJun21Dec = dms(23,26,2.2);     // +23.434°
+const sunJun21 = calc("solarPosition(new Date('2026-06-21T00:00:00Z'))");
+assert('Sun Jun 21 Dec vs JPL', sunJun21.dec, jplSunJun21Dec, 0.05);
+const ariesJun21 = calc("ghaAries(new Date('2026-06-21T00:00:00Z'))");
+const expSunGHAJun21 = ((ariesJun21 - jplSunJun21RA) % 360 + 360) % 360;
+assert('Sun Jun 21 GHA vs JPL', sunJun21.gha, expSunGHAJun21, 0.5);
+
+console.log('\n\x1b[1mJPL Horizons — Moon\x1b[0m (tolerance: 30\')');
+
+// Moon 2026-Jan-01 00:00 UT: RA 04h14m03.96s  Dec +26°20'10.4"
+const jplMoonJan1RA = hms(4,14,3.96);     // 63.517°
+const jplMoonJan1Dec = dms(26,20,10.4);    // +26.336°
+const moonJan1 = calc("moonPosition(new Date('2026-01-01T00:00:00Z'))");
+assert('Moon Jan 1 Dec vs JPL', moonJan1.dec, jplMoonJan1Dec, 0.5);
+assert('Moon Jan 1 RA vs JPL', moonJan1.ra, jplMoonJan1RA, 0.5);
+
+// Moon 2026-Jun-21 00:00 UT: RA 11h14m45.54s  Dec +03°15'39.5"
+const jplMoonJun21RA = hms(11,14,45.54);   // 168.690°
+const jplMoonJun21Dec = dms(3,15,39.5);     // +3.261°
+const moonJun21 = calc("moonPosition(new Date('2026-06-21T00:00:00Z'))");
+assert('Moon Jun 21 Dec vs JPL', moonJun21.dec, jplMoonJun21Dec, 0.5);
+assert('Moon Jun 21 RA vs JPL', moonJun21.ra, jplMoonJun21RA, 0.5);
+
+console.log('\n\x1b[1mJPL Horizons — Planets\x1b[0m (tolerance: 20\')');
+
+// JPL reference data: [body, date, RA_deg, Dec_deg, SHA_deg]
+const jplPlanets = [
+  // Venus 2026-Jan-01: RA 18h38m39.71s  Dec -23°38'40.9"
+  ['Venus', '2026-01-01T00:00:00Z', hms(18,38,39.71), -dms(23,38,40.9), 360-hms(18,38,39.71)],
+  // Venus 2026-Jun-21: RA 08h45m26.16s  Dec +20°05'05.0"
+  ['Venus', '2026-06-21T00:00:00Z', hms(8,45,26.16), dms(20,5,5.0), 360-hms(8,45,26.16)],
+  // Mars 2026-Jan-01: RA 18h53m57.37s  Dec -23°45'06.0"
+  ['Mars', '2026-01-01T00:00:00Z', hms(18,53,57.37), -dms(23,45,6.0), 360-hms(18,53,57.37)],
+  // Mars 2026-Jun-21: RA 03h27m02.75s  Dec +18°22'24.6"
+  ['Mars', '2026-06-21T00:00:00Z', hms(3,27,2.75), dms(18,22,24.6), 360-hms(3,27,2.75)],
+  // Jupiter 2026-Jan-01: RA 07h30m55.04s  Dec +22°02'04.5"
+  ['Jupiter', '2026-01-01T00:00:00Z', hms(7,30,55.04), dms(22,2,4.5), 360-hms(7,30,55.04)],
+  // Jupiter 2026-Jun-21: RA 07h59m24.29s  Dec +21°02'33.0"
+  ['Jupiter', '2026-06-21T00:00:00Z', hms(7,59,24.29), dms(21,2,33.0), 360-hms(7,59,24.29)],
+  // Saturn 2026-Jan-01: RA 23h48m11.31s  Dec -03°44'26.4"
+  ['Saturn', '2026-01-01T00:00:00Z', hms(23,48,11.31), -dms(3,44,26.4), 360-hms(23,48,11.31)],
+  // Saturn 2026-Jun-21: RA 00h52m37.63s  Dec +03°05'50.6"
+  ['Saturn', '2026-06-21T00:00:00Z', hms(0,52,37.63), dms(3,5,50.6), 360-hms(0,52,37.63)],
+];
+
+for (const [name, date, jplRA, jplDec, jplSHA] of jplPlanets) {
+  const dateLabel = date.includes('Jan') ? 'Jan 1' : 'Jun 21';
+  const p = calc(`planetPosition('${name}', new Date('${date}'))`);
+  assert(`${name} ${dateLabel} Dec vs JPL`, p.dec, jplDec, 0.33);
+  assert(`${name} ${dateLabel} SHA vs JPL`, p.sha, jplSHA, 0.33);
+}
+
+// ═══════════════════════════════════════════════════════════
 //  SUMMARY
 // ═══════════════════════════════════════════════════════════
 console.log(`\n${'═'.repeat(50)}`);
