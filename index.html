@@ -1030,7 +1030,7 @@ let state={
   lastFixLat:null, lastFixLon:null, // last computed fix position for sky plot
 };
 let skyPlotOpen=true;
-let fixMap=null,fixMarker=null,apMarker=null,lopLayerGroup=null,ellipseLayer=null,apFixLine=null;
+let fixMap=null,fixMarker=null,apMarker=null,lopLayerGroup=null,ellipseLayer=null,apFixLine=null,copFixMarker=null;
 const PLANET_NAMES={venus:'Venus',mars:'Mars',jupiter:'Jupiter',saturn:'Saturn'};
 const PLANET_MAGS={venus:-4.0,mars:0.0,jupiter:-2.5,saturn:0.5};
 
@@ -2570,7 +2570,7 @@ function clearAll(){
     skyZoom=1;skyPanX=0;skyPanY=0;
     // Reset map
     if(fixMap){
-      fixMarker.setOpacity(0);apMarker.setOpacity(0);
+      fixMarker.setOpacity(0);apMarker.setOpacity(0);if(copFixMarker)copFixMarker.setOpacity(0);
       if(lopLayerGroup)lopLayerGroup.clearLayers();
       if(ellipseLayer){fixMap.removeLayer(ellipseLayer);ellipseLayer=null;}
       if(apFixLine){fixMap.removeLayer(apFixLine);apFixLine=null;}
@@ -3007,6 +3007,16 @@ function initFixMap(){
   fixMarker=L.marker([0,0],{icon:fixIcon}).addTo(fixMap);
   fixMarker.setOpacity(0);
 
+  // COP Fix icon — green diamond matching LOP plot
+  const copIcon=L.divIcon({
+    html:`<div style="position:relative;width:16px;height:16px">
+      <div style="width:12px;height:12px;border:2px solid #52c98a;transform:rotate(45deg);background:rgba(82,201,138,0.2);box-shadow:0 0 8px rgba(82,201,138,0.5);position:absolute;top:1px;left:1px"></div>
+    </div>`,
+    iconSize:[16,16],iconAnchor:[8,8],className:''
+  });
+  copFixMarker=L.marker([0,0],{icon:copIcon}).addTo(fixMap);
+  copFixMarker.setOpacity(0);
+
   // AP icon
   const apIcon=L.divIcon({
     html:'<div style="width:12px;height:12px;border:2px solid #5b9fd6;border-radius:50%;background:rgba(91,159,214,0.3);box-shadow:0 0 6px rgba(91,159,214,0.5)"></div>',
@@ -3134,6 +3144,17 @@ function updateFixMap(fixLat,fixLon,apLat,apLon){
     apFixLine=L.polyline([[apLat,aLon],[fixLat,fLon]],{
       color:'#c8a84b',weight:1.5,opacity:0.6,dashArray:'6,6'
     }).bindTooltip(`${dist.toFixed(1)} nm`,{permanent:false}).addTo(fixMap);
+  }
+  // COP fix marker
+  if(copFixMarker){
+    if(state.directFix&&state.directFix.lat!=null){
+      let cLon=state.directFix.lon;if(cLon>180)cLon-=360;
+      copFixMarker.setLatLng([state.directFix.lat,cLon]);
+      copFixMarker.setOpacity(1);
+      copFixMarker.bindTooltip(`COP Fix: ${fmt(state.directFix.lat,'lat')}, ${fmt(state.directFix.lon,'lon')}`,{permanent:false});
+    }else{
+      copFixMarker.setOpacity(0);
+    }
   }
   drawMapLOPs();
 }
