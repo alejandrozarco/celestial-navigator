@@ -327,7 +327,7 @@ canvas#skyPlot:active{cursor:grabbing}
     <div class="plot-wrap">
       <div class="plot-hdr" onclick="toggleLopPlot()" style="cursor:pointer">
         <span>LINE OF POSITION PLOT</span>
-        <span><span id="plotScale" style="color:var(--tx3)"></span> <span id="lopToggle">&#9662;</span></span>
+        <span><button id="heatmapBtn" onclick="event.stopPropagation();toggleHeatmap()" style="font:9px 'Share Tech Mono';background:transparent;border:1px solid var(--b1);color:var(--tx3);padding:1px 5px;cursor:pointer;border-radius:3px;margin-right:6px" title="Toggle residual error heatmap">HEATMAP</button><span id="plotScale" style="color:var(--tx3)"></span> <span id="lopToggle">&#9662;</span></span>
       </div>
       <div id="lopBody">
         <canvas id="plot" width="480" height="380"></canvas>
@@ -1036,6 +1036,7 @@ const PLANET_MAGS={venus:-4.0,mars:0.0,jupiter:-2.5,saturn:0.5};
 
 // LOP plot state
 let lopPlotOpen=true;
+let heatmapOn=false;
 
 // Sky plot state
 let skyGrid='az'; // 'az' = azimuthal (alt/az), 'eq' = equatorial (RA/Dec)
@@ -2226,6 +2227,66 @@ function drawPlot(){
   const drOn=state.drEnabled&&state.drSpeed>0;
   const advSights=drOn?advanceLops(iSights,state.drCourse,state.drSpeed):iSights;
 
+  // Residual error heatmap overlay
+  if(heatmapOn&&advSights.length>=2){
+    const step=4; // render every 4th pixel for performance
+    const imgData=ctx.createImageData(W,H);
+    const d=imgData.data;
+    // Precompute sin/cos for each sight
+    const sc=advSights.map(s=>({s:Math.sin(s.Zn*R),c:Math.cos(s.Zn*R),a:s.intercept}));
+    // Find max SSE across sampled points for normalization
+    let maxSSE=0;
+    const sseGrid=[];
+    for(let py=0;py<H;py+=step){
+      for(let px=0;px<W;px+=step){
+        const nmE=(px-cx)/scale+state.plotPanX;
+        const nmN=(cy-py)/scale+state.plotPanY;
+        let sse=0;
+        for(const l of sc){
+          const r=nmE*l.s+nmN*l.c-l.a;
+          sse+=r*r;
+        }
+        sse=Math.sqrt(sse/sc.length); // RMS in nm
+        sseGrid.push(sse);
+        if(sse>maxSSE)maxSSE=sse;
+      }
+    }
+    // Clamp max for better contrast (cap at 3x the min RMS)
+    const minSSE=Math.min(...sseGrid);
+    const cap=Math.max(minSSE*6,5); // at least 5nm range
+    let idx=0;
+    for(let py=0;py<H;py+=step){
+      for(let px=0;px<W;px+=step){
+        const rms=sseGrid[idx++];
+        const t=Math.min(1,rms/cap); // 0=best, 1=worst
+        // Color: deep blue (low) → cyan → yellow → red (high)
+        let r2,g,b;
+        if(t<0.33){const u=t/0.33;r2=0;g=Math.round(180*u);b=Math.round(200-80*u);}
+        else if(t<0.66){const u=(t-0.33)/0.33;r2=Math.round(220*u);g=Math.round(180+40*u);b=Math.round(120-120*u);}
+        else{const u=(t-0.66)/0.34;r2=220+Math.round(35*u);g=Math.round(220-160*u);b=0;}
+        const alpha=Math.round(40+60*t); // more opaque at higher error
+        // Fill step×step block
+        for(let dy=0;dy<step&&py+dy<H;dy++){
+          for(let dx=0;dx<step&&px+dx<W;dx++){
+            const i=((py+dy)*W+(px+dx))*4;
+            d[i]=r2;d[i+1]=g;d[i+2]=b;d[i+3]=alpha;
+          }
+        }
+      }
+    }
+    ctx.putImageData(imgData,0,0);
+    // Redraw grid/axes on top of heatmap
+    ctx.strokeStyle='rgba(26,50,88,0.4)';ctx.lineWidth=0.5;
+    for(let nmX=startNmX;nmX<=endNmX;nmX+=gridNm){
+      const px=nmToPx(nmX,0,cx,cy,scale).x;
+      ctx.beginPath();ctx.moveTo(px,0);ctx.lineTo(px,H);ctx.stroke();
+    }
+    for(let nmY=startNmY;nmY<=endNmY;nmY+=gridNm){
+      const py=nmToPx(0,nmY,cx,cy,scale).y;
+      ctx.beginPath();ctx.moveTo(0,py);ctx.lineTo(W,py);ctx.stroke();
+    }
+  }
+
   // Draw LOPs
   advSights.forEach((s,i)=>{
     const color=colorFor(state.sights.indexOf(state.sights.find(x=>x.id===s.id)));
@@ -2372,6 +2433,13 @@ function toggleLopPlot(){
   lopPlotOpen=!lopPlotOpen;
   document.getElementById('lopBody').style.display=lopPlotOpen?'block':'none';
   document.getElementById('lopToggle').textContent=lopPlotOpen?'\u25be':'\u25b8';
+}
+function toggleHeatmap(){
+  heatmapOn=!heatmapOn;
+  const btn=document.getElementById('heatmapBtn');
+  btn.style.borderColor=heatmapOn?'var(--acc)':'var(--b1)';
+  btn.style.color=heatmapOn?'var(--acc)':'var(--tx3)';
+  drawPlot();
 }
 function toggleSkyPlot(){
   skyPlotOpen=!skyPlotOpen;
