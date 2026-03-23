@@ -1861,7 +1861,12 @@ function renderFix(){
   const iSightsWithAP=iSights.filter(s=>s.Hc!=null);
   const pSights=state.sights.filter(s=>s.mode==='polaris');
   const tSights=state.sights.filter(s=>s.mode==='transit');
-  if(!state.sights.length){out.innerHTML='<div class="empty">Add sights to compute a fix</div>';return;}
+  if(!state.sights.length){
+    out.innerHTML='<div class="empty">Add sights to compute a fix</div>';
+    state.directFix=null;
+    updateFixMap(null,null,null,null);
+    return;
+  }
 
   // ── DIRECT FIX MODE ──
   if(state.fixMethod==='direct'){
@@ -1949,7 +1954,10 @@ function renderFix(){
   if(fixLon===null&&lsLon!==null){fixLon=lsLon;lonSource='Intercept LS';}
 
   if(fixLat===null&&fixLon===null){
-    out.innerHTML='<div class="empty">Insufficient data for fix \u2014 need AP for Intercept LS, or try Direct mode</div>';return;
+    out.innerHTML='<div class="empty">Insufficient data for fix \u2014 need AP for Intercept LS, or try Direct mode</div>';
+    state.directFix=null;
+    updateFixMap(null,null,null,null);
+    return;
   }
 
   let html='';
@@ -3174,6 +3182,8 @@ function updateFixMap(fixLat,fixLon,apLat,apLon){
       color:'#c8a84b',weight:1.5,opacity:0.6,dashArray:'6,6'
     }).bindTooltip(`${dist.toFixed(1)} nm`,{permanent:false}).addTo(fixMap);
   }
+  // Clear ellipse if no fix
+  if(fixLat==null&&ellipseLayer){fixMap.removeLayer(ellipseLayer);ellipseLayer=null;}
   // COP fix marker
   if(copFixMarker){
     if(state.directFix&&state.directFix.lat!=null){
