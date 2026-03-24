@@ -13,6 +13,7 @@ A browser-based celestial navigation tool for computing position fixes from sext
 - **Direct COP Fix** — AP-free Gauss-Newton iteration on circles of position
 - **Polaris Latitude** — direct latitude from Polaris with a0/a1/a2 corrections
 - **Meridian Transit** — longitude from star transit observations
+- **Lunar Distance** — determine GMT from Moon-body angular distance (clearing + interpolation)
 - **Sight Averaging** — average multiple sights of the same body to reduce random error
 
 ### Celestial Bodies
@@ -40,7 +41,7 @@ A browser-based celestial navigation tool for computing position fixes from sext
 - **Live AP Recalculation** — all sights update when assumed position changes
 
 ### Star Finder
-- **North Polar Stereographic Chart** — interactive sky plot centered on the NCP
+- **Polar Stereographic Chart** — interactive sky plot centered on NCP or SCP (toggle)
 - **Azimuthal and Equatorial Grids** — switchable coordinate overlays
 - **Sight Planning** — suggests 5-7 optimal bodies with best azimuth spread for your position and time
 - **Zoom and Pan** — scroll to zoom, drag to reposition, double-click to reset
@@ -127,14 +128,14 @@ The project includes `test-navigator.js` (193 tests) and `test-almanac-page.js` 
 Run with:
 
 ```bash
-node test-navigator.js       # Navigator (index.html) — 193 tests
+node test-navigator.js       # Navigator (index.html) — 203 tests
 node test-almanac-page.js    # Almanac (almanac.html) — 97 tests
 .venv/bin/python bench.py    # Skyfield/DE440s benchmark (requires skyfield)
 ```
 
 ### Current status
 
-**290 tests passing** (193 + 97). All celestial bodies validated against NASA/JPL Horizons apparent positions (equator of date):
+**300 tests passing** (203 + 97). All celestial bodies validated against NASA/JPL Horizons apparent positions (equator of date):
 
 | Body | Dec accuracy | GHA/SHA accuracy |
 |------|-------------|-----------------|
@@ -148,9 +149,6 @@ node test-almanac-page.js    # Almanac (almanac.html) — 97 tests
 ### Possible future refinements
 
 - **Planet accuracy** — Standish orbital elements give ~5-16' SHA accuracy; perturbation terms (especially for Jupiter-Saturn interaction and Venus) could improve this to sub-arcminute.
-- **End-to-end fix tests** — known sights &rarr; known position verification.
-- **Southern hemisphere star finder** — the sky chart is currently north polar only; a south polar view would complete coverage.
-- **Lunar distance** — a classic method for determining longitude at sea, not yet implemented.
 
 ## Screenshots
 
