@@ -442,6 +442,49 @@ function sunTimes(date, lat){
 }
 
 // ══════════════════════════════════════════════════════
+//  MOON RISE/SET — altitude sampling + bisection
+// ══════════════════════════════════════════════════════
+function moonRiseSet(date, lat){
+  const h0=0.125; // standard Moon altitude correction (deg)
+  const base=new Date(date);base.setUTCHours(0,0,0,0);
+  // Sample Moon altitude every 2 hours (13 samples, 0-24h)
+  const alts=[];
+  for(let h=0;h<=24;h+=2){
+    const t=new Date(base.getTime()+h*3600000);
+    const moon=moonPosition(t);
+    const lha=mod360(ghaAries(t)+moon.sha);
+    const alt=Math.asin(sin(lat)*sin(moon.dec)+cos(lat)*cos(moon.dec)*cos(lha))*D;
+    alts.push({h,alt});
+  }
+  // Detect sign changes relative to h0
+  const events=[];
+  for(let i=0;i<alts.length-1;i++){
+    const a1=alts[i].alt-h0, a2=alts[i+1].alt-h0;
+    if(a1*a2<0){
+      let lo=alts[i].h, hi=alts[i+1].h;
+      for(let j=0;j<8;j++){
+        const mid=(lo+hi)/2;
+        const t=new Date(base.getTime()+mid*3600000);
+        const m=moonPosition(t);
+        const lha2=mod360(ghaAries(t)+m.sha);
+        const altMid=Math.asin(sin(lat)*sin(m.dec)+cos(lat)*cos(m.dec)*cos(lha2))*D;
+        if((altMid-h0)*a1>0) lo=mid; else hi=mid;
+      }
+      events.push({time:(lo+hi)/2, type:a1<0?'rise':'set'});
+    }
+  }
+  if(events.length===0){
+    const allAbove=alts.every(a=>a.alt>h0);
+    return{rise:null,set:null,transit:null,alwaysUp:allAbove,neverUp:!allAbove};
+  }
+  const rise=events.find(e=>e.type==='rise');
+  const set=events.find(e=>e.type==='set');
+  let maxAlt=-999,transitH=12;
+  alts.forEach(a=>{if(a.alt>maxAlt){maxAlt=a.alt;transitH=a.h;}});
+  return{rise:rise?rise.time:null,set:set?set.time:null,transit:transitH,alwaysUp:false,neverUp:false};
+}
+
+// ══════════════════════════════════════════════════════
 //  BODY RISE/SET — single-pass for Sun/planets
 // ══════════════════════════════════════════════════════
 function bodyRiseSet(date, lat, posFn, h0){

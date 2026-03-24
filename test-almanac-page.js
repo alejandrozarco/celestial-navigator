@@ -412,6 +412,20 @@ const sunPolar = calc(`bodyRiseSet(new Date('2026-06-15T00:00:00Z'), 89.9, funct
 assert('Sun at pole in June is always up', sunPolar.alwaysUp === true, JSON.stringify(sunPolar));
 
 // ══════════════════════════════════════════════════════
+//  Moon Rise/Set
+// ══════════════════════════════════════════════════════
+console.log(`\n${B}═══ Moon Rise/Set ═══${X}`);
+
+const mrs = calc(`moonRiseSet(new Date('2026-06-15T00:00:00Z'), 0)`);
+assert('Moon rise/set has rise or is polar', mrs.rise !== null || mrs.alwaysUp || mrs.neverUp);
+assert('Moon rise/set times are finite or null',
+  (mrs.rise === null || isFinite(mrs.rise)) && (mrs.set === null || isFinite(mrs.set)));
+
+// At equator, Moon should generally have both rise and set
+const mrs2 = calc(`moonRiseSet(new Date('2026-01-15T00:00:00Z'), 0)`);
+assert('Moon rise/set at equator Jan has events', mrs2.rise !== null || mrs2.set !== null || mrs2.alwaysUp);
+
+// ══════════════════════════════════════════════════════
 //  Moon Phase
 // ══════════════════════════════════════════════════════
 console.log(`\n${B}═══ Moon Phase ═══${X}`);
