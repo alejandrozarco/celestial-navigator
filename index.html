@@ -347,6 +347,9 @@ canvas#skyPlot:active{cursor:grabbing}
           <button class="sky-btn active" id="skyGridAz" onclick="setSkyGrid('az')">AZIMUTHAL</button>
           <button class="sky-btn" id="skyGridEq" onclick="setSkyGrid('eq')">EQUATORIAL</button>
           <span style="color:var(--tx3);font-size:10px;margin-left:4px">|</span>
+          <button class="sky-btn active" id="skyPoleN" onclick="setSkyPole('north')">NCP</button>
+          <button class="sky-btn" id="skyPoleS" onclick="setSkyPole('south')">SCP</button>
+          <span style="color:var(--tx3);font-size:10px;margin-left:4px">|</span>
           <button class="sky-btn" id="skyConst" onclick="toggleConstellations()" style="display:none">CONSTELLATIONS</button>
           <span style="flex:1"></span>
           <span style="color:var(--tx3);font-size:10px">scroll to zoom · drag to pan · dbl-click reset</span>
@@ -1252,6 +1255,7 @@ let heatmapOn=false;
 
 // Sky plot state
 let skyGrid='az'; // 'az' = azimuthal (alt/az), 'eq' = equatorial (RA/Dec)
+let skyPole='north'; // 'north' = NCP centered, 'south' = SCP centered
 let skyShowConst=false;
 let skyZoom=1, skyPanX=0, skyPanY=0; // zoom level + pan offset in pixels
 let skyDragging=false, skyDragStartX=0, skyDragStartY=0, skyPanStartX=0, skyPanStartY=0;
@@ -1632,6 +1636,13 @@ function setSkyGrid(mode){
   skyGrid=mode;
   document.getElementById('skyGridAz').classList.toggle('active',mode==='az');
   document.getElementById('skyGridEq').classList.toggle('active',mode==='eq');
+  drawSkyPlot();
+}
+function setSkyPole(pole){
+  skyPole=pole;
+  document.getElementById('skyPoleN').classList.toggle('active',pole==='north');
+  document.getElementById('skyPoleS').classList.toggle('active',pole==='south');
+  skyZoom=1;skyPanX=0;skyPanY=0;
   drawSkyPlot();
 }
 function toggleConstellations(){
@@ -2724,12 +2735,12 @@ function drawSkyPlot(){
   const lst=mod360(ghaA+ap.lon);
   const isEq=(skyGrid==='eq');
 
-  // ══ NORTH POLAR STEREOGRAPHIC — NCP (Polaris) at center ══
-  // polarDist = 90 - dec; angle = RA - LST - 90 (meridian at top, east on right)
+  // ══ POLAR STEREOGRAPHIC — NCP or SCP at center ══
+  const isSouth=(skyPole==='south');
   function projectRaDec(ra,dec){
-    const polarDist=90-dec;
+    const polarDist=isSouth?(90+dec):(90-dec);
     const r=baseRadius*skyZoom*polarDist/90;
-    const angle=(ra-lst-90)*R;
+    const angle=isSouth?-(ra-lst-90)*R:(ra-lst-90)*R;
     return{x:cx+skyPanX+r*Math.cos(angle),y:cy+skyPanY+r*Math.sin(angle)};
   }
   function projectBody(b){return projectRaDec(b.ra,b.dec);}
@@ -2768,16 +2779,16 @@ function drawSkyPlot(){
   // ── EQUATORIAL GRID (natural for polar projection — circles + radials) ──
   if(isEq){
     ctx.strokeStyle='rgba(70,50,120,0.4)';ctx.lineWidth=0.5;
-    [75,60,45,30,15,0,-15,-30,-45,-60].forEach(dec=>{
-      const r=baseRadius*skyZoom*(90-dec)/90;
+    (isSouth?[-75,-60,-45,-30,-15,0,15,30,45,60]:[75,60,45,30,15,0,-15,-30,-45,-60]).forEach(dec=>{
+      const r=baseRadius*skyZoom*(isSouth?(90+dec):(90-dec))/90;
       ctx.beginPath();ctx.arc(cx+skyPanX,cy+skyPanY,r,0,2*Math.PI);ctx.stroke();
-      const lAngle=(-lst-90)*R;
+      const lAngle=isSouth?-(-lst-90)*R:(-lst-90)*R;
       ctx.fillStyle='rgba(100,80,160,0.5)';ctx.font='9px "Share Tech Mono"';
       ctx.textAlign='left';ctx.textBaseline='bottom';
       ctx.fillText(dec+'°',cx+skyPanX+r*Math.cos(lAngle)+3,cy+skyPanY+r*Math.sin(lAngle)-2);
     });
     for(let h=0;h<24;h+=2){
-      const ra=h*15,angle=(ra-lst-90)*R;
+      const ra=h*15,angle=isSouth?-(ra-lst-90)*R:(ra-lst-90)*R;
       const rMax=baseRadius*skyZoom*2;
       ctx.strokeStyle='rgba(70,50,120,0.3)';ctx.lineWidth=0.5;
       ctx.beginPath();ctx.moveTo(cx+skyPanX,cy+skyPanY);
@@ -2819,9 +2830,9 @@ function drawSkyPlot(){
     ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText('zenith',zenP.x,zenP.y+4);
   }
 
-  // NCP marker
-  const ncpP=projectRaDec(0,90);
-  ctx.fillStyle='rgba(200,168,75,0.4)';ctx.beginPath();ctx.arc(ncpP.x,ncpP.y,2,0,2*Math.PI);ctx.fill();
+  // Pole marker
+  const poleP=projectRaDec(0,isSouth?-90:90);
+  ctx.fillStyle='rgba(200,168,75,0.4)';ctx.beginPath();ctx.arc(poleP.x,poleP.y,2,0,2*Math.PI);ctx.fill();
 
   // ── SUGGESTED STARS ──
   const suggested=suggestStars(bodies);
