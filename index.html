@@ -878,9 +878,9 @@ function clearLunarDist(dObs, moonAltApp, bodyAltApp, moonHP){
 
 // Find GMT from cleared lunar distance by interpolation
 function lunarDistToGMT(clearedDist, bodyName, approxUTC){
-  // Compute geocentric distances at 1-hour intervals, ±4 hours
+  // Compute geocentric distances at 1-hour intervals, ±12 hours
   const points=[];
-  for(let i=-4;i<=4;i++){
+  for(let i=-12;i<=12;i++){
     const t=new Date(approxUTC.getTime()+i*3600000);
     const d=geocentricLunarDist(t,bodyName);
     if(!isNaN(d)) points.push({t:t.getTime(),d});
@@ -2135,7 +2135,7 @@ function addSight(){
     const gmt=lunarDistToGMT(cleared,bodyName,utc);
     if(!gmt){
       const actualDist=geocentricLunarDist(utc,bodyName);
-      showMsg(`No GMT found \u2014 measured ${fmtDeg(distObs)} but actual Moon\u2013${bodyName} distance is ~${fmtDeg(actualDist)}`,'st-err');
+      showMsg(`No GMT found in \u00b112h \u2014 measured ${fmtDeg(distObs)} but actual Moon\u2013${bodyName} distance is ~${fmtDeg(actualDist)}`,'st-err');
       return;
     }
     // Compute longitude from GMT difference
