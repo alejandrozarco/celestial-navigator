@@ -539,7 +539,17 @@ function precessStar(star,date){
   const z3=z2;
   const dec=Math.asin(Math.max(-1,Math.min(1,z3)))*D;
   const ra=mod360(Math.atan2(y3,x3)*D);
-  return{sha:mod360(360-ra), dec, ra};
+  // Apply nutation (Meeus Eq. 23.1) — apparent place correction
+  const nut=nutation(date);
+  const eps0=23.439291-0.013004*T;
+  const eps=(eps0+nut.deps)*R;
+  const raR2=ra*R, decR2=dec*R;
+  const dRA=nut.dpsi*(Math.cos(eps)+Math.sin(eps)*Math.sin(raR2)*Math.tan(decR2))
+            -nut.deps*Math.cos(raR2)*Math.tan(decR2);
+  const dDec=nut.dpsi*Math.sin(eps)*Math.cos(raR2)+nut.deps*Math.sin(raR2);
+  const raF=mod360(ra+dRA);
+  const decF=dec+dDec;
+  return{sha:mod360(360-raF), dec:decF, ra:raF};
 }
 
 function ghaStar(star,date){

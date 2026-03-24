@@ -221,14 +221,15 @@ const starCount = calc("STARS.length");
 check('58 navigational stars', starCount === 58, `${starCount} stars`);
 
 // Spot-check key stars — precessed from J2000.0 to 2026-01-01
+// Reference: Air Almanac 2026 (tolerances tightened after nutation correction)
 const starChecks = {
-  'Polaris':    { sha: 313.5, dec: 89.37, tol: 0.3 },
-  'Sirius':     { sha: 258.4, dec: -16.75, tol: 0.3 },
-  'Canopus':    { sha: 263.9, dec: -52.71, tol: 0.3 },
-  'Arcturus':   { sha: 145.8, dec: 19.05, tol: 0.3 },
-  'Vega':       { sha: 80.5, dec: 38.81, tol: 0.3 },
-  'Rigel':      { sha: 281.1, dec: -8.17, tol: 0.3 },
-  'Betelgeuse': { sha: 270.9, dec: 7.41, tol: 0.3 },
+  'Polaris':    { sha: 313.5, dec: 89.37, tol: 0.3 },  // polar star: large RA nutation, keep relaxed
+  'Sirius':     { sha: 258.4, dec: -16.75, tol: 0.05 },
+  'Canopus':    { sha: 263.9, dec: -52.71, tol: 0.05 },
+  'Arcturus':   { sha: 145.8, dec: 19.05,  tol: 0.05 },
+  'Vega':       { sha: 80.5,  dec: 38.81,  tol: 0.05 },
+  'Rigel':      { sha: 281.1, dec: -8.17,  tol: 0.05 },
+  'Betelgeuse': { sha: 270.9, dec: 7.41,   tol: 0.05 },
 };
 for (const [name, ref] of Object.entries(starChecks)) {
   const star = calc(`(function(){ const s=STARS.find(s=>s.n==='${name}'); if(!s)return null; const p=precessStar(s,new Date('2026-01-01T00:00:00Z')); return{sha:p.sha,dec:p.dec}; })()`);
