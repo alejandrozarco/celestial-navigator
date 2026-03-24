@@ -565,6 +565,25 @@ for (const [name, date, jplRA, jplDec, jplSHA] of jplPlanets) {
 }
 
 // ═══════════════════════════════════════════════════════════
+//  NUTATION — IAU 1980 top-5 terms
+// ═══════════════════════════════════════════════════════════
+console.log('\n\x1b[1mNutation\x1b[0m (5-term IAU 1980)');
+
+// Meeus Example 22.a: 1987 April 10, 0h TD
+// Full 106-term: dpsi = -3.788" = -0.001052°, deps = +9.443" = +0.002623°
+// Our 5-term approximation should be within 1.8" (0.0005°) of full series
+const nut87 = calc(`nutation(new Date('1987-04-10T00:00:00Z'))`);
+assert('Nutation dpsi 1987-Apr-10', nut87.dpsi, -0.001052, 0.0005);
+assert('Nutation deps 1987-Apr-10', nut87.deps,  0.002623, 0.0005);
+
+// At J2000.0: nutation should be small but finite
+const nut2000 = calc(`nutation(new Date('2000-01-01T12:00:00Z'))`);
+check('Nutation dpsi J2000 finite',   isFinite(nut2000.dpsi), `${nut2000.dpsi.toFixed(6)}°`);
+check('Nutation deps J2000 finite',   isFinite(nut2000.deps), `${nut2000.deps.toFixed(6)}°`);
+check('Nutation |dpsi| < 0.01°',      Math.abs(nut2000.dpsi) < 0.01, `|dpsi|=${Math.abs(nut2000.dpsi).toFixed(6)}°`);
+check('Nutation |deps| < 0.006°',     Math.abs(nut2000.deps) < 0.006, `|deps|=${Math.abs(nut2000.deps).toFixed(6)}°`);
+
+// ═══════════════════════════════════════════════════════════
 //  SUMMARY
 // ═══════════════════════════════════════════════════════════
 console.log(`\n${'═'.repeat(50)}`);
