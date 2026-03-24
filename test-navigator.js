@@ -613,6 +613,109 @@ check('Nutation |dpsi| < 0.01°',      Math.abs(nut2000.dpsi) < 0.01, `|dpsi|=${
 check('Nutation |deps| < 0.006°',     Math.abs(nut2000.deps) < 0.006, `|deps|=${Math.abs(nut2000.deps).toFixed(6)}°`);
 
 // ═══════════════════════════════════════════════════════════
+//  END-TO-END FIX (Florence demo session)
+// ═══════════════════════════════════════════════════════════
+console.log('\n\x1b[1mEnd-to-End Fix\x1b[0m (Florence demo)');
+
+{
+  const ap = { lat: 43 + 46/60, lon: 11 + 15/60 };
+  const ie = 0, hoe = 2;
+
+  // Demo sights (from loadDemo in index.html)
+  const demoSights = [
+    { mode:'polaris', utc:'2026-03-21T18:30:00Z', lon:ap.lon, hsDeg:44, hsMin:3.7 },
+    { mode:'intercept', utc:'2026-03-21T18:28:00Z', body:'Venus', hsDeg:4, hsMin:34.7 },
+    { mode:'intercept', utc:'2026-03-21T18:29:00Z', body:'Jupiter', hsDeg:69, hsMin:10.9 },
+    { mode:'intercept', utc:'2026-03-21T18:30:00Z', star:'Capella', hsDeg:69, hsMin:36.4 },
+    { mode:'intercept', utc:'2026-03-21T18:31:00Z', star:'Sirius', hsDeg:29, hsMin:17.4 },
+    { mode:'intercept', utc:'2026-03-21T18:32:00Z', star:'Betelgeuse', hsDeg:49, hsMin:59.1 },
+    { mode:'intercept', utc:'2026-03-21T18:33:00Z', star:'Procyon', hsDeg:51, hsMin:1.9 },
+  ];
+
+  // Process each sight through the full pipeline
+  const lops = [];
+  let polarisLat = null;
+
+  demoSights.forEach(ds => {
+    const utc = `new Date('${ds.utc}')`;
+    const hs = ds.hsDeg + ds.hsMin / 60;
+    const ho = calc(`correct(${hs}, ${ie}, ${hoe}).ho`);
+
+    if (ds.mode === 'polaris') {
+      polarisLat = calc(`(function(){
+        const utc = ${utc};
+        const lhaA = mod360(ghaAries(utc) + ${ds.lon});
+        return polarisLat(${ho}, lhaA, utc.getUTCMonth() + 1);
+      })()`);
+    } else {
+      const sight = calc(`(function(){
+        const utc = ${utc};
+        const ap = {lat:${ap.lat}, lon:${ap.lon}};
+        ${ds.body
+          ? `const pos = planetPosition('${ds.body}', utc);
+             const star = {sha: pos.sha, dec: pos.dec};`
+          : `const raw = STARS.find(s => s.n === '${ds.star}');
+             const p = precessStar(raw, utc);
+             const star = {sha: p.sha, dec: p.dec};`
+        }
+        const ghaA = ghaAries(utc);
+        const ghaSt = mod360(ghaA + star.sha);
+        const lha = mod360(ghaSt + ap.lon);
+        const r = reduce(ap.lat, star.dec, lha);
+        return { Hc: r.Hc, Zn: r.Zn, intercept: (${ho} - r.Hc) * 60 };
+      })()`);
+      lops.push({ intercept: sight.intercept, azimuth: sight.Zn });
+    }
+  });
+
+  // Polaris latitude check
+  check('Polaris latitude within 30\' of AP', Math.abs(polarisLat - ap.lat) < 0.5,
+    `got ${polarisLat.toFixed(2)}°, expected ~${ap.lat.toFixed(2)}°`);
+
+  // LS intercept fix
+  const lopsJSON = JSON.stringify(lops);
+  const lsFix = calc(`lsFix(${lopsJSON})`);
+  const lsFixLat = ap.lat + lsFix.dy / 60;
+  const lsFixLon = ap.lon + lsFix.dx / (60 * Math.cos(ap.lat * Math.PI / 180));
+  const lsLatErr = Math.abs(lsFixLat - ap.lat) * 60; // arcmin
+  const lsLonErr = Math.abs(lsFixLon - ap.lon) * 60 * Math.cos(ap.lat * Math.PI / 180);
+
+  check('LS fix lat within 30 nm of AP', lsLatErr < 30,
+    `fix=${lsFixLat.toFixed(3)}°, AP=${ap.lat.toFixed(3)}°, err=${lsLatErr.toFixed(1)} nm`);
+  check('LS fix lon within 30 nm of AP', lsLonErr < 30,
+    `fix=${lsFixLon.toFixed(3)}°, AP=${ap.lon.toFixed(3)}°, err=${lsLonErr.toFixed(1)} nm`);
+
+  // Direct COP fix — build sight objects
+  const copSightsCode = demoSights.filter(ds => ds.mode === 'intercept').map(ds => {
+    const hs = ds.hsDeg + ds.hsMin / 60;
+    return `(function(){
+      const utc = new Date('${ds.utc}');
+      const ho = correct(${hs}, ${ie}, ${hoe}).ho;
+      ${ds.body
+        ? `const pos = planetPosition('${ds.body}', utc);
+           const star = {n:'${ds.body}',sha:pos.sha,dec:pos.dec,isBody:true,bodyType:'${ds.body.toLowerCase()}'};`
+        : `const raw = STARS.find(s => s.n === '${ds.star}');
+           const p = precessStar(raw, utc);
+           const star = {n:'${ds.star}',sha:p.sha,dec:p.dec};`
+      }
+      return {utc, ho, star, ap:{lat:${ap.lat},lon:${ap.lon}}};
+    })()`;
+  });
+
+  const copFix = calc(`directFix([${copSightsCode.join(',')}])`);
+  if (copFix) {
+    const copLatErr = Math.abs(copFix.lat - ap.lat) * 60;
+    const copLonErr = Math.abs(copFix.lon - ap.lon) * 60 * Math.cos(ap.lat * Math.PI / 180);
+    check('COP fix lat within 30 nm of AP', copLatErr < 30,
+      `fix=${copFix.lat.toFixed(3)}°, err=${copLatErr.toFixed(1)} nm`);
+    check('COP fix lon within 30 nm of AP', copLonErr < 30,
+      `fix=${copFix.lon.toFixed(3)}°, err=${copLonErr.toFixed(1)} nm`);
+  } else {
+    total++; failed++; console.log('  \x1b[31m✗\x1b[0m COP fix returned null');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
 //  SUMMARY
 // ═══════════════════════════════════════════════════════════
 console.log(`\n${'═'.repeat(50)}`);
