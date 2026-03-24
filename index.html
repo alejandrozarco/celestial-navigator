@@ -275,6 +275,7 @@ canvas#skyPlot:active{cursor:grabbing}
         </select>
         <span class="unit">(semi-diameter correction)</span>
       </div>
+      <div id="moonInfoRow" class="hidden" style="font-size:11px;color:var(--fg2);padding:2px 0 2px 6px;letter-spacing:0.5px"></div>
       <div class="fr">
         <label>Hs</label>
         <input type="number" id="hsDeg" placeholder="22" min="-90" max="90" class="w40">
@@ -1830,6 +1831,14 @@ function onBodyChange(){
   const v=document.getElementById('starSel').value;
   const show=v==='moon'||v==='sun';
   document.getElementById('limbRow').classList.toggle('hidden',!show);
+  const moonRow=document.getElementById('moonInfoRow');
+  if(v==='moon'){
+    const mp=moonPhase(readUTC());
+    moonRow.textContent=`${mp.name}  \u2022  ${mp.illumination.toFixed(0)}% lit  \u2022  age ${mp.age.toFixed(1)}d`;
+    moonRow.classList.remove('hidden');
+  }else{
+    moonRow.classList.add('hidden');
+  }
 }
 
 function getIE(){return parseFloat(document.getElementById('ie').value)||0;}
