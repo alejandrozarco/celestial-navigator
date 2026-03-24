@@ -105,7 +105,7 @@ def random_date(start_year=2020, end_year=2035):
 
 star_names = list(NAV_STARS.keys())
 
-# ── 200 star SHA/Dec readings at random dates ──────────────────
+# ── N star SHA/Dec readings at random dates ────────────────────
 print(f"Generating {N} star SHA/Dec reference readings...")
 sha_rows = []
 for i in range(N):

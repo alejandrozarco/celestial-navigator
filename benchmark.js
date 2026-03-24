@@ -95,11 +95,10 @@ const G = '\x1b[32m', R = '\x1b[31m', Y = '\x1b[33m', B = '\x1b[1m', X = '\x1b[0
 let totalTests = 0, totalFail = 0;
 
 // ══════════════════════════════════════════════════════════════
-//  TEST 1: Star SHA/Dec (200 readings)
+//  TEST 1: Star SHA/Dec
 // ══════════════════════════════════════════════════════════════
-console.log(`\n${B}═══ Star SHA/Dec vs Skyfield/DE440s (200 readings) ═══${X}`);
-
 const shaRef = parseCSV('star_sha_ref.csv');
+console.log(`\n${B}═══ Star SHA/Dec vs Skyfield/DE440s (${shaRef.length} readings) ═══${X}`);
 const shaErrors = [], decErrors = [], skyErrors = [];
 let shaFails = 0;
 // Tolerance: 1.5' for SHA (generous for nutation/aberration we don't model),
@@ -155,11 +154,10 @@ console.log(`  ${B}Sky separation distribution (arcmin):${X}`);
 console.log(fmtStats(stats(skyErrors)));
 
 // ══════════════════════════════════════════════════════════════
-//  TEST 2: Sight Reduction — topocentric alt/az (200 sightings)
+//  TEST 2: Sight Reduction — topocentric alt/az
 // ══════════════════════════════════════════════════════════════
-console.log(`\n${B}═══ Sight Reduction vs Skyfield/DE440s (200 sightings) ═══${X}`);
-
 const sightRef = parseCSV('sight_reduction_ref.csv');
+console.log(`\n${B}═══ Sight Reduction vs Skyfield/DE440s (${sightRef.length} sightings) ═══${X}`);
 const altErrors = [], azErrors = [];
 let sightFails = 0, sightSkips = 0;
 

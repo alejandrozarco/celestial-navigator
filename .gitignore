@@ -5,6 +5,7 @@
 node_modules/
 package.json
 package-lock.json
+.venv/
 
 # Reference notes (AI brainstorming, ideas, etc.)
 notes/

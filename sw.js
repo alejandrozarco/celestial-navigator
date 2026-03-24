@@ -1,4 +1,4 @@
-const CACHE_NAME = 'celnav-v14';
+const CACHE_NAME = 'celnav-v15';
 const ASSETS = [
   './',
   'index.html',
