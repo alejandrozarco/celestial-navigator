@@ -181,7 +181,7 @@ canvas#skyPlot:active{cursor:grabbing}
 
 <header>
   <div>
-    <h1 style="display:inline">&#10022; CELESTIAL NAVIGATOR</h1> <span style="font-family:var(--mono);font-size:10px;color:rgba(200,168,75,0.4);letter-spacing:1.5px;vertical-align:middle;margin-left:8px">v0.1.89 &middot; 2026-03-24</span>
+    <h1 style="display:inline">&#10022; CELESTIAL NAVIGATOR</h1> <span style="font-family:var(--mono);font-size:10px;color:rgba(200,168,75,0.4);letter-spacing:1.5px;vertical-align:middle;margin-left:8px">v0.1.102 &middot; 2026-03-24</span>
     <div class="hdr-sub">SIGHT REDUCTION &middot; FIX COMPUTATION &middot; SUN &middot; MOON &middot; PLANETS &middot; 58 STARS</div>
     <div class="hdr-motto"><em>Seguendo il corso del sole</em></div>
   </div>
@@ -1943,6 +1943,7 @@ function setFixMethod(m){
   });
   renderFix();
   drawPlot();
+  if(fixMap) requestAnimationFrame(()=>fixMap.invalidateSize());
 }
 
 // ══════════════════════════════════════════════════════
@@ -2341,6 +2342,8 @@ function renderFix(){
     out.innerHTML=html;
     // Store fix for sky plot reference
     state.lastFixLat=fix.lat;state.lastFixLon=fix.lon;
+    // Clear LS ellipse (not applicable to direct mode)
+    if(ellipseLayer&&fixMap){fixMap.removeLayer(ellipseLayer);ellipseLayer=null;}
     // Update map
     updateFixMap(fix.lat,fix.lon,null,null);
     // Store direct fix for LOP plot
@@ -2349,18 +2352,18 @@ function renderFix(){
   }
 
   // ── INTERCEPT LS MODE ──
-  // Polaris latitude — average all
   let fixLat=null,fixLon=null,latSource='',lonSource='';
+  // Polaris latitude — average all
+  let polarisLatAvg=null;
   if(pSights.length){
-    fixLat=pSights.reduce((a,s)=>a+s.polarisLat,0)/pSights.length;
-    latSource=`Polaris (${pSights.length} sight${pSights.length>1?'s':''})`;
+    polarisLatAvg=pSights.reduce((a,s)=>a+s.polarisLat,0)/pSights.length;
   }
   // Transit longitude — average all
+  let transitLonAvg=null;
   if(tSights.length){
     let sinSum=0,cosSum=0;
     tSights.forEach(s=>{const lon=s.transitLon*R;sinSum+=Math.sin(lon);cosSum+=Math.cos(lon);});
-    fixLon=(Math.atan2(sinSum,cosSum)*D+360)%360;
-    lonSource=`Transit (${tSights.length} sight${tSights.length>1?'s':''})`;
+    transitLonAvg=(Math.atan2(sinSum,cosSum)*D+360)%360;
   }
 
   // Intercept fix — use AP from first intercept sight with AP as reference
@@ -2380,6 +2383,16 @@ function renderFix(){
     });
   }
 
+  // Use Polaris lat only when LS can't determine lat independently (<2 intercept sights)
+  // With 2+ intercepts, LS gives a well-determined fix; Polaris a0/a1/a2 can be 20-30' off
+  if(polarisLatAvg!==null&&iSightsWithAP.length<2){
+    fixLat=polarisLatAvg;
+    latSource=`Polaris (${pSights.length} sight${pSights.length>1?'s':''})`;
+  }
+  if(transitLonAvg!==null&&iSightsWithAP.length<2){
+    fixLon=transitLonAvg;
+    lonSource=`Transit (${tSights.length} sight${tSights.length>1?'s':''})`;
+  }
   if(fixLat===null&&lsLat!==null){fixLat=lsLat;latSource='Intercept LS';}
   if(fixLon===null&&lsLon!==null){fixLon=lsLon;lonSource='Intercept LS';}
 
@@ -2398,6 +2411,17 @@ function renderFix(){
   html+=`<div class="fix-detail">`;
   if(latSource) html+=`<div>Lat source: <span>${latSource}</span></div>`;
   if(lonSource) html+=`<div>Lon source: <span>${lonSource}</span></div>`;
+  // Show Polaris/Transit as supplementary when LS is primary
+  if(polarisLatAvg!==null&&iSightsWithAP.length>=2){
+    const delta=Math.abs(polarisLatAvg-fixLat)*60;
+    const color=delta>15?'var(--acc)':'var(--tx2)';
+    html+=`<div>Polaris lat: <span style="color:${color}">${fmt(polarisLatAvg,'lat')} (\u0394${delta.toFixed(1)}')</span></div>`;
+  }
+  if(transitLonAvg!==null&&iSightsWithAP.length>=2&&fixLon!==null){
+    const delta=Math.abs(transitLonAvg-fixLon)*60*Math.cos((fixLat||0)*R);
+    const color=delta>15?'var(--acc)':'var(--tx2)';
+    html+=`<div>Transit lon: <span style="color:${color}">${fmt(transitLonAvg,'lon')} (\u0394${delta.toFixed(1)}')</span></div>`;
+  }
   if(drOn&&iSightsWithAP.length) html+=`<div>DR: <span>CRS ${state.drCourse}°T, SPD ${state.drSpeed} kn (running fix)</span></div>`;
   if(iSightsWithAP.length){
     html+=`<div>Intercept sights: <span>${iSightsWithAP.length}</span></div>`;
@@ -2793,16 +2817,16 @@ function drawPlot(){
     const lops=advSights.map(s=>({intercept:s.intercept,azimuth:s.Zn}));
     const fix=lsFix(lops);
 
-    // Compute blended fix (same as renderFix): Polaris lat / Transit lon override LS
+    // Compute blended fix (same as renderFix): Polaris/Transit override only with <2 intercepts
     const apRef0=advSights[0].ap;
     let blendDx=fix.dx, blendDy=fix.dy;
     const pSightsP=state.sights.filter(s=>s.mode==='polaris'&&s.polarisLat!=null);
-    if(pSightsP.length&&apRef0){
+    if(pSightsP.length&&apRef0&&advSights.length<2){
       const polarisLat=pSightsP.reduce((a,s)=>a+s.polarisLat,0)/pSightsP.length;
       blendDy=(polarisLat-apRef0.lat)*60;
     }
     const tSightsP=state.sights.filter(s=>s.mode==='transit'&&s.transitLon!=null);
-    if(tSightsP.length&&apRef0){
+    if(tSightsP.length&&apRef0&&advSights.length<2){
       let sinS=0,cosS=0;
       tSightsP.forEach(s=>{const lon=s.transitLon*R;sinS+=Math.sin(lon);cosS+=Math.cos(lon);});
       const transitLon=(Math.atan2(sinS,cosS)*D+360)%360;

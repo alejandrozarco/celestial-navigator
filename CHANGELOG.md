@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-24 (v0.1.102)
+
+### Fixed
+- **Polaris latitude no longer overrides LS fix** — when 2+ intercept sights give a well-determined position, Polaris a0/a1/a2 latitude (which can be 20-30' off) is shown as supplementary info instead of replacing the LS latitude. Polaris still provides the primary latitude when fewer than 2 intercept sights are available.
+- **Stale confidence ellipse in Direct mode** — switching from LS to Direct mode now clears the LS confidence ellipse from the map
+- **Map resize on mode switch** — Leaflet map now calls `invalidateSize()` when toggling between Intercept LS and Direct fix modes, preventing tile rendering gaps
+
 ## 2026-03-24 (v0.1.89)
 
 ### Added
