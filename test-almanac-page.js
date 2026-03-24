@@ -397,6 +397,21 @@ const rsNorm = calc(`riseSet(20, 45, -0.5667)`);
 assert('Normal case returns number', typeof rsNorm === 'number' && rsNorm > 0);
 
 // ══════════════════════════════════════════════════════
+//  bodyRiseSet
+// ══════════════════════════════════════════════════════
+console.log(`\n${B}═══ Body Rise/Set ═══${X}`);
+
+// Sun at equator — should have normal rise/set
+const sunRS = calc(`bodyRiseSet(new Date('2026-06-15T00:00:00Z'), 0, function(d){ return solarPosition(d); }, -0.5667)`);
+assert('Sun rise/set at equator has rise', typeof sunRS.rise === 'number' && sunRS.rise > 0);
+assert('Sun rise/set at equator has set', typeof sunRS.set === 'number' && sunRS.set > 12);
+assert('Sun rise/set at equator not polar', !sunRS.alwaysUp && !sunRS.neverUp);
+
+// Sun at 89.9°N in June — circumpolar
+const sunPolar = calc(`bodyRiseSet(new Date('2026-06-15T00:00:00Z'), 89.9, function(d){ return solarPosition(d); }, -0.5667)`);
+assert('Sun at pole in June is always up', sunPolar.alwaysUp === true, JSON.stringify(sunPolar));
+
+// ══════════════════════════════════════════════════════
 //  Moon Phase
 // ══════════════════════════════════════════════════════
 console.log(`\n${B}═══ Moon Phase ═══${X}`);

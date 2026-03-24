@@ -442,6 +442,20 @@ function sunTimes(date, lat){
 }
 
 // ══════════════════════════════════════════════════════
+//  BODY RISE/SET — single-pass for Sun/planets
+// ══════════════════════════════════════════════════════
+function bodyRiseSet(date, lat, posFn, h0){
+  const noon=new Date(date);noon.setUTCHours(12,0,0,0);
+  const pos=posFn(noon);
+  const transit=12;
+  const rs=riseSet(pos.dec,lat,h0);
+  if(typeof rs==='object'){
+    return{rise:null,set:null,transit,alwaysUp:!!rs.neverSets,neverUp:!!rs.neverRises};
+  }
+  return{rise:transit-rs,set:transit+rs,transit,alwaysUp:false,neverUp:false};
+}
+
+// ══════════════════════════════════════════════════════
 //  FORMAT HELPERS
 // ══════════════════════════════════════════════════════
 function fmtDM(deg,dp=1){
