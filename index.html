@@ -2981,7 +2981,7 @@ function drawSkyPlot(){
       const pts=[];for(let alt=85;alt>=-5;alt-=5)pts.push(projectAltAz(alt,az));
       ctx.strokeStyle='rgba(26,50,88,0.3)';ctx.lineWidth=0.5;drawCurve(pts,false);
       const lp=projectAltAz(-5,az);
-      ctx.fillStyle=lbl==='N'?'#c8a84b':'rgba(61,84,112,0.7)';
+      ctx.fillStyle='#c8a84b';
       ctx.font=lbl.length===1?'bold 12px "Share Tech Mono"':'10px "Share Tech Mono"';
       ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(lbl,lp.x,lp.y);
     });
