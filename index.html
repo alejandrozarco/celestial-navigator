@@ -918,10 +918,11 @@ function riseSet(dec_deg, lat_deg, h0_deg){
   return Math.acos(cosH)*D/15;
 }
 
-function bodyRiseSet(date, lat, posFn, h0){
+function bodyRiseSet(date, lat, posFn, h0, lon){
+  const lonHr=(lon||0)/15; // longitude offset in hours (east = positive)
   const noon=new Date(date);noon.setUTCHours(12,0,0,0);
   const pos=posFn(noon);
-  const transit=12;
+  const transit=12-lonHr; // approximate transit in UTC
   const rs=riseSet(pos.dec,lat,h0);
   if(typeof rs==='object'){
     return{rise:null,set:null,transit,alwaysUp:!!rs.neverSets,neverUp:!!rs.neverRises};
@@ -929,14 +930,15 @@ function bodyRiseSet(date, lat, posFn, h0){
   return{rise:transit-rs,set:transit+rs,transit,alwaysUp:false,neverUp:false};
 }
 
-function moonRiseSet(date, lat){
+function moonRiseSet(date, lat, lon){
   const h0=0.125;
+  const lonDeg=lon||0;
   const base=new Date(date);base.setUTCHours(0,0,0,0);
   const alts=[];
   for(let h=0;h<=24;h+=2){
     const t=new Date(base.getTime()+h*3600000);
     const moon=moonPosition(t);
-    const lha=mod360(ghaAries(t)+moon.sha);
+    const lha=mod360(ghaAries(t)+moon.sha+lonDeg);
     const alt=Math.asin(Math.sin(lat*R)*Math.sin(moon.dec*R)+Math.cos(lat*R)*Math.cos(moon.dec*R)*Math.cos(lha*R))*D;
     alts.push({h,alt});
   }
@@ -949,7 +951,7 @@ function moonRiseSet(date, lat){
         const mid=(lo+hi)/2;
         const t=new Date(base.getTime()+mid*3600000);
         const m=moonPosition(t);
-        const lha2=mod360(ghaAries(t)+m.sha);
+        const lha2=mod360(ghaAries(t)+m.sha+lonDeg);
         const altMid=Math.asin(Math.sin(lat*R)*Math.sin(m.dec*R)+Math.cos(lat*R)*Math.cos(m.dec*R)*Math.cos(lha2*R))*D;
         if((altMid-h0)*a1>0) lo=mid; else hi=mid;
       }
@@ -2024,18 +2026,18 @@ function onBodyChange(){
   if(v==='moon'){
     const mp=moonPhase(utc);
     parts.push(`${mp.name} \u2022 ${mp.illumination.toFixed(0)}% lit`);
-    const rs=moonRiseSet(utc,lat);
+    const rs=moonRiseSet(utc,lat,rawAp.lon);
     if(rs.alwaysUp) parts.push('always up');
     else if(rs.neverUp) parts.push('never rises');
     else parts.push(`\u2191${fmtHM(rs.rise)} \u2193${fmtHM(rs.set)}`);
   }else if(v==='sun'){
-    const rs=bodyRiseSet(utc,lat,solarPosition,-0.8333);
+    const rs=bodyRiseSet(utc,lat,solarPosition,-0.8333,rawAp.lon);
     if(rs.alwaysUp) parts.push('always up');
     else if(rs.neverUp) parts.push('never rises');
     else parts.push(`\u2191${fmtHM(rs.rise)} \u2193${fmtHM(rs.set)}`);
   }else if(PLANET_NAMES[v]){
     const name=PLANET_NAMES[v];
-    const rs=bodyRiseSet(utc,lat,(d)=>planetPosition(name,d),-0.5667);
+    const rs=bodyRiseSet(utc,lat,(d)=>planetPosition(name,d),-0.5667,rawAp.lon);
     if(rs.alwaysUp) parts.push('always up');
     else if(rs.neverUp) parts.push('never rises');
     else parts.push(`\u2191${fmtHM(rs.rise)} \u2193${fmtHM(rs.set)}`);
@@ -2536,6 +2538,25 @@ function showWorkings(id){
     h+=row('a2',"\u2248 +0.6' (month correction)");
     h+=row('Latitude',`Ho + a0 + a1 + a2 = ${fmt(s.polarisLat,'lat')}`);
 
+  }else if(s.mode==='lunar'){
+    h+=row('Body',`${s.star.n}`);
+    h+=row('UTC (approx)',fmtUTC(s.utc));
+    h+=sep;
+    h+=row('Moon Hs',fmtDeg(s.moonHs));
+    h+=row('Body Hs',fmtDeg(s.bodyHs));
+    h+=row('Observed dist',fmtDeg(s.lunarDist));
+    h+=row('Moon SD',`${s.moonSD.toFixed(1)}' (HP ${s.moonHP.toFixed(1)}')`);
+    h+=sep;
+    h+=row('Center-to-center',fmtDeg(s.lunarDist+s.moonSD/60));
+    h+=row('Cleared dist',fmtDeg(s.lunarCleared,2));
+    h+=row('Clearing corr',`${((s.lunarCleared-(s.lunarDist+s.moonSD/60))*60).toFixed(1)}'`);
+    h+=sep;
+    const fmtT=(d)=>`${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}:${String(d.getUTCSeconds()).padStart(2,'0')}`;
+    h+=row('GMT found',fmtT(s.lunarGMT)+' UTC');
+    const diffMin=((s.lunarGMT.getTime()-s.utc.getTime())/60000);
+    h+=row('Clock error',`${diffMin>=0?'+':''}${diffMin.toFixed(1)} min`);
+    h+=row('Longitude',fmt(s.lunarLon,'lon'));
+
   }else{ // transit
     h+=row('Star',`${s.star.n}`);
     h+=row('UTC',fmtUTC(s.utc));
@@ -2901,7 +2922,7 @@ function drawSkyPlot(){
   function projectRaDec(ra,dec){
     const polarDist=isSouth?(90+dec):(90-dec);
     const r=baseRadius*skyZoom*polarDist/90;
-    const angle=(isSouth?-(ra-lst-90):(ra-lst-90+skyRotation))*R;
+    const angle=(isSouth?-(ra-lst-90+skyRotation):(ra-lst-90+skyRotation))*R;
     return{x:cx+skyPanX+r*Math.cos(angle),y:cy+skyPanY+r*Math.sin(angle)};
   }
   function projectBody(b){return projectRaDec(b.ra,b.dec);}
@@ -2943,13 +2964,13 @@ function drawSkyPlot(){
     (isSouth?[-75,-60,-45,-30,-15,0,15,30,45,60]:[75,60,45,30,15,0,-15,-30,-45,-60]).forEach(dec=>{
       const r=baseRadius*skyZoom*(isSouth?(90+dec):(90-dec))/90;
       ctx.beginPath();ctx.arc(cx+skyPanX,cy+skyPanY,r,0,2*Math.PI);ctx.stroke();
-      const lAngle=isSouth?-(-lst-90)*R:(-lst-90+skyRotation)*R;
+      const lAngle=isSouth?-(-lst-90+skyRotation)*R:(-lst-90+skyRotation)*R;
       ctx.fillStyle='rgba(100,80,160,0.5)';ctx.font='9px "Share Tech Mono"';
       ctx.textAlign='left';ctx.textBaseline='bottom';
       ctx.fillText(dec+'°',cx+skyPanX+r*Math.cos(lAngle)+3,cy+skyPanY+r*Math.sin(lAngle)-2);
     });
     for(let h=0;h<24;h+=2){
-      const ra=h*15,angle=isSouth?-(ra-lst-90)*R:(ra-lst-90+skyRotation)*R;
+      const ra=h*15,angle=isSouth?-(ra-lst-90+skyRotation)*R:(ra-lst-90+skyRotation)*R;
       const rMax=baseRadius*skyZoom*2;
       ctx.strokeStyle='rgba(70,50,120,0.3)';ctx.lineWidth=0.5;
       ctx.beginPath();ctx.moveTo(cx+skyPanX,cy+skyPanY);
