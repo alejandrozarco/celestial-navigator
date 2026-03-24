@@ -4,7 +4,7 @@ A browser-based celestial navigation tool for computing position fixes from sext
 
 **[Live App](https://alexanderkeur-del.github.io/celestial-navigator/)** | **[Almanac Generator](https://alexanderkeur-del.github.io/celestial-navigator/almanac.html)**
 
-![Celestial Navigator — Demo Fix](screenshots/demo-fix-map.png)
+![Celestial Navigator — Strait of Magellan Fix](screenshots/demo-fix-map.png)
 
 ## Features
 
