@@ -52,14 +52,14 @@ header h1{font-family:var(--disp);font-size:24px;font-weight:700;letter-spacing:
 
 /* ─── MODE TABS ─── */
 .mode-tabs{display:flex;gap:3px}
-.mode-tab{flex:1;padding:7px 4px;background:var(--s2);border:1px solid var(--b1);color:var(--tx3);font-family:var(--disp);font-size:14px;font-weight:600;letter-spacing:2px;cursor:pointer;text-align:center;transition:all 0.15s}
+.mode-tab{flex:1;padding:7px 4px;background:var(--s2);border:1px solid var(--b1);color:var(--tx3);font-family:var(--disp);font-size:12px;font-weight:600;letter-spacing:1.5px;cursor:pointer;text-align:center;transition:all 0.15s}
 .mode-tab:hover{border-color:var(--acc2);color:var(--tx2)}
 .mode-tab.active{background:var(--s3);border-color:var(--acc);color:var(--acc)}
 
 /* ─── FORM ─── */
 .fr{display:flex;align-items:center;gap:6px;margin-bottom:7px}
 .fr:last-child{margin-bottom:0}
-.fr label{font-family:var(--mono);font-size:14px;color:var(--tx2);letter-spacing:1px;min-width:52px;text-transform:uppercase;flex-shrink:0}
+.fr label{font-family:var(--mono);font-size:13px;color:var(--tx2);letter-spacing:1px;min-width:52px;text-transform:uppercase;flex-shrink:0}
 .fr input,.fr select{
   background:var(--s1);border:1px solid var(--b1);color:var(--tx1);
   font-family:var(--mono);font-size:16px;padding:4px 7px;outline:none;
@@ -67,7 +67,7 @@ header h1{font-family:var(--disp);font-size:24px;font-weight:700;letter-spacing:
 }
 .fr input:focus,.fr select:focus{border-color:var(--acc2)}
 .fr select option{background:var(--s2)}
-.fr .unit{font-family:var(--mono);font-size:14px;color:var(--tx3);flex-shrink:0}
+.fr .unit{font-family:var(--mono);font-size:13px;color:var(--tx3);flex-shrink:0}
 input[type=number]{-moz-appearance:textfield}
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
@@ -373,6 +373,9 @@ canvas#skyPlot:active{cursor:grabbing}
           <button class="sky-btn" id="skyPoleS" onclick="setSkyPole('south')">SCP</button>
           <span style="color:var(--tx3);font-size:10px;margin-left:4px">|</span>
           <button class="sky-btn" id="skyConst" onclick="toggleConstellations()" style="display:none">CONSTELLATIONS</button>
+          <span style="color:var(--tx3);font-size:10px;margin-left:4px">|</span>
+          <span style="font:10px var(--mono);color:var(--tx3)">ROT</span>
+          <input type="range" id="skyRotation" min="0" max="360" value="0" style="width:60px;accent-color:var(--acc)" oninput="setSkyRotation(+this.value)">
           <span style="flex:1"></span>
           <span style="color:var(--tx3);font-size:10px">scroll to zoom · drag to pan · dbl-click reset</span>
         </div>
@@ -1349,6 +1352,7 @@ let heatmapOn=false;
 // Sky plot state
 let skyGrid='az'; // 'az' = azimuthal (alt/az), 'eq' = equatorial (RA/Dec)
 let skyPole='north'; // 'north' = NCP centered, 'south' = SCP centered
+let skyRotation=0; // manual rotation offset in degrees
 let skyShowConst=false;
 let skyZoom=1, skyPanX=0, skyPanY=0; // zoom level + pan offset in pixels
 let skyDragging=false, skyDragStartX=0, skyDragStartY=0, skyPanStartX=0, skyPanStartY=0;
@@ -1729,6 +1733,10 @@ function setSkyGrid(mode){
   skyGrid=mode;
   document.getElementById('skyGridAz').classList.toggle('active',mode==='az');
   document.getElementById('skyGridEq').classList.toggle('active',mode==='eq');
+  drawSkyPlot();
+}
+function setSkyRotation(deg){
+  skyRotation=deg;
   drawSkyPlot();
 }
 function setSkyPole(pole){
@@ -2227,11 +2235,12 @@ function renderLog(){
     if(s.isAverage) html+=`<td><span class="badge b-avg">AVG</span></td>`;
     else if(s.mode==='intercept') html+=`<td><span class="badge b-int">INT</span></td>`;
     else if(s.mode==='polaris') html+=`<td><span class="badge b-pol">POL</span></td>`;
+    else if(s.mode==='lunar') html+=`<td><span class="badge b-trs">LUN</span></td>`;
     else html+=`<td><span class="badge b-trs">TRS</span></td>`;
     html+=`<td>${s.star?s.star.n:'Polaris'}</td>`;
     html+=`<td>${fmtUTC(s.utc)}</td>`;
-    html+=`<td>${fmtDeg(s.hs,1)}</td>`;
-    html+=`<td>${fmtDeg(s.ho,1)}</td>`;
+    html+=`<td>${s.mode==='lunar'?fmtDeg(s.lunarDist||0,1):fmtDeg(s.hs,1)}</td>`;
+    html+=`<td>${s.mode==='lunar'?fmtDeg(s.lunarCleared||0,1):fmtDeg(s.ho,1)}</td>`;
     if(s.mode==='intercept'&&s.Hc!=null){
       html+=`<td>${fmtDeg(s.Hc,1)}</td>`;
       html+=`<td>${s.Zn.toFixed(1)}\u00b0</td>`;
@@ -2244,6 +2253,9 @@ function renderLog(){
     }else if(s.mode==='polaris'){
       html+=`<td colspan="3" style="color:var(--acc)">\u2014</td>`;
       html+=`<td>Lat ${fmt(s.polarisLat,'lat')}</td>`;
+    }else if(s.mode==='lunar'){
+      html+=`<td colspan="3" style="color:var(--blu)">\u2014</td>`;
+      html+=`<td>Lon ${fmt(s.lunarLon,'lon')}</td>`;
     }else{
       html+=`<td colspan="3" style="color:var(--grn)">\u2014</td>`;
       html+=`<td>Lon ${fmt(s.transitLon,'lon')}</td>`;
@@ -2889,7 +2901,7 @@ function drawSkyPlot(){
   function projectRaDec(ra,dec){
     const polarDist=isSouth?(90+dec):(90-dec);
     const r=baseRadius*skyZoom*polarDist/90;
-    const angle=isSouth?-(ra-lst-90)*R:(ra-lst-90)*R;
+    const angle=(isSouth?-(ra-lst-90):(ra-lst-90+skyRotation))*R;
     return{x:cx+skyPanX+r*Math.cos(angle),y:cy+skyPanY+r*Math.sin(angle)};
   }
   function projectBody(b){return projectRaDec(b.ra,b.dec);}
@@ -2931,13 +2943,13 @@ function drawSkyPlot(){
     (isSouth?[-75,-60,-45,-30,-15,0,15,30,45,60]:[75,60,45,30,15,0,-15,-30,-45,-60]).forEach(dec=>{
       const r=baseRadius*skyZoom*(isSouth?(90+dec):(90-dec))/90;
       ctx.beginPath();ctx.arc(cx+skyPanX,cy+skyPanY,r,0,2*Math.PI);ctx.stroke();
-      const lAngle=isSouth?-(-lst-90)*R:(-lst-90)*R;
+      const lAngle=isSouth?-(-lst-90)*R:(-lst-90+skyRotation)*R;
       ctx.fillStyle='rgba(100,80,160,0.5)';ctx.font='9px "Share Tech Mono"';
       ctx.textAlign='left';ctx.textBaseline='bottom';
       ctx.fillText(dec+'°',cx+skyPanX+r*Math.cos(lAngle)+3,cy+skyPanY+r*Math.sin(lAngle)-2);
     });
     for(let h=0;h<24;h+=2){
-      const ra=h*15,angle=isSouth?-(ra-lst-90)*R:(ra-lst-90)*R;
+      const ra=h*15,angle=isSouth?-(ra-lst-90)*R:(ra-lst-90+skyRotation)*R;
       const rMax=baseRadius*skyZoom*2;
       ctx.strokeStyle='rgba(70,50,120,0.3)';ctx.lineWidth=0.5;
       ctx.beginPath();ctx.moveTo(cx+skyPanX,cy+skyPanY);
