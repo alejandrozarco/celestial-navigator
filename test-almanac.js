@@ -566,6 +566,34 @@ for (const [name, date, jplRA, jplDec, jplSHA] of jplPlanets) {
 }
 
 // ═══════════════════════════════════════════════════════════
+//  MOON PHASE
+// ═══════════════════════════════════════════════════════════
+console.log('\n\x1b[1mMoon Phase\x1b[0m');
+
+// Known lunar phases (USNO data):
+// 2026-Jan-03 ~10:03 UTC: Full Moon → illumination ~100%, phase ~0.5
+const fullMoon = calc(`moonPhase(new Date('2026-01-03T10:00:00Z'))`);
+check('Full Moon: illumination ~100%', fullMoon.illumination >= 97, `${fullMoon.illumination.toFixed(1)}%`);
+check('Full Moon: phase ~0.5',         Math.abs(fullMoon.phase - 0.5) < 0.03, `phase=${fullMoon.phase.toFixed(3)}`);
+check('Full Moon: name', fullMoon.name === 'Full', `name="${fullMoon.name}"`);
+
+// 2026-Mar-20 ~02:38 UTC: New Moon → illumination ~0%, phase ~0
+const newMoon = calc(`moonPhase(new Date('2026-03-20T02:38:00Z'))`);
+check('New Moon: illumination ~0%', newMoon.illumination <= 3, `${newMoon.illumination.toFixed(1)}%`);
+check('New Moon: phase ~0',         newMoon.phase < 0.05 || newMoon.phase > 0.95, `phase=${newMoon.phase.toFixed(3)}`);
+check('New Moon: name', newMoon.name === 'New', `name="${newMoon.name}"`);
+
+// 2026-Jan-11 ~03:00 UTC: Last Quarter → illumination ~50%, phase ~0.75
+const lastQ = calc(`moonPhase(new Date('2026-01-11T03:00:00Z'))`);
+check('Last Quarter: illumination ~50%', Math.abs(lastQ.illumination - 50) < 10, `${lastQ.illumination.toFixed(1)}%`);
+check('Last Quarter: phase ~0.75',        Math.abs(lastQ.phase - 0.75) < 0.05, `phase=${lastQ.phase.toFixed(3)}`);
+
+// Structural checks
+check('moonPhase returns phase 0-1',    fullMoon.phase >= 0 && fullMoon.phase <= 1, `ok`);
+check('moonPhase returns age 0-30',     fullMoon.age >= 0 && fullMoon.age <= 30, `age=${fullMoon.age.toFixed(1)}d`);
+check('moonPhase returns illumination', fullMoon.illumination >= 0 && fullMoon.illumination <= 100, `ok`);
+
+// ═══════════════════════════════════════════════════════════
 //  NUTATION — IAU 1980 top-5 terms
 // ═══════════════════════════════════════════════════════════
 console.log('\n\x1b[1mNutation\x1b[0m (5-term IAU 1980)');

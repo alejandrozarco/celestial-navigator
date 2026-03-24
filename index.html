@@ -790,6 +790,24 @@ function moonPosition(date){
   return{ra,dec,sha,gha,dist,HP,SD,lambda:lamCorr};
 }
 
+// ══════════════════════════════════════════════════════
+//  MOON PHASE & ILLUMINATION
+// ══════════════════════════════════════════════════════
+function moonPhase(date){
+  const sun=solarPosition(date);
+  const moon=moonPosition(date);
+  // Elongation = difference in ecliptic longitude (0-360°)
+  const D=mod360(moon.lambda-sun.lambda);
+  const illumination=(1-Math.cos(D*R))/2*100; // percent
+  const phase=D/360;                           // 0-1 cycle
+  const age=phase*29.53059;                    // days since new moon
+  // Phase name from 8 bins of 45° each
+  const NAMES=['New','Waxing Crescent','First Quarter','Waxing Gibbous',
+               'Full','Waning Gibbous','Last Quarter','Waning Crescent'];
+  const name=NAMES[Math.round(D/45)%8];
+  return{phase,illumination,age,name};
+}
+
 // Bennett refraction formula — arcminutes, altitude in degrees
 function refraction(alt){
   if(alt<-1)return 0;
