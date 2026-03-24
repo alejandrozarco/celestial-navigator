@@ -13,6 +13,10 @@ notes/
 # Generated benchmark reference data (regenerate with bench.py)
 star_sha_ref.csv
 sight_reduction_ref.csv
+lunar_dist_ref.csv
+moon_phase_ref.csv
+riseset_ref.csv
+fix_ref.csv
 
 # Ephemeris data
 *.bsp

@@ -196,6 +196,165 @@ with open('sight_reduction_ref.csv', 'w', newline='') as f:
     w.writerows(sight_rows)
 print(f"  → sight_reduction_ref.csv: {len(sight_rows)} sightings")
 
+# ── Lunar distance reference (Moon-body geocentric angular distance) ──
+moon_body = eph['moon']
+lunar_bodies = {
+    'Sun': eph['sun'],
+    'Venus': eph['venus'],
+    'Mars': eph['mars barycenter'],
+    'Jupiter': eph['jupiter barycenter'],
+    'Regulus': make_star(NAV_STARS['Regulus']),
+    'Spica': make_star(NAV_STARS['Spica']),
+    'Aldebaran': make_star(NAV_STARS['Aldebaran']),
+    'Antares': make_star(NAV_STARS['Antares']),
+}
+
+print(f"Generating {N} lunar distance reference readings...")
+lunar_rows = []
+for i in range(N):
+    dt = random_date()
+    t = ts.utc(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second)
+    body_name = random.choice(list(lunar_bodies.keys()))
+    body = lunar_bodies[body_name]
+
+    # Geocentric apparent positions
+    moon_app = earth.at(t).observe(moon_body).apparent()
+    body_app = earth.at(t).observe(body).apparent()
+
+    # Angular separation
+    angle = moon_app.separation_from(body_app)
+
+    lunar_rows.append({
+        'utc': t.utc_iso(),
+        'body': body_name,
+        'dist_deg': round(angle.degrees, 5),
+    })
+
+with open('lunar_dist_ref.csv', 'w', newline='') as f:
+    w = csv.DictWriter(f, fieldnames=['utc', 'body', 'dist_deg'])
+    w.writeheader()
+    w.writerows(lunar_rows)
+print(f"  → lunar_dist_ref.csv: {len(lunar_rows)} readings")
+
+# ── Moon phase (illumination %) reference ─────────────────────
+from skyfield.almanac import moon_phase as sf_moon_phase
+
+print(f"Generating {N} moon phase reference readings...")
+phase_rows = []
+for i in range(N):
+    dt = random_date()
+    t = ts.utc(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second)
+
+    # Skyfield moon phase angle (0=new, 90=first quarter, 180=full, 270=last quarter)
+    phase_angle = sf_moon_phase(eph, t).degrees
+    # Illumination from phase angle: (1 - cos(phase_angle)) / 2
+    import math
+    illumination = (1 - math.cos(math.radians(phase_angle))) / 2 * 100
+
+    phase_rows.append({
+        'utc': t.utc_iso(),
+        'phase_angle_deg': round(phase_angle, 3),
+        'illumination_pct': round(illumination, 2),
+    })
+
+with open('moon_phase_ref.csv', 'w', newline='') as f:
+    w = csv.DictWriter(f, fieldnames=['utc', 'phase_angle_deg', 'illumination_pct'])
+    w.writeheader()
+    w.writerows(phase_rows)
+print(f"  → moon_phase_ref.csv: {len(phase_rows)} readings")
+
+# ── Rise/set reference (Sun rise/set at various latitudes) ────
+from skyfield.almanac import sunrise_sunset
+
+print(f"Generating rise/set reference readings...")
+riseset_rows = []
+riseset_lats = [0, 20, 35, 45, 55, 64, -33, -55]
+# Pick N/8 random dates (one per latitude)
+for i in range(min(N // 4, 50)):
+    dt = random_date()
+    day_start = datetime(dt.year, dt.month, dt.day)
+    t0 = ts.utc(day_start.year, day_start.month, day_start.day)
+    t1 = ts.utc(day_start.year, day_start.month, day_start.day + 1)
+
+    for lat in riseset_lats:
+        loc = Topos(latitude_degrees=lat, longitude_degrees=0.0)
+        observer = earth + loc
+        try:
+            times, events = sunrise_sunset(eph, observer, t0, t1)
+            rise_utc = None
+            set_utc = None
+            for t_evt, evt in zip(times, events):
+                dt_evt = t_evt.utc_datetime()
+                if evt and rise_utc is None:
+                    rise_utc = dt_evt.strftime('%H:%M')
+                elif not evt and set_utc is None:
+                    set_utc = dt_evt.strftime('%H:%M')
+            riseset_rows.append({
+                'date': day_start.strftime('%Y-%m-%d'),
+                'lat': lat,
+                'lon': 0.0,
+                'rise': rise_utc or 'polar',
+                'set': set_utc or 'polar',
+            })
+        except Exception:
+            riseset_rows.append({
+                'date': day_start.strftime('%Y-%m-%d'),
+                'lat': lat,
+                'lon': 0.0,
+                'rise': 'error',
+                'set': 'error',
+            })
+
+with open('riseset_ref.csv', 'w', newline='') as f:
+    w = csv.DictWriter(f, fieldnames=['date', 'lat', 'lon', 'rise', 'set'])
+    w.writeheader()
+    w.writerows(riseset_rows)
+print(f"  → riseset_ref.csv: {len(riseset_rows)} readings")
+
+# ── End-to-end fix reference (synthetic sights at known positions) ──
+print(f"Generating {min(N // 4, 50)} end-to-end fix reference cases...")
+fix_rows = []
+fix_locs = [
+    (43.77, 11.25), (35.0, -40.0), (-33.87, 151.21), (1.35, 103.82),
+    (64.15, -21.95), (-55.9, -67.2), (20.0, 179.9), (0.0, 0.0),
+]
+
+for i in range(min(N // 4, 50)):
+    dt = random_date()
+    t = ts.utc(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second)
+    true_lat, true_lon = random.choice(fix_locs)
+    observer = earth + Topos(latitude_degrees=true_lat, longitude_degrees=true_lon)
+
+    # Pick 4-6 random bright bodies above 15°
+    all_bodies = list(body_map.items())
+    sights = []
+    for body_name, body in all_bodies:
+        obs = observer.at(t).observe(body)
+        alt, az, _ = obs.apparent().altaz()
+        if alt.degrees > 15 and alt.degrees < 75:
+            sights.append({
+                'body': body_name,
+                'alt_deg': round(alt.degrees, 4),
+                'az_deg': round(az.degrees, 4),
+            })
+    random.shuffle(sights)
+    sights = sights[:min(6, len(sights))]
+
+    if len(sights) >= 3:
+        fix_rows.append({
+            'utc': t.utc_iso(),
+            'true_lat': true_lat,
+            'true_lon': true_lon,
+            'num_sights': len(sights),
+            'sights': '|'.join(f"{s['body']}:{s['alt_deg']}:{s['az_deg']}" for s in sights),
+        })
+
+with open('fix_ref.csv', 'w', newline='') as f:
+    w = csv.DictWriter(f, fieldnames=['utc', 'true_lat', 'true_lon', 'num_sights', 'sights'])
+    w.writeheader()
+    w.writerows(fix_rows)
+print(f"  → fix_ref.csv: {len(fix_rows)} cases")
+
 print("\nDone. Reference data generated from Skyfield + JPL DE440s.")
 sys.stdout.flush()
 

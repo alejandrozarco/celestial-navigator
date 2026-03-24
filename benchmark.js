@@ -249,6 +249,142 @@ console.log(`  ${B}Azimuth error distribution (arcmin):${X}`);
 console.log(fmtStats(stats(azErrors)));
 
 // ══════════════════════════════════════════════════════════════
+//  TEST 3: Lunar Distance — geocentric Moon-body angular distance
+// ══════════════════════════════════════════════════════════════
+if (fs.existsSync('lunar_dist_ref.csv')) {
+  const lunarRef = parseCSV('lunar_dist_ref.csv');
+  console.log(`\n${B}═══ Lunar Distance vs Skyfield (${lunarRef.length} readings) ═══${X}`);
+  const lunarErrors = [];
+  let lunarFails = 0;
+  const LUNAR_TOL = 20; // arcmin — planet ephemeris errors dominate
+
+  for (const row of lunarRef) {
+    const utcStr = row.utc;
+    const bodyName = row.body;
+    const refDist = +row.dist_deg;
+
+    totalTests++;
+    try {
+      const ourDist = calc(`geocentricLunarDist(new Date('${utcStr}'), '${bodyName}')`);
+      const dDist = Math.abs(ourDist - refDist) * 60; // arcmin
+      lunarErrors.push(dDist);
+      if (dDist > LUNAR_TOL) {
+        lunarFails++; totalFail++;
+        console.log(`  ${R}✗${X} ${bodyName} ${utcStr}: Δ=${dDist.toFixed(1)}' (ours=${ourDist.toFixed(3)}° ref=${refDist.toFixed(3)}°)`);
+      }
+    } catch (e) {
+      lunarFails++; totalFail++;
+      console.log(`  ${R}✗${X} ${bodyName} ${utcStr}: error: ${e.message}`);
+    }
+  }
+  const lunarPassed = lunarRef.length - lunarFails;
+  console.log(`\n  ${lunarPassed === lunarRef.length ? G : Y}${lunarPassed}/${lunarRef.length} within tolerance${X}`);
+  console.log(`  ${B}Lunar distance error distribution (arcmin):${X}`);
+  console.log(fmtStats(stats(lunarErrors)));
+}
+
+// ══════════════════════════════════════════════════════════════
+//  TEST 4: Moon Phase — illumination % vs Skyfield
+// ══════════════════════════════════════════════════════════════
+if (fs.existsSync('moon_phase_ref.csv')) {
+  const phaseRef = parseCSV('moon_phase_ref.csv');
+  console.log(`\n${B}═══ Moon Phase vs Skyfield (${phaseRef.length} readings) ═══${X}`);
+  const phaseErrors = [];
+  let phaseFails = 0;
+  const PHASE_TOL = 5; // percent illumination
+
+  for (const row of phaseRef) {
+    const utcStr = row.utc;
+    const refIllum = +row.illumination_pct;
+
+    totalTests++;
+    try {
+      const our = calc(`moonPhase(new Date('${utcStr}'))`);
+      const dIllum = Math.abs(our.illumination - refIllum);
+      phaseErrors.push(dIllum);
+      if (dIllum > PHASE_TOL) {
+        phaseFails++; totalFail++;
+        console.log(`  ${R}✗${X} ${utcStr}: Δ=${dIllum.toFixed(1)}% (ours=${our.illumination.toFixed(1)}% ref=${refIllum.toFixed(1)}%)`);
+      }
+    } catch (e) {
+      phaseFails++; totalFail++;
+      console.log(`  ${R}✗${X} ${utcStr}: error: ${e.message}`);
+    }
+  }
+  const phasePassed = phaseRef.length - phaseFails;
+  console.log(`\n  ${phasePassed === phaseRef.length ? G : Y}${phasePassed}/${phaseRef.length} within tolerance${X}`);
+  console.log(`  ${B}Illumination error distribution (%):${X}`);
+  console.log(fmtStats(stats(phaseErrors), '%'));
+}
+
+// ══════════════════════════════════════════════════════════════
+//  TEST 5: End-to-End Fix — synthetic sights → fix position
+// ══════════════════════════════════════════════════════════════
+if (fs.existsSync('fix_ref.csv')) {
+  const fixRef = parseCSV('fix_ref.csv');
+  console.log(`\n${B}═══ End-to-End Fix (${fixRef.length} cases) ═══${X}`);
+  const fixErrors = [];
+  let fixFails = 0;
+  const FIX_TOL = 30; // nm — generous for simplified ephemeris
+
+  for (const row of fixRef) {
+    const utcStr = row.utc;
+    const trueLat = +row.true_lat;
+    const trueLon = +row.true_lon;
+    const sightData = row.sights.split('|').map(s => {
+      const [body, alt, az] = s.split(':');
+      return { body, alt: +alt, az: +az };
+    });
+
+    totalTests++;
+    try {
+      // Build intercept LOPs using true position as AP
+      const lopsCode = sightData.map(s => {
+        const isBody = ['Sun','Moon','Venus','Mars','Jupiter','Saturn'].includes(s.body);
+        return `(function(){
+          const utc=new Date('${utcStr}');
+          ${isBody
+            ? (s.body === 'Sun' ? `const pos=solarPosition(utc);` :
+               s.body === 'Moon' ? `const pos=moonPosition(utc);` :
+               `const pos=planetPosition('${s.body}',utc);`)
+            : `const raw=STARS.find(s=>s.n==='${s.body}');
+               const pos=precessStar(raw,utc);`
+          }
+          const ghaA=ghaAries(utc);
+          const ghaSt=mod360(ghaA+(pos.sha||mod360(360-pos.ra)));
+          const lha=mod360(ghaSt+${trueLon});
+          const r=reduce(${trueLat},pos.dec,lha);
+          return{intercept:(${s.alt}-r.Hc)*60, azimuth:r.Zn};
+        })()`;
+      });
+
+      const lops = calc(`[${lopsCode.join(',')}]`);
+      const fix = calc(`lsFix(${JSON.stringify(lops)})`);
+      const fixLat = trueLat + fix.dy / 60;
+      const fixLon = trueLon + fix.dx / (60 * Math.cos(trueLat * Math.PI / 180));
+
+      // Great-circle distance in nm
+      const dLat = (fixLat - trueLat) * 60;
+      const dLon = (fixLon - trueLon) * 60 * Math.cos(trueLat * Math.PI / 180);
+      const errNm = Math.sqrt(dLat * dLat + dLon * dLon);
+      fixErrors.push(errNm);
+
+      if (errNm > FIX_TOL) {
+        fixFails++; totalFail++;
+        console.log(`  ${R}✗${X} ${utcStr} @ (${trueLat},${trueLon}): ${errNm.toFixed(1)} nm (${sightData.length} sights)`);
+      }
+    } catch (e) {
+      fixFails++; totalFail++;
+      console.log(`  ${R}✗${X} ${utcStr}: error: ${e.message}`);
+    }
+  }
+  const fixPassed = fixRef.length - fixFails;
+  console.log(`\n  ${fixPassed === fixRef.length ? G : Y}${fixPassed}/${fixRef.length} within ${FIX_TOL} nm${X}`);
+  console.log(`  ${B}Fix error distribution (nm):${X}`);
+  console.log(fmtStats(stats(fixErrors), ' nm'));
+}
+
+// ══════════════════════════════════════════════════════════════
 //  SUMMARY
 // ══════════════════════════════════════════════════════════════
 console.log(`\n${B}══════════════════════════════════════════════════${X}`);
