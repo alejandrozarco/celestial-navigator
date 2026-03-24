@@ -89,6 +89,34 @@ function fmtStats(s, unit = "'") {
          `p95=${s.p95.toFixed(2)}${unit}  max=${s.max.toFixed(2)}${unit}  (n=${s.n})`;
 }
 
+function histogram(errors, numBins, unit = "'", tol = null) {
+  if (!errors.length) return;
+  const sorted = [...errors].sort((a, b) => a - b);
+  const maxVal = sorted[sorted.length - 1];
+  const binWidth = maxVal / numBins || 1;
+  const bins = new Array(numBins).fill(0);
+  for (const e of errors) {
+    const idx = Math.min(Math.floor(e / binWidth), numBins - 1);
+    bins[idx]++;
+  }
+  const maxCount = Math.max(...bins);
+  const barWidth = 40;
+  console.log();
+  for (let i = 0; i < numBins; i++) {
+    const lo = (i * binWidth).toFixed(1);
+    const hi = ((i + 1) * binWidth).toFixed(1);
+    const pct = (bins[i] / errors.length * 100).toFixed(0);
+    const barLen = Math.round(bins[i] / maxCount * barWidth);
+    const bar = '\x1b[36m' + '█'.repeat(barLen) + '\x1b[0m';
+    const tolMark = tol != null && (i + 1) * binWidth > tol && i * binWidth <= tol ? ' ◄ tol' : '';
+    const label = `  ${lo.padStart(6)}-${hi.padEnd(6)}${unit}`;
+    console.log(`${label} ${bar} ${bins[i]}${pct > 0 ? ` (${pct}%)` : ''}${tolMark}`);
+  }
+}
+
+// Track results per category for summary table
+const results = [];
+
 // ANSI colors
 const G = '\x1b[32m', R = '\x1b[31m', Y = '\x1b[33m', B = '\x1b[1m', X = '\x1b[0m';
 
@@ -152,6 +180,8 @@ console.log(`  ${B}Dec error distribution (arcmin):${X}`);
 console.log(fmtStats(stats(decErrors)));
 console.log(`  ${B}Sky separation distribution (arcmin):${X}`);
 console.log(fmtStats(stats(skyErrors)));
+histogram(skyErrors, 8, "'", SHA_TOL);
+results.push({ name: 'Star SHA/Dec', total: shaRef.length, passed: shaPassed, unit: "'", errors: skyErrors });
 
 // ══════════════════════════════════════════════════════════════
 //  TEST 2: Sight Reduction — topocentric alt/az
@@ -247,6 +277,8 @@ console.log(`\n  ${B}Altitude error distribution (arcmin):${X}`);
 console.log(fmtStats(stats(altErrors)));
 console.log(`  ${B}Azimuth error distribution (arcmin):${X}`);
 console.log(fmtStats(stats(azErrors)));
+histogram(altErrors, 8, "'");
+results.push({ name: 'Sight Reduction', total: sightRef.length, passed: sightPassed, unit: "'", errors: altErrors });
 
 // ══════════════════════════════════════════════════════════════
 //  TEST 3: Lunar Distance — geocentric Moon-body angular distance
@@ -281,6 +313,8 @@ if (fs.existsSync('lunar_dist_ref.csv')) {
   console.log(`\n  ${lunarPassed === lunarRef.length ? G : Y}${lunarPassed}/${lunarRef.length} within tolerance${X}`);
   console.log(`  ${B}Lunar distance error distribution (arcmin):${X}`);
   console.log(fmtStats(stats(lunarErrors)));
+  histogram(lunarErrors, 8, "'", LUNAR_TOL);
+  results.push({ name: 'Lunar Distance', total: lunarRef.length, passed: lunarPassed, unit: "'", errors: lunarErrors });
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -315,6 +349,8 @@ if (fs.existsSync('moon_phase_ref.csv')) {
   console.log(`\n  ${phasePassed === phaseRef.length ? G : Y}${phasePassed}/${phaseRef.length} within tolerance${X}`);
   console.log(`  ${B}Illumination error distribution (%):${X}`);
   console.log(fmtStats(stats(phaseErrors), '%'));
+  histogram(phaseErrors, 6, '%', PHASE_TOL);
+  results.push({ name: 'Moon Phase', total: phaseRef.length, passed: phasePassed, unit: '%', errors: phaseErrors });
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -382,16 +418,28 @@ if (fs.existsSync('fix_ref.csv')) {
   console.log(`\n  ${fixPassed === fixRef.length ? G : Y}${fixPassed}/${fixRef.length} within ${FIX_TOL} nm${X}`);
   console.log(`  ${B}Fix error distribution (nm):${X}`);
   console.log(fmtStats(stats(fixErrors), ' nm'));
+  histogram(fixErrors, 8, ' nm', FIX_TOL);
+  results.push({ name: 'End-to-End Fix', total: fixRef.length, passed: fixPassed, unit: ' nm', errors: fixErrors });
 }
 
 // ══════════════════════════════════════════════════════════════
-//  SUMMARY
+//  SUMMARY TABLE
 // ══════════════════════════════════════════════════════════════
 console.log(`\n${B}══════════════════════════════════════════════════${X}`);
+console.log(`  ${B}${'Category'.padEnd(20)} Pass    %     Mean    P90     Max${X}`);
+console.log(`  ${'─'.repeat(60)}`);
+for (const r of results) {
+  const pct = (r.passed / r.total * 100).toFixed(1);
+  const s = stats(r.errors);
+  const color = r.passed === r.total ? G : pct >= 95 ? Y : R;
+  console.log(`  ${color}${r.name.padEnd(20)}${X} ${String(r.passed + '/' + r.total).padEnd(8)} ${pct.padStart(5)}%  ${s.mean.toFixed(2).padStart(6)}${r.unit}  ${s.p90.toFixed(2).padStart(6)}${r.unit}  ${s.max.toFixed(2).padStart(6)}${r.unit}`);
+}
+console.log(`  ${'─'.repeat(60)}`);
 if (totalFail === 0) {
-  console.log(`${G}${totalTests}/${totalTests} passed, 0 failed${X}`);
+  console.log(`  ${G}TOTAL: ${totalTests}/${totalTests} passed (100%)${X}`);
 } else {
-  console.log(`${R}${totalTests - totalFail}/${totalTests} passed, ${totalFail} failed${X}`);
+  const totalPct = ((totalTests - totalFail) / totalTests * 100).toFixed(1);
+  console.log(`  ${totalFail <= totalTests * 0.05 ? Y : R}TOTAL: ${totalTests - totalFail}/${totalTests} passed (${totalPct}%)${X}`);
 }
 console.log();
 
