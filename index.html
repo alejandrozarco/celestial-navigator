@@ -2131,7 +2131,11 @@ function addSight(){
     const cleared=clearLunarDist(distCenter,moonHs,bodyHs,moon.HP);
     // Find GMT
     const gmt=lunarDistToGMT(cleared,bodyName,utc);
-    if(!gmt){showMsg('Could not determine GMT \u2014 distance may not match any time in \u00b14h window','st-err');return;}
+    if(!gmt){
+      const actualDist=geocentricLunarDist(utc,bodyName);
+      showMsg(`No GMT found \u2014 measured ${fmtDeg(distObs)} but actual Moon\u2013${bodyName} distance is ~${fmtDeg(actualDist)}`,'st-err');
+      return;
+    }
     // Compute longitude from GMT difference
     const gmtDiffHr=(gmt.getTime()-utc.getTime())/3600000;
     // The DR longitude assumption: utc was the DR time at the DR longitude
