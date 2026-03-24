@@ -857,20 +857,22 @@ function geocentricLunarDist(utc, bodyName){
 }
 
 // Clear observed lunar distance: remove refraction + parallax from both altitudes
-// Uses Young's method (Borda variant)
+// Method: extract azimuth difference from apparent observations, then recompute
+// distance using true altitudes (azimuth is unaffected by refraction/parallax)
 function clearLunarDist(dObs, moonAltApp, bodyAltApp, moonHP){
-  // Apparent altitudes (what observer sees)
   const hm=moonAltApp, hb=bodyAltApp;
-  // True altitudes: remove refraction, add Moon parallax
-  const moonRef=refraction(hm); // negative arcmin
+  // True altitudes: refraction() returns negative arcmin
+  const moonRef=refraction(hm);
   const bodyRef=refraction(hb);
-  const moonPar=moonHP*Math.cos(hm*R); // parallax correction (arcmin, positive)
-  const hmTrue=hm-moonRef/60+moonPar/60; // true Moon alt (higher due to parallax)
-  const hbTrue=hb-bodyRef/60;             // true body alt (no parallax for stars/planets)
-  // Young's clearing formula
-  const dR=dObs*R, hmR=hm*R, hbR=hb*R, hmtR=hmTrue*R, hbtR=hbTrue*R;
-  const cosD=Math.cos(dR)*(Math.cos(hmtR)*Math.cos(hbtR))/(Math.cos(hmR)*Math.cos(hbR))
-            +Math.cos(hmtR+hbtR)-Math.cos(hmR+hbR);
+  const moonPar=moonHP*Math.cos(hm*R); // parallax (arcmin, positive)
+  const hmTrue=hm+moonRef/60+moonPar/60;
+  const hbTrue=hb+bodyRef/60;
+  // Extract azimuth difference from apparent distance + apparent altitudes
+  const hmR=hm*R, hbR=hb*R;
+  const cosA=(Math.cos(dObs*R)-Math.sin(hmR)*Math.sin(hbR))/(Math.cos(hmR)*Math.cos(hbR));
+  // Recompute distance using true altitudes, same azimuth difference
+  const hmtR=hmTrue*R, hbtR=hbTrue*R;
+  const cosD=Math.sin(hmtR)*Math.sin(hbtR)+Math.cos(hmtR)*Math.cos(hbtR)*cosA;
   return Math.acos(Math.max(-1,Math.min(1,cosD)))*D;
 }
 
