@@ -498,8 +498,12 @@ function ghaAries(date){
   const JD=julianDate(date);
   const dJ=JD-2451545.0;
   const T=dJ/36525;
+  // GMST (mean sidereal time)
   const gha=280.46061837+360.98564736629*dJ+0.000387933*T*T-T*T*T/38710000;
-  return mod360(gha);
+  // Equation of the equinoxes: GAST = GMST + dpsi*cos(eps)  (apparent sidereal time)
+  const nut=nutation(date);
+  const eps=(23.439291-0.013004*T+nut.deps)*R;
+  return mod360(gha+nut.dpsi*Math.cos(eps));
 }
 
 // Precess a star from J2000.0 to date, applying proper motion
@@ -606,21 +610,16 @@ function solarPosition(date){
   // Aberration
   sunLong-=20.4898/Math.cos((sunLong*R))*0; // simplified constant aberration
   sunLong-=20.4898/3600;
-  // Nutation in longitude
-  const omega=mod360(125.04-1934.136*T)*R;
-  const Ls=(280.4665+36000.7698*T)*R;
-  const Lm=(218.3165+481267.8813*T)*R;
-  const dPsi=(-17.20*Math.sin(omega)-1.32*Math.sin(2*Ls)-0.23*Math.sin(2*Lm)+0.21*Math.sin(2*omega))/3600;
-  sunLong+=dPsi;
-  // Obliquity (with nutation)
+  // Nutation + obliquity via shared function
+  const nut=nutation(date);
+  sunLong+=nut.dpsi;
   const eps0=23.439291-0.013004*T-1.64e-7*T*T+5.04e-7*T*T*T;
-  const dEps=(9.20*Math.cos(omega)+0.57*Math.cos(2*Ls)+0.10*Math.cos(2*Lm)-0.09*Math.cos(2*omega))/3600;
-  const eps=eps0+dEps;
+  const eps=eps0+nut.deps;
   const lamR=sunLong*R, epsR=eps*R;
   const ra=mod360(Math.atan2(Math.cos(epsR)*Math.sin(lamR),Math.cos(lamR))*D);
   const dec=Math.asin(Math.sin(epsR)*Math.sin(lamR))*D;
   const sha=mod360(360-ra);
-  return{ra,dec,sha,gha:mod360(ghaAries(date)-ra)};
+  return{ra,dec,sha,gha:mod360(ghaAries(date)-ra),lambda:sunLong};
 }
 
 // Planetary positions — Meeus low-precision using Standish (1992) mean elements
@@ -678,16 +677,11 @@ function planetPosition(name,date){
   // General precession in longitude: pA ≈ 5029.097" + 2.222"·T per century
   const pA=(5029.0966*T+2.22226*T*T)/3600*R; // radians
   lam+=pA;
-  // Nutation in longitude
-  const omega=mod360(125.04-1934.136*T)*R;
-  const Ls=(280.4665+36000.7698*T)*R;
-  const Lm=(218.3165+481267.8813*T)*R;
-  const dPsi=(-17.20*Math.sin(omega)-1.32*Math.sin(2*Ls)-0.23*Math.sin(2*Lm)+0.21*Math.sin(2*omega))/3600*R;
-  lam+=dPsi;
-  // Obliquity (with nutation)
+  // Nutation + obliquity via shared function
+  const nut=nutation(date);
+  lam+=nut.dpsi*R;
   const eps0=23.439291-0.013004*T;
-  const dEps=(9.20*Math.cos(omega)+0.57*Math.cos(2*Ls)+0.10*Math.cos(2*Lm)-0.09*Math.cos(2*omega))/3600;
-  const eps=(eps0+dEps)*R;
+  const eps=(eps0+nut.deps)*R;
   // Ecliptic to equatorial
   const ra=mod360(Math.atan2(Math.sin(lam)*Math.cos(eps)-Math.tan(bet)*Math.sin(eps),Math.cos(lam))*D);
   const dec=Math.asin(Math.sin(bet)*Math.cos(eps)+Math.cos(bet)*Math.sin(eps)*Math.sin(lam))*D;
@@ -774,15 +768,13 @@ function moonPosition(date){
   const beta=sumB/1000000;       // ecliptic latitude (degrees)
   const dist=385000.56+sumR/1000; // distance in km
 
-  // Nutation in longitude (simplified)
-  const omega=mod360(125.04-1934.136*T);
-  const dPsi=(-17.2*Math.sin(omega*R)-1.32*Math.sin(2*Lp*R))/3600;
-  const lamCorr=lambda+dPsi;
+  // Nutation + obliquity via shared function
+  const nut=nutation(date);
+  const lamCorr=lambda+nut.dpsi;
 
   // Obliquity
   const eps0=23.439291-0.013004*T;
-  const dEps=(9.2*Math.cos(omega*R))/3600;
-  const eps=eps0+dEps;
+  const eps=eps0+nut.deps;
 
   // Ecliptic to equatorial
   const lamR=lamCorr*R, betR=beta*R, epsR=eps*R;
@@ -795,7 +787,7 @@ function moonPosition(date){
   const HP=Math.asin(6378.14/dist)*D*60; // arcminutes
   const SD=0.2725*HP;                     // arcminutes
 
-  return{ra,dec,sha,gha,dist,HP,SD};
+  return{ra,dec,sha,gha,dist,HP,SD,lambda:lamCorr};
 }
 
 // Bennett refraction formula — arcminutes, altitude in degrees
