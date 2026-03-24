@@ -84,9 +84,10 @@ function stats(errors) {
 }
 
 function fmtStats(s, unit = "'") {
-  return `  mean=${s.mean.toFixed(2)}${unit}  rms=${s.rms.toFixed(2)}${unit}  ` +
-         `p50=${s.p50.toFixed(2)}${unit}  p90=${s.p90.toFixed(2)}${unit}  ` +
-         `p95=${s.p95.toFixed(2)}${unit}  max=${s.max.toFixed(2)}${unit}  (n=${s.n})`;
+  const dp = s.max < 0.1 ? 4 : s.max < 1 ? 3 : 2;
+  return `  mean=${s.mean.toFixed(dp)}${unit}  rms=${s.rms.toFixed(dp)}${unit}  ` +
+         `p50=${s.p50.toFixed(dp)}${unit}  p90=${s.p90.toFixed(dp)}${unit}  ` +
+         `p95=${s.p95.toFixed(dp)}${unit}  max=${s.max.toFixed(dp)}${unit}  (n=${s.n})`;
 }
 
 function histogram(errors, numBins, unit = "'", tol = null) {
