@@ -380,6 +380,23 @@ assert('Nutation |dpsi| < 0.01°', Math.abs(nut2000.dpsi) < 0.01);
 assert('Nutation |deps| < 0.006°', Math.abs(nut2000.deps) < 0.006);
 
 // ══════════════════════════════════════════════════════
+//  riseSet polar cases
+// ══════════════════════════════════════════════════════
+console.log(`\n${B}═══ Rise/Set Polar Cases ═══${X}`);
+
+// Star at dec=+80 seen from lat=+80: should never set (circumpolar)
+const rsUp = calc(`riseSet(80, 80, -0.5667)`);
+assert('Circumpolar returns neverSets', rsUp && rsUp.neverSets === true, JSON.stringify(rsUp));
+
+// Star at dec=-80 seen from lat=+80: should never rise
+const rsDown = calc(`riseSet(-80, 80, -0.5667)`);
+assert('Never-rise returns neverRises', rsDown && rsDown.neverRises === true, JSON.stringify(rsDown));
+
+// Normal case: still returns a number
+const rsNorm = calc(`riseSet(20, 45, -0.5667)`);
+assert('Normal case returns number', typeof rsNorm === 'number' && rsNorm > 0);
+
+// ══════════════════════════════════════════════════════
 //  Moon Phase
 // ══════════════════════════════════════════════════════
 console.log(`\n${B}═══ Moon Phase ═══${X}`);

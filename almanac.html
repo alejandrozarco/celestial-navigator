@@ -407,8 +407,8 @@ function moonPhase(date){
 // ══════════════════════════════════════════════════════
 function riseSet(dec_deg, lat_deg, h0_deg){
   const cosH=(sin(h0_deg)-sin(lat_deg)*sin(dec_deg))/(cos(lat_deg)*cos(dec_deg));
-  if(cosH>1) return null;   // never rises
-  if(cosH<-1) return null;  // never sets (but need to distinguish)
+  if(cosH>1) return {neverRises:true};
+  if(cosH<-1) return {neverSets:true};
   const H=Math.acos(cosH)*D; // hour angle in degrees
   return H/15; // hours from transit
 }
@@ -424,21 +424,20 @@ function sunTimes(date, lat){
   const ct=riseSet(sun.dec,lat,-6);      // civil twilight
   const nt=riseSet(sun.dec,lat,-12);     // nautical twilight
 
-  // Check if sun is always up or always down
-  const midAlt=90-Math.abs(lat-sun.dec); // approximate max altitude
-  const alwaysUp=sin(-0.8333)<sin(lat)*sin(sun.dec)+cos(lat)*cos(sun.dec);
-  const neverUp=midAlt<-0.8333;
+  const rsNum=typeof rs==='number';
+  const ctNum=typeof ct==='number';
+  const ntNum=typeof nt==='number';
 
   return{
     transit,
-    rise:rs!=null?transit-rs:null,
-    set:rs!=null?transit+rs:null,
-    civTwlStart:ct!=null?transit-ct:null,
-    civTwlEnd:ct!=null?transit+ct:null,
-    nautTwlStart:nt!=null?transit-nt:null,
-    nautTwlEnd:nt!=null?transit+nt:null,
-    alwaysUp:rs===null&&!neverUp&&midAlt>0,
-    neverUp:rs===null&&(neverUp||midAlt<=0),
+    rise:rsNum?transit-rs:null,
+    set:rsNum?transit+rs:null,
+    civTwlStart:ctNum?transit-ct:null,
+    civTwlEnd:ctNum?transit+ct:null,
+    nautTwlStart:ntNum?transit-nt:null,
+    nautTwlEnd:ntNum?transit+nt:null,
+    alwaysUp:!rsNum&&rs&&!!rs.neverSets,
+    neverUp:!rsNum&&rs&&!!rs.neverRises,
   };
 }
 
