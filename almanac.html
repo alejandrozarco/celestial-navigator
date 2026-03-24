@@ -181,6 +181,30 @@ function julianDate(d){
 }
 
 // ══════════════════════════════════════════════════════
+//  NUTATION — top 5 IAU 1980 terms (Meeus Ch. 22)
+//  Returns {dpsi, deps} in degrees
+// ══════════════════════════════════════════════════════
+function nutation(date){
+  const JD=julianDate(date);
+  const T=(JD-2451545.0)/36525;
+  const omega=mod360(125.04452-1934.136261*T);
+  const Ls=mod360(280.4665+36000.7698*T);
+  const D=mod360(297.8502+445267.1115*T);
+  const F=mod360(93.2721+483202.0175*T);
+  const oR=omega*R, LsR=Ls*R, DR=D*R, FR=F*R;
+  const dpsi=(-17.20*Math.sin(oR)
+              -1.32*Math.sin(2*(FR-DR+oR))
+              -0.23*Math.sin(2*(FR+oR))
+              +0.21*Math.sin(2*oR)
+              +0.14*Math.sin(LsR))/3600;
+  const deps=(9.20*Math.cos(oR)
+             +0.57*Math.cos(2*(FR-DR+oR))
+             +0.10*Math.cos(2*(FR+oR))
+             -0.09*Math.cos(2*oR))/3600;
+  return{dpsi,deps};
+}
+
+// ══════════════════════════════════════════════════════
 //  GHA ARIES
 // ══════════════════════════════════════════════════════
 function ghaAries(date){
@@ -188,7 +212,10 @@ function ghaAries(date){
   const Dn=JD-2451545.0;
   const T=Dn/36525;
   const gha=280.46061837+360.98564736629*Dn+0.000387933*T*T-T*T*T/38710000;
-  return mod360(gha);
+  // Equation of the equinoxes: GAST = GMST + dpsi*cos(eps)
+  const nut=nutation(date);
+  const eps=(23.439291-0.013004*T+nut.deps)*R;
+  return mod360(gha+nut.dpsi*Math.cos(eps));
 }
 
 // ══════════════════════════════════════════════════════
@@ -264,7 +291,17 @@ function precessStar(star,date){
   const z3=z2;
   const dec=Math.asin(Math.max(-1,Math.min(1,z3)))*D;
   const ra=mod360(Math.atan2(y3,x3)*D);
-  return{sha:mod360(360-ra), dec, ra};
+  // Apply nutation (Meeus Eq. 23.1)
+  const nut=nutation(date);
+  const eps0=23.439291-0.013004*T;
+  const eps=(eps0+nut.deps)*R;
+  const raR2=ra*R, decR2=dec*R;
+  const dRA=nut.dpsi*(Math.cos(eps)+Math.sin(eps)*Math.sin(raR2)*Math.tan(decR2))
+            -nut.deps*Math.cos(raR2)*Math.tan(decR2);
+  const dDec=nut.dpsi*Math.sin(eps)*Math.cos(raR2)+nut.deps*Math.sin(raR2);
+  const raF=mod360(ra+dRA);
+  const decF=dec+dDec;
+  return{sha:mod360(360-raF), dec:decF, ra:raF};
 }
 
 // ══════════════════════════════════════════════════════
