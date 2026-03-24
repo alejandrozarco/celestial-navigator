@@ -2758,6 +2758,7 @@ function drawSkyPlot(){
 
   // ── PLOT BODIES ──
   bodies.sort((a,b)=>b.mag-a.mag);
+  const moonPhaseData=moonPhase(utc);
   bodies.forEach(b=>{
     const p=projectBody(b);
     if(p.x<-100||p.x>W+100||p.y<-100||p.y>H+100)return;
@@ -2776,12 +2777,48 @@ function drawSkyPlot(){
       ctx.strokeStyle='rgba(82,201,138,0.5)';ctx.lineWidth=1;
       ctx.beginPath();ctx.arc(p.x,p.y,dotR+5,0,2*Math.PI);ctx.stroke();
     }
-    ctx.fillStyle=color;ctx.beginPath();ctx.arc(p.x,p.y,dotR,0,2*Math.PI);ctx.fill();
-    // Label nav stars, Sun, planets, Moon — never aux stars
-    if(!isAux&&(b.mag<=2.5||b.type!=='star')&&(b.alt>0||b.dec>0)){
-      ctx.fillStyle=sugNames.has(b.name)?'rgba(82,201,138,0.9)':color;
-      ctx.font=`${Math.max(8,9*Math.min(skyZoom*0.3+0.7,1.2))}px "Share Tech Mono"`;
-      ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(b.name,p.x+dotR+3,p.y);
+    // Moon: draw phase icon with lit/dark halves + ellipse terminator
+    if(b.type==='moon'){
+      const mr=dotR+4;
+      const Deg=moonPhaseData.phase*360;
+      const cosD=Math.cos(Deg*R);
+      const waxing=Deg<=180;
+      const dark=b.alt<0?'rgba(30,32,48,0.35)':'#1e2840';
+      const litCol=b.alt<0?'rgba(120,130,150,0.35)':'#c0c8d4';
+      ctx.save();
+      ctx.beginPath();ctx.arc(p.x,p.y,mr,0,2*Math.PI);ctx.clip();
+      if(waxing){
+        ctx.fillStyle=dark;ctx.fillRect(p.x-mr,p.y-mr,mr,2*mr);
+        ctx.fillStyle=litCol;ctx.fillRect(p.x,p.y-mr,mr,2*mr);
+        if(Math.abs(cosD)>0.01){
+          ctx.fillStyle=cosD>0?dark:litCol;
+          ctx.beginPath();ctx.ellipse(p.x,p.y,Math.abs(cosD)*mr,mr,0,0,2*Math.PI);ctx.fill();
+        }
+      }else{
+        ctx.fillStyle=litCol;ctx.fillRect(p.x-mr,p.y-mr,mr,2*mr);
+        ctx.fillStyle=dark;ctx.fillRect(p.x,p.y-mr,mr,2*mr);
+        if(Math.abs(cosD)>0.01){
+          ctx.fillStyle=cosD<0?litCol:dark;
+          ctx.beginPath();ctx.ellipse(p.x,p.y,Math.abs(cosD)*mr,mr,0,0,2*Math.PI);ctx.fill();
+        }
+      }
+      ctx.restore();
+      ctx.strokeStyle=b.alt<0?'rgba(120,130,150,0.3)':'rgba(184,196,208,0.6)';
+      ctx.lineWidth=0.7;ctx.beginPath();ctx.arc(p.x,p.y,mr,0,2*Math.PI);ctx.stroke();
+      // Label
+      if(b.alt>0||b.dec>0){
+        ctx.fillStyle='rgba(184,196,208,0.85)';
+        ctx.font=`${Math.max(8,9*Math.min(skyZoom*0.3+0.7,1.2))}px "Share Tech Mono"`;
+        ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(b.name,p.x+mr+3,p.y);
+      }
+    }else{
+      ctx.fillStyle=color;ctx.beginPath();ctx.arc(p.x,p.y,dotR,0,2*Math.PI);ctx.fill();
+      // Label nav stars, Sun, planets, Moon — never aux stars
+      if(!isAux&&(b.mag<=2.5||b.type!=='star')&&(b.alt>0||b.dec>0)){
+        ctx.fillStyle=sugNames.has(b.name)?'rgba(82,201,138,0.9)':color;
+        ctx.font=`${Math.max(8,9*Math.min(skyZoom*0.3+0.7,1.2))}px "Share Tech Mono"`;
+        ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(b.name,p.x+dotR+3,p.y);
+      }
     }
   });
 
