@@ -270,7 +270,7 @@ print(f"Generating rise/set reference readings...")
 riseset_rows = []
 riseset_lats = [0, 20, 35, 45, 55, 64, -33, -55]
 # Pick N/8 random dates (one per latitude)
-for i in range(min(N // 4, 50)):
+for i in range(N):
     dt = random_date()
     day_start = datetime(dt.year, dt.month, dt.day)
     t0 = ts.utc(day_start.year, day_start.month, day_start.day)
@@ -312,14 +312,14 @@ with open('riseset_ref.csv', 'w', newline='') as f:
 print(f"  → riseset_ref.csv: {len(riseset_rows)} readings")
 
 # ── End-to-end fix reference (synthetic sights at known positions) ──
-print(f"Generating {min(N // 4, 50)} end-to-end fix reference cases...")
+print(f"Generating {N} end-to-end fix reference cases...")
 fix_rows = []
 fix_locs = [
     (43.77, 11.25), (35.0, -40.0), (-33.87, 151.21), (1.35, 103.82),
     (64.15, -21.95), (-55.9, -67.2), (20.0, 179.9), (0.0, 0.0),
 ]
 
-for i in range(min(N // 4, 50)):
+for i in range(N):
     dt = random_date()
     t = ts.utc(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second)
     true_lat, true_lon = random.choice(fix_locs)
