@@ -275,6 +275,7 @@ canvas#skyPlot:active{cursor:grabbing}
         </select>
         <span class="unit">(semi-diameter correction)</span>
       </div>
+      <div id="moonInfoRow" class="hidden" style="font-size:11px;color:var(--fg2);padding:2px 0 2px 6px;letter-spacing:0.5px"></div>
       <div class="fr">
         <label>Hs</label>
         <input type="number" id="hsDeg" placeholder="22" min="-90" max="90" class="w40">
@@ -467,12 +468,43 @@ function julianDate(d){
   return Math.floor(365.25*(Y+4716))+Math.floor(30.6001*(M+1))+D2+B-1524.5+h/24;
 }
 
+// ══════════════════════════════════════════════════════
+//  NUTATION — top 5 IAU 1980 terms (Meeus Ch. 22)
+//  Returns {dpsi, deps} in degrees
+// ══════════════════════════════════════════════════════
+function nutation(date){
+  const JD=julianDate(date);
+  const T=(JD-2451545.0)/36525;
+  // Fundamental arguments (degrees)
+  const omega=mod360(125.04452-1934.136261*T);
+  const Ls=mod360(280.4665+36000.7698*T);     // Sun mean longitude
+  const D=mod360(297.8502+445267.1115*T);      // Moon mean elongation
+  const F=mod360(93.2721+483202.0175*T);       // Moon argument of latitude
+  const oR=omega*R, LsR=Ls*R, DR=D*R, FR=F*R;
+  // Nutation in longitude (arcsec -> degrees)
+  const dpsi=(-17.20*Math.sin(oR)
+              -1.32*Math.sin(2*(FR-DR+oR))
+              -0.23*Math.sin(2*(FR+oR))
+              +0.21*Math.sin(2*oR)
+              +0.14*Math.sin(LsR))/3600;
+  // Nutation in obliquity (arcsec -> degrees)
+  const deps=(9.20*Math.cos(oR)
+             +0.57*Math.cos(2*(FR-DR+oR))
+             +0.10*Math.cos(2*(FR+oR))
+             -0.09*Math.cos(2*oR))/3600;
+  return{dpsi,deps};
+}
+
 function ghaAries(date){
   const JD=julianDate(date);
   const dJ=JD-2451545.0;
   const T=dJ/36525;
+  // GMST (mean sidereal time)
   const gha=280.46061837+360.98564736629*dJ+0.000387933*T*T-T*T*T/38710000;
-  return mod360(gha);
+  // Equation of the equinoxes: GAST = GMST + dpsi*cos(eps)  (apparent sidereal time)
+  const nut=nutation(date);
+  const eps=(23.439291-0.013004*T+nut.deps)*R;
+  return mod360(gha+nut.dpsi*Math.cos(eps));
 }
 
 // Precess a star from J2000.0 to date, applying proper motion
@@ -512,7 +544,17 @@ function precessStar(star,date){
   const z3=z2;
   const dec=Math.asin(Math.max(-1,Math.min(1,z3)))*D;
   const ra=mod360(Math.atan2(y3,x3)*D);
-  return{sha:mod360(360-ra), dec, ra};
+  // Apply nutation (Meeus Eq. 23.1) — apparent place correction
+  const nut=nutation(date);
+  const eps0=23.439291-0.013004*T;
+  const eps=(eps0+nut.deps)*R;
+  const raR2=ra*R, decR2=dec*R;
+  const dRA=nut.dpsi*(Math.cos(eps)+Math.sin(eps)*Math.sin(raR2)*Math.tan(decR2))
+            -nut.deps*Math.cos(raR2)*Math.tan(decR2);
+  const dDec=nut.dpsi*Math.sin(eps)*Math.cos(raR2)+nut.deps*Math.sin(raR2);
+  const raF=mod360(ra+dRA);
+  const decF=dec+dDec;
+  return{sha:mod360(360-raF), dec:decF, ra:raF};
 }
 
 function ghaStar(star,date){
@@ -569,21 +611,16 @@ function solarPosition(date){
   // Aberration
   sunLong-=20.4898/Math.cos((sunLong*R))*0; // simplified constant aberration
   sunLong-=20.4898/3600;
-  // Nutation in longitude
-  const omega=mod360(125.04-1934.136*T)*R;
-  const Ls=(280.4665+36000.7698*T)*R;
-  const Lm=(218.3165+481267.8813*T)*R;
-  const dPsi=(-17.20*Math.sin(omega)-1.32*Math.sin(2*Ls)-0.23*Math.sin(2*Lm)+0.21*Math.sin(2*omega))/3600;
-  sunLong+=dPsi;
-  // Obliquity (with nutation)
+  // Nutation + obliquity via shared function
+  const nut=nutation(date);
+  sunLong+=nut.dpsi;
   const eps0=23.439291-0.013004*T-1.64e-7*T*T+5.04e-7*T*T*T;
-  const dEps=(9.20*Math.cos(omega)+0.57*Math.cos(2*Ls)+0.10*Math.cos(2*Lm)-0.09*Math.cos(2*omega))/3600;
-  const eps=eps0+dEps;
+  const eps=eps0+nut.deps;
   const lamR=sunLong*R, epsR=eps*R;
   const ra=mod360(Math.atan2(Math.cos(epsR)*Math.sin(lamR),Math.cos(lamR))*D);
   const dec=Math.asin(Math.sin(epsR)*Math.sin(lamR))*D;
   const sha=mod360(360-ra);
-  return{ra,dec,sha,gha:mod360(ghaAries(date)-ra)};
+  return{ra,dec,sha,gha:mod360(ghaAries(date)-ra),lambda:sunLong};
 }
 
 // Planetary positions — Meeus low-precision using Standish (1992) mean elements
@@ -641,16 +678,11 @@ function planetPosition(name,date){
   // General precession in longitude: pA ≈ 5029.097" + 2.222"·T per century
   const pA=(5029.0966*T+2.22226*T*T)/3600*R; // radians
   lam+=pA;
-  // Nutation in longitude
-  const omega=mod360(125.04-1934.136*T)*R;
-  const Ls=(280.4665+36000.7698*T)*R;
-  const Lm=(218.3165+481267.8813*T)*R;
-  const dPsi=(-17.20*Math.sin(omega)-1.32*Math.sin(2*Ls)-0.23*Math.sin(2*Lm)+0.21*Math.sin(2*omega))/3600*R;
-  lam+=dPsi;
-  // Obliquity (with nutation)
+  // Nutation + obliquity via shared function
+  const nut=nutation(date);
+  lam+=nut.dpsi*R;
   const eps0=23.439291-0.013004*T;
-  const dEps=(9.20*Math.cos(omega)+0.57*Math.cos(2*Ls)+0.10*Math.cos(2*Lm)-0.09*Math.cos(2*omega))/3600;
-  const eps=(eps0+dEps)*R;
+  const eps=(eps0+nut.deps)*R;
   // Ecliptic to equatorial
   const ra=mod360(Math.atan2(Math.sin(lam)*Math.cos(eps)-Math.tan(bet)*Math.sin(eps),Math.cos(lam))*D);
   const dec=Math.asin(Math.sin(bet)*Math.cos(eps)+Math.cos(bet)*Math.sin(eps)*Math.sin(lam))*D;
@@ -737,15 +769,13 @@ function moonPosition(date){
   const beta=sumB/1000000;       // ecliptic latitude (degrees)
   const dist=385000.56+sumR/1000; // distance in km
 
-  // Nutation in longitude (simplified)
-  const omega=mod360(125.04-1934.136*T);
-  const dPsi=(-17.2*Math.sin(omega*R)-1.32*Math.sin(2*Lp*R))/3600;
-  const lamCorr=lambda+dPsi;
+  // Nutation + obliquity via shared function
+  const nut=nutation(date);
+  const lamCorr=lambda+nut.dpsi;
 
   // Obliquity
   const eps0=23.439291-0.013004*T;
-  const dEps=(9.2*Math.cos(omega*R))/3600;
-  const eps=eps0+dEps;
+  const eps=eps0+nut.deps;
 
   // Ecliptic to equatorial
   const lamR=lamCorr*R, betR=beta*R, epsR=eps*R;
@@ -758,7 +788,84 @@ function moonPosition(date){
   const HP=Math.asin(6378.14/dist)*D*60; // arcminutes
   const SD=0.2725*HP;                     // arcminutes
 
-  return{ra,dec,sha,gha,dist,HP,SD};
+  return{ra,dec,sha,gha,dist,HP,SD,lambda:lamCorr};
+}
+
+// ══════════════════════════════════════════════════════
+//  MOON PHASE & ILLUMINATION
+// ══════════════════════════════════════════════════════
+function moonPhase(date){
+  const sun=solarPosition(date);
+  const moon=moonPosition(date);
+  // Elongation = difference in ecliptic longitude (0-360°)
+  const D=mod360(moon.lambda-sun.lambda);
+  const illumination=(1-Math.cos(D*R))/2*100; // percent
+  const phase=D/360;                           // 0-1 cycle
+  const age=phase*29.53059;                    // days since new moon
+  // Phase name from 8 bins of 45° each
+  const NAMES=['New','Waxing Crescent','First Quarter','Waxing Gibbous',
+               'Full','Waning Gibbous','Last Quarter','Waning Crescent'];
+  const name=NAMES[Math.round(D/45)%8];
+  return{phase,illumination,age,name};
+}
+
+// ══════════════════════════════════════════════════════
+//  RISE / SET
+// ══════════════════════════════════════════════════════
+function riseSet(dec_deg, lat_deg, h0_deg){
+  const cosH=(Math.sin(h0_deg*R)-Math.sin(lat_deg*R)*Math.sin(dec_deg*R))/(Math.cos(lat_deg*R)*Math.cos(dec_deg*R));
+  if(cosH>1) return {neverRises:true};
+  if(cosH<-1) return {neverSets:true};
+  return Math.acos(cosH)*D/15;
+}
+
+function bodyRiseSet(date, lat, posFn, h0){
+  const noon=new Date(date);noon.setUTCHours(12,0,0,0);
+  const pos=posFn(noon);
+  const transit=12;
+  const rs=riseSet(pos.dec,lat,h0);
+  if(typeof rs==='object'){
+    return{rise:null,set:null,transit,alwaysUp:!!rs.neverSets,neverUp:!!rs.neverRises};
+  }
+  return{rise:transit-rs,set:transit+rs,transit,alwaysUp:false,neverUp:false};
+}
+
+function moonRiseSet(date, lat){
+  const h0=0.125;
+  const base=new Date(date);base.setUTCHours(0,0,0,0);
+  const alts=[];
+  for(let h=0;h<=24;h+=2){
+    const t=new Date(base.getTime()+h*3600000);
+    const moon=moonPosition(t);
+    const lha=mod360(ghaAries(t)+moon.sha);
+    const alt=Math.asin(Math.sin(lat*R)*Math.sin(moon.dec*R)+Math.cos(lat*R)*Math.cos(moon.dec*R)*Math.cos(lha*R))*D;
+    alts.push({h,alt});
+  }
+  const events=[];
+  for(let i=0;i<alts.length-1;i++){
+    const a1=alts[i].alt-h0, a2=alts[i+1].alt-h0;
+    if(a1*a2<0){
+      let lo=alts[i].h, hi=alts[i+1].h;
+      for(let j=0;j<8;j++){
+        const mid=(lo+hi)/2;
+        const t=new Date(base.getTime()+mid*3600000);
+        const m=moonPosition(t);
+        const lha2=mod360(ghaAries(t)+m.sha);
+        const altMid=Math.asin(Math.sin(lat*R)*Math.sin(m.dec*R)+Math.cos(lat*R)*Math.cos(m.dec*R)*Math.cos(lha2*R))*D;
+        if((altMid-h0)*a1>0) lo=mid; else hi=mid;
+      }
+      events.push({time:(lo+hi)/2, type:a1<0?'rise':'set'});
+    }
+  }
+  if(events.length===0){
+    const allAbove=alts.every(a=>a.alt>h0);
+    return{rise:null,set:null,transit:null,alwaysUp:allAbove,neverUp:!allAbove};
+  }
+  const rise=events.find(e=>e.type==='rise');
+  const set=events.find(e=>e.type==='set');
+  let maxAlt=-999,transitH=12;
+  alts.forEach(a=>{if(a.alt>maxAlt){maxAlt=a.alt;transitH=a.h;}});
+  return{rise:rise?rise.time:null,set:set?set.time:null,transit:transitH,alwaysUp:false,neverUp:false};
 }
 
 // Bennett refraction formula — arcminutes, altitude in degrees
@@ -1779,10 +1886,46 @@ function readStar(){
   return{n:star.n, sha:p.sha, dec:p.dec, mag:star.mag, _idx:parseInt(v)};
 }
 
+function fmtHM(hrs){
+  if(hrs==null||!isFinite(hrs))return'--';
+  const h=Math.floor(hrs);const m=Math.round((hrs-h)*60);
+  return`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+
 function onBodyChange(){
   const v=document.getElementById('starSel').value;
   const show=v==='moon'||v==='sun';
   document.getElementById('limbRow').classList.toggle('hidden',!show);
+  const infoRow=document.getElementById('moonInfoRow');
+  const utc=readUTC();
+  const rawAp=readAP();
+  const lat=rawAp.lat;
+  let parts=[];
+  if(v==='moon'){
+    const mp=moonPhase(utc);
+    parts.push(`${mp.name} \u2022 ${mp.illumination.toFixed(0)}% lit`);
+    const rs=moonRiseSet(utc,lat);
+    if(rs.alwaysUp) parts.push('always up');
+    else if(rs.neverUp) parts.push('never rises');
+    else parts.push(`\u2191${fmtHM(rs.rise)} \u2193${fmtHM(rs.set)}`);
+  }else if(v==='sun'){
+    const rs=bodyRiseSet(utc,lat,solarPosition,-0.8333);
+    if(rs.alwaysUp) parts.push('always up');
+    else if(rs.neverUp) parts.push('never rises');
+    else parts.push(`\u2191${fmtHM(rs.rise)} \u2193${fmtHM(rs.set)}`);
+  }else if(PLANET_NAMES[v]){
+    const name=PLANET_NAMES[v];
+    const rs=bodyRiseSet(utc,lat,(d)=>planetPosition(name,d),-0.5667);
+    if(rs.alwaysUp) parts.push('always up');
+    else if(rs.neverUp) parts.push('never rises');
+    else parts.push(`\u2191${fmtHM(rs.rise)} \u2193${fmtHM(rs.set)}`);
+  }
+  if(parts.length>0){
+    infoRow.textContent=parts.join('  \u2022  ');
+    infoRow.classList.remove('hidden');
+  }else{
+    infoRow.classList.add('hidden');
+  }
 }
 
 function getIE(){return parseFloat(document.getElementById('ie').value)||0;}
@@ -2711,6 +2854,7 @@ function drawSkyPlot(){
 
   // ── PLOT BODIES ──
   bodies.sort((a,b)=>b.mag-a.mag);
+  const moonPhaseData=moonPhase(utc);
   bodies.forEach(b=>{
     const p=projectBody(b);
     if(p.x<-100||p.x>W+100||p.y<-100||p.y>H+100)return;
@@ -2729,12 +2873,48 @@ function drawSkyPlot(){
       ctx.strokeStyle='rgba(82,201,138,0.5)';ctx.lineWidth=1;
       ctx.beginPath();ctx.arc(p.x,p.y,dotR+5,0,2*Math.PI);ctx.stroke();
     }
-    ctx.fillStyle=color;ctx.beginPath();ctx.arc(p.x,p.y,dotR,0,2*Math.PI);ctx.fill();
-    // Label nav stars, Sun, planets, Moon — never aux stars
-    if(!isAux&&(b.mag<=2.5||b.type!=='star')&&(b.alt>0||b.dec>0)){
-      ctx.fillStyle=sugNames.has(b.name)?'rgba(82,201,138,0.9)':color;
-      ctx.font=`${Math.max(8,9*Math.min(skyZoom*0.3+0.7,1.2))}px "Share Tech Mono"`;
-      ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(b.name,p.x+dotR+3,p.y);
+    // Moon: draw phase icon with lit/dark halves + ellipse terminator
+    if(b.type==='moon'){
+      const mr=dotR+4;
+      const Deg=moonPhaseData.phase*360;
+      const cosD=Math.cos(Deg*R);
+      const waxing=Deg<=180;
+      const dark=b.alt<0?'rgba(30,32,48,0.35)':'#1e2840';
+      const litCol=b.alt<0?'rgba(120,130,150,0.35)':'#c0c8d4';
+      ctx.save();
+      ctx.beginPath();ctx.arc(p.x,p.y,mr,0,2*Math.PI);ctx.clip();
+      if(waxing){
+        ctx.fillStyle=dark;ctx.fillRect(p.x-mr,p.y-mr,mr,2*mr);
+        ctx.fillStyle=litCol;ctx.fillRect(p.x,p.y-mr,mr,2*mr);
+        if(Math.abs(cosD)>0.01){
+          ctx.fillStyle=cosD>0?dark:litCol;
+          ctx.beginPath();ctx.ellipse(p.x,p.y,Math.abs(cosD)*mr,mr,0,0,2*Math.PI);ctx.fill();
+        }
+      }else{
+        ctx.fillStyle=litCol;ctx.fillRect(p.x-mr,p.y-mr,mr,2*mr);
+        ctx.fillStyle=dark;ctx.fillRect(p.x,p.y-mr,mr,2*mr);
+        if(Math.abs(cosD)>0.01){
+          ctx.fillStyle=cosD<0?litCol:dark;
+          ctx.beginPath();ctx.ellipse(p.x,p.y,Math.abs(cosD)*mr,mr,0,0,2*Math.PI);ctx.fill();
+        }
+      }
+      ctx.restore();
+      ctx.strokeStyle=b.alt<0?'rgba(120,130,150,0.3)':'rgba(184,196,208,0.6)';
+      ctx.lineWidth=0.7;ctx.beginPath();ctx.arc(p.x,p.y,mr,0,2*Math.PI);ctx.stroke();
+      // Label
+      if(b.alt>0||b.dec>0){
+        ctx.fillStyle='rgba(184,196,208,0.85)';
+        ctx.font=`${Math.max(8,9*Math.min(skyZoom*0.3+0.7,1.2))}px "Share Tech Mono"`;
+        ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(b.name,p.x+mr+3,p.y);
+      }
+    }else{
+      ctx.fillStyle=color;ctx.beginPath();ctx.arc(p.x,p.y,dotR,0,2*Math.PI);ctx.fill();
+      // Label nav stars, Sun, planets, Moon — never aux stars
+      if(!isAux&&(b.mag<=2.5||b.type!=='star')&&(b.alt>0||b.dec>0)){
+        ctx.fillStyle=sugNames.has(b.name)?'rgba(82,201,138,0.9)':color;
+        ctx.font=`${Math.max(8,9*Math.min(skyZoom*0.3+0.7,1.2))}px "Share Tech Mono"`;
+        ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(b.name,p.x+dotR+3,p.y);
+      }
     }
   });
 

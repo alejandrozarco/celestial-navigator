@@ -181,6 +181,30 @@ function julianDate(d){
 }
 
 // ══════════════════════════════════════════════════════
+//  NUTATION — top 5 IAU 1980 terms (Meeus Ch. 22)
+//  Returns {dpsi, deps} in degrees
+// ══════════════════════════════════════════════════════
+function nutation(date){
+  const JD=julianDate(date);
+  const T=(JD-2451545.0)/36525;
+  const omega=mod360(125.04452-1934.136261*T);
+  const Ls=mod360(280.4665+36000.7698*T);
+  const D=mod360(297.8502+445267.1115*T);
+  const F=mod360(93.2721+483202.0175*T);
+  const oR=omega*R, LsR=Ls*R, DR=D*R, FR=F*R;
+  const dpsi=(-17.20*Math.sin(oR)
+              -1.32*Math.sin(2*(FR-DR+oR))
+              -0.23*Math.sin(2*(FR+oR))
+              +0.21*Math.sin(2*oR)
+              +0.14*Math.sin(LsR))/3600;
+  const deps=(9.20*Math.cos(oR)
+             +0.57*Math.cos(2*(FR-DR+oR))
+             +0.10*Math.cos(2*(FR+oR))
+             -0.09*Math.cos(2*oR))/3600;
+  return{dpsi,deps};
+}
+
+// ══════════════════════════════════════════════════════
 //  GHA ARIES
 // ══════════════════════════════════════════════════════
 function ghaAries(date){
@@ -188,7 +212,10 @@ function ghaAries(date){
   const Dn=JD-2451545.0;
   const T=Dn/36525;
   const gha=280.46061837+360.98564736629*Dn+0.000387933*T*T-T*T*T/38710000;
-  return mod360(gha);
+  // Equation of the equinoxes: GAST = GMST + dpsi*cos(eps)
+  const nut=nutation(date);
+  const eps=(23.439291-0.013004*T+nut.deps)*R;
+  return mod360(gha+nut.dpsi*Math.cos(eps));
 }
 
 // ══════════════════════════════════════════════════════
@@ -264,7 +291,167 @@ function precessStar(star,date){
   const z3=z2;
   const dec=Math.asin(Math.max(-1,Math.min(1,z3)))*D;
   const ra=mod360(Math.atan2(y3,x3)*D);
-  return{sha:mod360(360-ra), dec, ra};
+  // Apply nutation (Meeus Eq. 23.1)
+  const nut=nutation(date);
+  const eps0=23.439291-0.013004*T;
+  const eps=(eps0+nut.deps)*R;
+  const raR2=ra*R, decR2=dec*R;
+  const dRA=nut.dpsi*(Math.cos(eps)+Math.sin(eps)*Math.sin(raR2)*Math.tan(decR2))
+            -nut.deps*Math.cos(raR2)*Math.tan(decR2);
+  const dDec=nut.dpsi*Math.sin(eps)*Math.cos(raR2)+nut.deps*Math.sin(raR2);
+  const raF=mod360(ra+dRA);
+  const decF=dec+dDec;
+  return{sha:mod360(360-raF), dec:decF, ra:raF};
+}
+
+// ══════════════════════════════════════════════════════
+//  PLANETARY POSITIONS — Standish (1992) mean elements
+// ══════════════════════════════════════════════════════
+const PLANET_ELEMS={
+  Venus:  {L0:181.97973,Ld:58517.81539,a:0.72333199,e0:0.00677323,ed:-0.00004938,i0:3.39471,id:-0.00163,O0:76.68069, Od:0.90174, w0:131.53298,wd:0.00864},
+  Mars:   {L0:355.45332,Ld:19140.30268,a:1.52366231,e0:0.09341233,ed:0.00011902, i0:1.85061,id:-0.00652,O0:49.57854, Od:0.77099, w0:336.04084,wd:1.84073},
+  Jupiter:{L0:34.40438, Ld:3034.90567, a:5.20336301,e0:0.04839266,ed:-0.00012880,i0:1.30530,id:-0.00186,O0:100.55615,Od:1.01744, w0:14.75385, wd:0.16174},
+  Saturn: {L0:49.94432, Ld:1222.11494, a:9.53707032,e0:0.05415060,ed:-0.00036762,i0:2.48446,id:0.00193, O0:113.71504,Od:0.87594, w0:92.43194, wd:0.16675},
+  Earth:  {L0:100.46435,Ld:36000.76983,a:1.00000011,e0:0.01671022,ed:-0.00003804,i0:0.00005,id:-0.01294,O0:-11.26064,Od:0.18203, w0:102.94719,wd:0.32327},
+};
+
+function helioPos(el,T){
+  const L=mod360(el.L0+el.Ld*T);
+  const e=el.e0+el.ed*T;
+  const i=el.i0+el.id*T;
+  const Om=mod360(el.O0+el.Od*T);
+  const pomega=mod360(el.w0+el.wd*T);
+  const M=mod360(L-pomega)*R;
+  const omega=(pomega-Om)*R;
+  let E=M;
+  for(let j=0;j<15;j++){
+    const dE=(M-E+e*Math.sin(E))/(1-e*Math.cos(E));
+    E+=dE;if(Math.abs(dE)<1e-12)break;
+  }
+  const nu=2*Math.atan2(Math.sqrt(1+e)*Math.sin(E/2),Math.sqrt(1-e)*Math.cos(E/2));
+  const r=el.a*(1-e*Math.cos(E));
+  const u=omega+nu;
+  const xp=r*Math.cos(u),yp=r*Math.sin(u);
+  const OmR=Om*R,iR=i*R;
+  const cO=Math.cos(OmR),sO=Math.sin(OmR),cI=Math.cos(iR),sI=Math.sin(iR);
+  return{x:cO*xp-sO*cI*yp,y:sO*xp+cO*cI*yp,z:sI*yp};
+}
+
+function planetPosition(name,date){
+  const JD=julianDate(date);
+  const T=(JD-2451545.0)/36525;
+  const p=helioPos(PLANET_ELEMS[name],T);
+  const e=helioPos(PLANET_ELEMS.Earth,T);
+  const X=p.x-e.x,Y=p.y-e.y,Z=p.z-e.z;
+  let lam=Math.atan2(Y,X);
+  const bet=Math.atan2(Z,Math.sqrt(X*X+Y*Y));
+  const pA=(5029.0966*T+2.22226*T*T)/3600*R;
+  lam+=pA;
+  const nut=nutation(date);
+  lam+=nut.dpsi*R;
+  const eps0=23.439291-0.013004*T;
+  const eps=(eps0+nut.deps)*R;
+  const ra=mod360(Math.atan2(Math.sin(lam)*Math.cos(eps)-Math.tan(bet)*Math.sin(eps),Math.cos(lam))*D);
+  const dec=Math.asin(Math.sin(bet)*Math.cos(eps)+Math.cos(bet)*Math.sin(eps)*Math.sin(lam))*D;
+  const sha=mod360(360-ra);
+  return{ra,dec,sha,gha:mod360(ghaAries(date)-ra)};
+}
+
+// ══════════════════════════════════════════════════════
+//  MOON POSITION — Meeus Ch.45 simplified lunar theory
+// ══════════════════════════════════════════════════════
+function moonPosition(date){
+  const JD=julianDate(date);
+  const T=(JD-2451545.0)/36525;
+  const Lp=mod360(218.3165+481267.8813*T);
+  const Dm=mod360(297.8502+445267.1115*T);
+  const M =mod360(357.5291+35999.0503*T);
+  const Mp=mod360(134.9634+477198.8676*T);
+  const F =mod360(93.2721+483202.0175*T);
+  const A1=mod360(119.75+131.849*T);
+  const A2=mod360(53.09+479264.290*T);
+  const A3=mod360(313.45+481266.484*T);
+  const E=1-0.002516*T-0.0000074*T*T;
+  const E2=E*E;
+  const LR=[
+    [0,0,1,0, 6288774,-20905355],[2,0,-1,0, 1274027,-3699111],[2,0,0,0, 658314,-2955968],
+    [0,0,2,0, 213618,-569925],[0,1,0,0, -185116,48888],[0,0,0,2, -114332,-3149],
+    [2,0,-2,0, 58793,246158],[2,-1,-1,0, 57066,-152138],[2,0,1,0, 53322,-170733],
+    [2,-1,0,0, 45758,-204586],[0,1,-1,0, -40923,-129620],[1,0,0,0, -34720,108743],
+    [0,1,1,0, -30383,104755],[2,0,0,-2, 15327,10321],[0,0,1,2, -12528,0],
+    [0,0,1,-2, 10980,79661],[4,0,-1,0, 10675,-34782],[0,0,3,0, 10034,-23210],
+    [4,0,-2,0, 8548,-21636],[2,1,-1,0, -7888,24208],[2,1,0,0, -6766,30824],
+    [1,0,-1,0, -5163,-8379],[1,1,0,0, 4987,-16675],[2,-1,1,0, 4036,-12831],
+    [2,0,2,0, 3994,-10445],[4,0,0,0, 3861,-11650],[2,0,-3,0, 3665,14403],
+    [0,1,-2,0, -2689,-7003],[2,0,-1,2, -2602,0],[2,-1,-2,0, 2390,10056],
+    [1,0,1,0, -2348,6322],[2,-2,0,0, 2236,-9884],[0,1,2,0, -2120,5751],
+    [0,2,0,0, -2069,0],[2,-2,-1,0, 2048,-4950],[2,0,1,-2, -1773,4130],
+    [2,0,0,2, -1595,0],[4,-1,-1,0, 1215,-3958],[0,0,2,2, -1110,0],
+    [3,0,-1,0, -892,3258],[2,1,1,0, -810,2616],[4,-1,-2,0, 759,-1897],
+    [0,2,-1,0, -713,-2117],[2,2,-1,0, -700,2354],[2,1,-2,0, 691,0],
+    [2,-1,0,-2, 596,0],[4,0,1,0, 549,-1423],[0,0,4,0, 537,-1117],
+    [4,-1,0,0, 520,-1571],[1,0,-2,0, -487,-1739],[2,1,0,-2, -399,0],
+    [0,0,2,-2, -381,-4421],[1,1,1,0, 351,0],[3,0,-2,0, -340,0],
+    [4,0,-3,0, 330,0],[2,-1,2,0, 327,0],[0,2,1,0, -323,1165],
+    [1,1,-1,0, 299,0],[2,0,3,0, 294,0],[2,0,-1,-2, 0,8752],
+  ];
+  const B=[
+    [0,0,0,1, 5128122],[0,0,1,1, 280602],[0,0,1,-1, 277693],[2,0,0,-1, 173237],
+    [2,0,-1,1, 55413],[2,0,-1,-1, 46271],[2,0,0,1, 32573],[0,0,2,1, 17198],
+    [2,0,1,-1, 9266],[0,0,2,-1, 8822],[2,-1,0,-1, 8216],[2,0,-2,-1, 4324],
+    [2,0,1,1, 4200],[2,1,0,-1, -3359],[2,-1,-1,1, 2463],[2,-1,0,1, 2211],
+    [2,-1,-1,-1, 2065],[0,1,-1,-1, -1870],[4,0,-1,-1, 1828],[0,1,0,1, -1794],
+    [0,0,0,3, -1749],[0,1,-1,1, -1565],[1,0,0,1, -1491],[0,1,1,1, -1475],
+    [0,1,1,-1, -1410],[0,1,0,-1, -1344],[1,0,0,-1, -1335],[0,0,3,1, 1107],
+    [4,0,0,-1, 1021],[4,0,-1,1, 833],
+  ];
+  let sumL=0,sumR=0,sumB=0;
+  for(const t of LR){
+    const arg=(t[0]*Dm+t[1]*M+t[2]*Mp+t[3]*F)*R;
+    let eF=1;
+    if(Math.abs(t[1])===1)eF=E; else if(Math.abs(t[1])===2)eF=E2;
+    sumL+=t[4]*eF*Math.sin(arg); sumR+=t[5]*eF*Math.cos(arg);
+  }
+  for(const t of B){
+    const arg=(t[0]*Dm+t[1]*M+t[2]*Mp+t[3]*F)*R;
+    let eF=1;
+    if(Math.abs(t[1])===1)eF=E; else if(Math.abs(t[1])===2)eF=E2;
+    sumB+=t[4]*eF*Math.sin(arg);
+  }
+  sumL+=3958*Math.sin(A1*R)+1962*Math.sin((Lp-F)*R)+318*Math.sin(A2*R);
+  sumB+=-2235*Math.sin(Lp*R)+382*Math.sin(A3*R)+175*Math.sin((A1-F)*R)
+       +175*Math.sin((A1+F)*R)+127*Math.sin((Lp-Mp)*R)-115*Math.sin((Lp+Mp)*R);
+  const lambda=Lp+sumL/1000000;
+  const beta=sumB/1000000;
+  const dist=385000.56+sumR/1000;
+  const nut=nutation(date);
+  const lamCorr=lambda+nut.dpsi;
+  const eps0=23.439291-0.013004*T;
+  const eps=eps0+nut.deps;
+  const lamR=lamCorr*R,betR=beta*R,epsR=eps*R;
+  const ra=mod360(Math.atan2(Math.sin(lamR)*Math.cos(epsR)-Math.tan(betR)*Math.sin(epsR),Math.cos(lamR))*D);
+  const dec=Math.asin(Math.sin(betR)*Math.cos(epsR)+Math.cos(betR)*Math.sin(epsR)*Math.sin(lamR))*D;
+  const sha=mod360(360-ra);
+  const gha=mod360(ghaAries(date)-ra);
+  const HP=Math.asin(6378.14/dist)*D*60;
+  const SD=0.2725*HP;
+  return{ra,dec,sha,gha,dist,HP,SD,lambda:lamCorr};
+}
+
+// ══════════════════════════════════════════════════════
+//  MOON PHASE & ILLUMINATION
+// ══════════════════════════════════════════════════════
+function moonPhase(date){
+  const sun=solarPosition(date);
+  const moon=moonPosition(date);
+  const D=mod360(moon.lambda-sun.lambda);
+  const illumination=(1-Math.cos(D*R))/2*100;
+  const phase=D/360;
+  const age=phase*29.53059;
+  const NAMES=['New','Waxing Crescent','First Quarter','Waxing Gibbous',
+               'Full','Waning Gibbous','Last Quarter','Waning Crescent'];
+  const name=NAMES[Math.round(D/45)%8];
+  return{phase,illumination,age,name};
 }
 
 // ══════════════════════════════════════════════════════
@@ -273,8 +460,8 @@ function precessStar(star,date){
 // ══════════════════════════════════════════════════════
 function riseSet(dec_deg, lat_deg, h0_deg){
   const cosH=(sin(h0_deg)-sin(lat_deg)*sin(dec_deg))/(cos(lat_deg)*cos(dec_deg));
-  if(cosH>1) return null;   // never rises
-  if(cosH<-1) return null;  // never sets (but need to distinguish)
+  if(cosH>1) return {neverRises:true};
+  if(cosH<-1) return {neverSets:true};
   const H=Math.acos(cosH)*D; // hour angle in degrees
   return H/15; // hours from transit
 }
@@ -290,22 +477,78 @@ function sunTimes(date, lat){
   const ct=riseSet(sun.dec,lat,-6);      // civil twilight
   const nt=riseSet(sun.dec,lat,-12);     // nautical twilight
 
-  // Check if sun is always up or always down
-  const midAlt=90-Math.abs(lat-sun.dec); // approximate max altitude
-  const alwaysUp=sin(-0.8333)<sin(lat)*sin(sun.dec)+cos(lat)*cos(sun.dec);
-  const neverUp=midAlt<-0.8333;
+  const rsNum=typeof rs==='number';
+  const ctNum=typeof ct==='number';
+  const ntNum=typeof nt==='number';
 
   return{
     transit,
-    rise:rs!=null?transit-rs:null,
-    set:rs!=null?transit+rs:null,
-    civTwlStart:ct!=null?transit-ct:null,
-    civTwlEnd:ct!=null?transit+ct:null,
-    nautTwlStart:nt!=null?transit-nt:null,
-    nautTwlEnd:nt!=null?transit+nt:null,
-    alwaysUp:rs===null&&!neverUp&&midAlt>0,
-    neverUp:rs===null&&(neverUp||midAlt<=0),
+    rise:rsNum?transit-rs:null,
+    set:rsNum?transit+rs:null,
+    civTwlStart:ctNum?transit-ct:null,
+    civTwlEnd:ctNum?transit+ct:null,
+    nautTwlStart:ntNum?transit-nt:null,
+    nautTwlEnd:ntNum?transit+nt:null,
+    alwaysUp:!rsNum&&rs&&!!rs.neverSets,
+    neverUp:!rsNum&&rs&&!!rs.neverRises,
   };
+}
+
+// ══════════════════════════════════════════════════════
+//  MOON RISE/SET — altitude sampling + bisection
+// ══════════════════════════════════════════════════════
+function moonRiseSet(date, lat){
+  const h0=0.125; // standard Moon altitude correction (deg)
+  const base=new Date(date);base.setUTCHours(0,0,0,0);
+  // Sample Moon altitude every 2 hours (13 samples, 0-24h)
+  const alts=[];
+  for(let h=0;h<=24;h+=2){
+    const t=new Date(base.getTime()+h*3600000);
+    const moon=moonPosition(t);
+    const lha=mod360(ghaAries(t)+moon.sha);
+    const alt=Math.asin(sin(lat)*sin(moon.dec)+cos(lat)*cos(moon.dec)*cos(lha))*D;
+    alts.push({h,alt});
+  }
+  // Detect sign changes relative to h0
+  const events=[];
+  for(let i=0;i<alts.length-1;i++){
+    const a1=alts[i].alt-h0, a2=alts[i+1].alt-h0;
+    if(a1*a2<0){
+      let lo=alts[i].h, hi=alts[i+1].h;
+      for(let j=0;j<8;j++){
+        const mid=(lo+hi)/2;
+        const t=new Date(base.getTime()+mid*3600000);
+        const m=moonPosition(t);
+        const lha2=mod360(ghaAries(t)+m.sha);
+        const altMid=Math.asin(sin(lat)*sin(m.dec)+cos(lat)*cos(m.dec)*cos(lha2))*D;
+        if((altMid-h0)*a1>0) lo=mid; else hi=mid;
+      }
+      events.push({time:(lo+hi)/2, type:a1<0?'rise':'set'});
+    }
+  }
+  if(events.length===0){
+    const allAbove=alts.every(a=>a.alt>h0);
+    return{rise:null,set:null,transit:null,alwaysUp:allAbove,neverUp:!allAbove};
+  }
+  const rise=events.find(e=>e.type==='rise');
+  const set=events.find(e=>e.type==='set');
+  let maxAlt=-999,transitH=12;
+  alts.forEach(a=>{if(a.alt>maxAlt){maxAlt=a.alt;transitH=a.h;}});
+  return{rise:rise?rise.time:null,set:set?set.time:null,transit:transitH,alwaysUp:false,neverUp:false};
+}
+
+// ══════════════════════════════════════════════════════
+//  BODY RISE/SET — single-pass for Sun/planets
+// ══════════════════════════════════════════════════════
+function bodyRiseSet(date, lat, posFn, h0){
+  const noon=new Date(date);noon.setUTCHours(12,0,0,0);
+  const pos=posFn(noon);
+  const transit=12;
+  const rs=riseSet(pos.dec,lat,h0);
+  if(typeof rs==='object'){
+    return{rise:null,set:null,transit,alwaysUp:!!rs.neverSets,neverUp:!!rs.neverRises};
+  }
+  return{rise:transit-rs,set:transit+rs,transit,alwaysUp:false,neverUp:false};
 }
 
 // ══════════════════════════════════════════════════════
@@ -422,12 +665,45 @@ function generate(){
   });
   html+=`</tbody></table>`;
 
+  // ── Moon & Planet Rise / Set ──
+  html+=`<div class="sec-hdr" style="margin-top:16px">Moon &middot; Planet Rise / Set (LMT)</div>`;
+  html+=`<table><thead><tr><th>Body</th>`;
+  const rsLats=[72,60,50,40,30,20,10,0,-10,-20,-30,-40,-50,-60];
+  rsLats.forEach(lat=>{
+    const latStr=lat>=0?`N${lat}\u00b0`:`S${Math.abs(lat)}\u00b0`;
+    html+=`<th>${latStr}</th>`;
+  });
+  html+=`</tr></thead><tbody>`;
+  // Moon row
+  html+=`<tr><td class="lbl" style="font-weight:bold">Moon</td>`;
+  rsLats.forEach(lat=>{
+    const mrs=moonRiseSet(baseDate,lat);
+    if(mrs.alwaysUp) html+=`<td>\u25cb\u25cb</td>`;
+    else if(mrs.neverUp) html+=`<td>\u25cf\u25cf</td>`;
+    else html+=`<td>${mrs.rise!=null?fmtHM(mrs.rise):'--'}/${mrs.set!=null?fmtHM(mrs.set):'--'}</td>`;
+  });
+  html+=`</tr>`;
+  // Planet rows
+  ['Venus','Mars','Jupiter','Saturn'].forEach(name=>{
+    html+=`<tr><td class="lbl">${name}</td>`;
+    rsLats.forEach(lat=>{
+      const prs=bodyRiseSet(baseDate,lat,function(d){return planetPosition(name,d);},-0.5667);
+      if(prs.alwaysUp) html+=`<td>\u25cb\u25cb</td>`;
+      else if(prs.neverUp) html+=`<td>\u25cf\u25cf</td>`;
+      else html+=`<td>${prs.rise!=null?fmtHM(prs.rise):'--'}/${prs.set!=null?fmtHM(prs.set):'--'}</td>`;
+    });
+    html+=`</tr>`;
+  });
+  html+=`</tbody></table>`;
+
   // EoT and Sun SD
   const noonSun=solarPosition(new Date(baseDate.getTime()+12*3600000));
   const eotMin=noonSun.eot*4;
   html+=`<div style="margin-top:10px;font-family:var(--mono);font-size:12px;color:var(--tx2)">`;
   html+=`<div>Eq. of Time: <span style="color:var(--tx1)">${eotMin>=0?'+':''}${eotMin.toFixed(1)} min</span></div>`;
   html+=`<div>Sun SD: <span style="color:var(--tx1)">16.0'</span></div>`;
+  const mp=moonPhase(new Date(baseDate.getTime()+12*3600000));
+  html+=`<div>Moon: <span style="color:var(--tx1)">${mp.name} \u2022 ${mp.illumination.toFixed(0)}% lit \u2022 age ${mp.age.toFixed(1)}d</span></div>`;
   html+=`<div>&#9675;&#9675; = continuous daylight &nbsp; &#9679;&#9679; = continuous darkness</div>`;
   html+=`</div></div>`;
 

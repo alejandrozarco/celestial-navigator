@@ -221,14 +221,15 @@ const starCount = calc("STARS.length");
 check('58 navigational stars', starCount === 58, `${starCount} stars`);
 
 // Spot-check key stars — precessed from J2000.0 to 2026-01-01
+// Reference: Air Almanac 2026 (tolerances tightened after nutation correction)
 const starChecks = {
-  'Polaris':    { sha: 313.5, dec: 89.37, tol: 0.3 },
-  'Sirius':     { sha: 258.4, dec: -16.75, tol: 0.3 },
-  'Canopus':    { sha: 263.9, dec: -52.71, tol: 0.3 },
-  'Arcturus':   { sha: 145.8, dec: 19.05, tol: 0.3 },
-  'Vega':       { sha: 80.5, dec: 38.81, tol: 0.3 },
-  'Rigel':      { sha: 281.1, dec: -8.17, tol: 0.3 },
-  'Betelgeuse': { sha: 270.9, dec: 7.41, tol: 0.3 },
+  'Polaris':    { sha: 313.5, dec: 89.37, tol: 0.3 },  // polar star: large RA nutation, keep relaxed
+  'Sirius':     { sha: 258.4, dec: -16.75, tol: 0.05 },
+  'Canopus':    { sha: 263.9, dec: -52.71, tol: 0.05 },
+  'Arcturus':   { sha: 145.8, dec: 19.05,  tol: 0.05 },
+  'Vega':       { sha: 80.5,  dec: 38.81,  tol: 0.05 },
+  'Rigel':      { sha: 281.1, dec: -8.17,  tol: 0.05 },
+  'Betelgeuse': { sha: 270.9, dec: 7.41,   tol: 0.05 },
 };
 for (const [name, ref] of Object.entries(starChecks)) {
   const star = calc(`(function(){ const s=STARS.find(s=>s.n==='${name}'); if(!s)return null; const p=precessStar(s,new Date('2026-01-01T00:00:00Z')); return{sha:p.sha,dec:p.dec}; })()`);
@@ -563,6 +564,53 @@ for (const [name, date, jplRA, jplDec, jplSHA] of jplPlanets) {
   assert(`${name} ${dateLabel} Dec vs JPL`, p.dec, jplDec, 0.33);
   assert(`${name} ${dateLabel} SHA vs JPL`, p.sha, jplSHA, 0.33);
 }
+
+// ═══════════════════════════════════════════════════════════
+//  MOON PHASE
+// ═══════════════════════════════════════════════════════════
+console.log('\n\x1b[1mMoon Phase\x1b[0m');
+
+// Known lunar phases (USNO data):
+// 2026-Jan-03 ~10:03 UTC: Full Moon → illumination ~100%, phase ~0.5
+const fullMoon = calc(`moonPhase(new Date('2026-01-03T10:00:00Z'))`);
+check('Full Moon: illumination ~100%', fullMoon.illumination >= 97, `${fullMoon.illumination.toFixed(1)}%`);
+check('Full Moon: phase ~0.5',         Math.abs(fullMoon.phase - 0.5) < 0.03, `phase=${fullMoon.phase.toFixed(3)}`);
+check('Full Moon: name', fullMoon.name === 'Full', `name="${fullMoon.name}"`);
+
+// 2026-Mar-20 ~02:38 UTC: New Moon → illumination ~0%, phase ~0
+const newMoon = calc(`moonPhase(new Date('2026-03-20T02:38:00Z'))`);
+check('New Moon: illumination ~0%', newMoon.illumination <= 3, `${newMoon.illumination.toFixed(1)}%`);
+check('New Moon: phase ~0',         newMoon.phase < 0.05 || newMoon.phase > 0.95, `phase=${newMoon.phase.toFixed(3)}`);
+check('New Moon: name', newMoon.name === 'New', `name="${newMoon.name}"`);
+
+// 2026-Jan-11 ~03:00 UTC: Last Quarter → illumination ~50%, phase ~0.75
+const lastQ = calc(`moonPhase(new Date('2026-01-11T03:00:00Z'))`);
+check('Last Quarter: illumination ~50%', Math.abs(lastQ.illumination - 50) < 10, `${lastQ.illumination.toFixed(1)}%`);
+check('Last Quarter: phase ~0.75',        Math.abs(lastQ.phase - 0.75) < 0.05, `phase=${lastQ.phase.toFixed(3)}`);
+
+// Structural checks
+check('moonPhase returns phase 0-1',    fullMoon.phase >= 0 && fullMoon.phase <= 1, `ok`);
+check('moonPhase returns age 0-30',     fullMoon.age >= 0 && fullMoon.age <= 30, `age=${fullMoon.age.toFixed(1)}d`);
+check('moonPhase returns illumination', fullMoon.illumination >= 0 && fullMoon.illumination <= 100, `ok`);
+
+// ═══════════════════════════════════════════════════════════
+//  NUTATION — IAU 1980 top-5 terms
+// ═══════════════════════════════════════════════════════════
+console.log('\n\x1b[1mNutation\x1b[0m (5-term IAU 1980)');
+
+// Meeus Example 22.a: 1987 April 10, 0h TD
+// Full 106-term: dpsi = -3.788" = -0.001052°, deps = +9.443" = +0.002623°
+// Our 5-term approximation should be within 1.8" (0.0005°) of full series
+const nut87 = calc(`nutation(new Date('1987-04-10T00:00:00Z'))`);
+assert('Nutation dpsi 1987-Apr-10', nut87.dpsi, -0.001052, 0.0005);
+assert('Nutation deps 1987-Apr-10', nut87.deps,  0.002623, 0.0005);
+
+// At J2000.0: nutation should be small but finite
+const nut2000 = calc(`nutation(new Date('2000-01-01T12:00:00Z'))`);
+check('Nutation dpsi J2000 finite',   isFinite(nut2000.dpsi), `${nut2000.dpsi.toFixed(6)}°`);
+check('Nutation deps J2000 finite',   isFinite(nut2000.deps), `${nut2000.deps.toFixed(6)}°`);
+check('Nutation |dpsi| < 0.01°',      Math.abs(nut2000.dpsi) < 0.01, `|dpsi|=${Math.abs(nut2000.dpsi).toFixed(6)}°`);
+check('Nutation |deps| < 0.006°',     Math.abs(nut2000.deps) < 0.006, `|deps|=${Math.abs(nut2000.deps).toFixed(6)}°`);
 
 // ═══════════════════════════════════════════════════════════
 //  SUMMARY

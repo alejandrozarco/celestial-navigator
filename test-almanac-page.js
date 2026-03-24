@@ -366,6 +366,84 @@ if (sweepFail === 0) {
 }
 
 // ══════════════════════════════════════════════════════
+//  Nutation
+// ══════════════════════════════════════════════════════
+console.log(`\n${B}═══ Nutation ═══${X}`);
+
+const nut87 = calc(`nutation(new Date('1987-04-10T00:00:00Z'))`);
+assertClose('Nutation dpsi 1987-Apr-10', nut87.dpsi, -0.001052, 0.0005, '°');
+assertClose('Nutation deps 1987-Apr-10', nut87.deps,  0.002623, 0.0005, '°');
+
+const nut2000 = calc(`nutation(new Date('2000-01-01T12:00:00Z'))`);
+assert('Nutation dpsi at J2000 is finite', isFinite(nut2000.dpsi));
+assert('Nutation |dpsi| < 0.01°', Math.abs(nut2000.dpsi) < 0.01);
+assert('Nutation |deps| < 0.006°', Math.abs(nut2000.deps) < 0.006);
+
+// ══════════════════════════════════════════════════════
+//  riseSet polar cases
+// ══════════════════════════════════════════════════════
+console.log(`\n${B}═══ Rise/Set Polar Cases ═══${X}`);
+
+// Star at dec=+80 seen from lat=+80: should never set (circumpolar)
+const rsUp = calc(`riseSet(80, 80, -0.5667)`);
+assert('Circumpolar returns neverSets', rsUp && rsUp.neverSets === true, JSON.stringify(rsUp));
+
+// Star at dec=-80 seen from lat=+80: should never rise
+const rsDown = calc(`riseSet(-80, 80, -0.5667)`);
+assert('Never-rise returns neverRises', rsDown && rsDown.neverRises === true, JSON.stringify(rsDown));
+
+// Normal case: still returns a number
+const rsNorm = calc(`riseSet(20, 45, -0.5667)`);
+assert('Normal case returns number', typeof rsNorm === 'number' && rsNorm > 0);
+
+// ══════════════════════════════════════════════════════
+//  bodyRiseSet
+// ══════════════════════════════════════════════════════
+console.log(`\n${B}═══ Body Rise/Set ═══${X}`);
+
+// Sun at equator — should have normal rise/set
+const sunRS = calc(`bodyRiseSet(new Date('2026-06-15T00:00:00Z'), 0, function(d){ return solarPosition(d); }, -0.5667)`);
+assert('Sun rise/set at equator has rise', typeof sunRS.rise === 'number' && sunRS.rise > 0);
+assert('Sun rise/set at equator has set', typeof sunRS.set === 'number' && sunRS.set > 12);
+assert('Sun rise/set at equator not polar', !sunRS.alwaysUp && !sunRS.neverUp);
+
+// Sun at 89.9°N in June — circumpolar
+const sunPolar = calc(`bodyRiseSet(new Date('2026-06-15T00:00:00Z'), 89.9, function(d){ return solarPosition(d); }, -0.5667)`);
+assert('Sun at pole in June is always up', sunPolar.alwaysUp === true, JSON.stringify(sunPolar));
+
+// ══════════════════════════════════════════════════════
+//  Moon Rise/Set
+// ══════════════════════════════════════════════════════
+console.log(`\n${B}═══ Moon Rise/Set ═══${X}`);
+
+const mrs = calc(`moonRiseSet(new Date('2026-06-15T00:00:00Z'), 0)`);
+assert('Moon rise/set has rise or is polar', mrs.rise !== null || mrs.alwaysUp || mrs.neverUp);
+assert('Moon rise/set times are finite or null',
+  (mrs.rise === null || isFinite(mrs.rise)) && (mrs.set === null || isFinite(mrs.set)));
+
+// At equator, Moon should generally have both rise and set
+const mrs2 = calc(`moonRiseSet(new Date('2026-01-15T00:00:00Z'), 0)`);
+assert('Moon rise/set at equator Jan has events', mrs2.rise !== null || mrs2.set !== null || mrs2.alwaysUp);
+
+// ══════════════════════════════════════════════════════
+//  Moon Phase
+// ══════════════════════════════════════════════════════
+console.log(`\n${B}═══ Moon Phase ═══${X}`);
+
+const fullMoon = calc(`moonPhase(new Date('2026-01-03T10:00:00Z'))`);
+assert('Full Moon: illumination >= 97%', fullMoon.illumination >= 97, `got ${fullMoon.illumination.toFixed(1)}%`);
+assert('Full Moon: phase ~0.5', Math.abs(fullMoon.phase - 0.5) < 0.03, `got ${fullMoon.phase.toFixed(3)}`);
+assert('Full Moon: name', fullMoon.name === 'Full', `got "${fullMoon.name}"`);
+
+const newMoon = calc(`moonPhase(new Date('2026-03-20T02:38:00Z'))`);
+assert('New Moon: illumination <= 3%', newMoon.illumination <= 3, `got ${newMoon.illumination.toFixed(1)}%`);
+assert('New Moon: phase ~0', newMoon.phase < 0.05 || newMoon.phase > 0.95, `got ${newMoon.phase.toFixed(3)}`);
+
+const lastQ = calc(`moonPhase(new Date('2026-01-11T00:00:00Z'))`);
+assert('Last Quarter: name', lastQ.name === 'Last Quarter' || lastQ.name === 'Waning Gibbous', `got "${lastQ.name}"`);
+assert('Last Quarter: illumination 30-70%', lastQ.illumination > 30 && lastQ.illumination < 70, `got ${lastQ.illumination.toFixed(1)}%`);
+
+// ══════════════════════════════════════════════════════
 //  SUMMARY
 // ══════════════════════════════════════════════════════
 console.log(`\n${B}══════════════════════════════════════════════════${X}`);
