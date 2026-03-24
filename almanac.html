@@ -305,6 +305,59 @@ function precessStar(star,date){
 }
 
 // ══════════════════════════════════════════════════════
+//  PLANETARY POSITIONS — Standish (1992) mean elements
+// ══════════════════════════════════════════════════════
+const PLANET_ELEMS={
+  Venus:  {L0:181.97973,Ld:58517.81539,a:0.72333199,e0:0.00677323,ed:-0.00004938,i0:3.39471,id:-0.00163,O0:76.68069, Od:0.90174, w0:131.53298,wd:0.00864},
+  Mars:   {L0:355.45332,Ld:19140.30268,a:1.52366231,e0:0.09341233,ed:0.00011902, i0:1.85061,id:-0.00652,O0:49.57854, Od:0.77099, w0:336.04084,wd:1.84073},
+  Jupiter:{L0:34.40438, Ld:3034.90567, a:5.20336301,e0:0.04839266,ed:-0.00012880,i0:1.30530,id:-0.00186,O0:100.55615,Od:1.01744, w0:14.75385, wd:0.16174},
+  Saturn: {L0:49.94432, Ld:1222.11494, a:9.53707032,e0:0.05415060,ed:-0.00036762,i0:2.48446,id:0.00193, O0:113.71504,Od:0.87594, w0:92.43194, wd:0.16675},
+  Earth:  {L0:100.46435,Ld:36000.76983,a:1.00000011,e0:0.01671022,ed:-0.00003804,i0:0.00005,id:-0.01294,O0:-11.26064,Od:0.18203, w0:102.94719,wd:0.32327},
+};
+
+function helioPos(el,T){
+  const L=mod360(el.L0+el.Ld*T);
+  const e=el.e0+el.ed*T;
+  const i=el.i0+el.id*T;
+  const Om=mod360(el.O0+el.Od*T);
+  const pomega=mod360(el.w0+el.wd*T);
+  const M=mod360(L-pomega)*R;
+  const omega=(pomega-Om)*R;
+  let E=M;
+  for(let j=0;j<15;j++){
+    const dE=(M-E+e*Math.sin(E))/(1-e*Math.cos(E));
+    E+=dE;if(Math.abs(dE)<1e-12)break;
+  }
+  const nu=2*Math.atan2(Math.sqrt(1+e)*Math.sin(E/2),Math.sqrt(1-e)*Math.cos(E/2));
+  const r=el.a*(1-e*Math.cos(E));
+  const u=omega+nu;
+  const xp=r*Math.cos(u),yp=r*Math.sin(u);
+  const OmR=Om*R,iR=i*R;
+  const cO=Math.cos(OmR),sO=Math.sin(OmR),cI=Math.cos(iR),sI=Math.sin(iR);
+  return{x:cO*xp-sO*cI*yp,y:sO*xp+cO*cI*yp,z:sI*yp};
+}
+
+function planetPosition(name,date){
+  const JD=julianDate(date);
+  const T=(JD-2451545.0)/36525;
+  const p=helioPos(PLANET_ELEMS[name],T);
+  const e=helioPos(PLANET_ELEMS.Earth,T);
+  const X=p.x-e.x,Y=p.y-e.y,Z=p.z-e.z;
+  let lam=Math.atan2(Y,X);
+  const bet=Math.atan2(Z,Math.sqrt(X*X+Y*Y));
+  const pA=(5029.0966*T+2.22226*T*T)/3600*R;
+  lam+=pA;
+  const nut=nutation(date);
+  lam+=nut.dpsi*R;
+  const eps0=23.439291-0.013004*T;
+  const eps=(eps0+nut.deps)*R;
+  const ra=mod360(Math.atan2(Math.sin(lam)*Math.cos(eps)-Math.tan(bet)*Math.sin(eps),Math.cos(lam))*D);
+  const dec=Math.asin(Math.sin(bet)*Math.cos(eps)+Math.cos(bet)*Math.sin(eps)*Math.sin(lam))*D;
+  const sha=mod360(360-ra);
+  return{ra,dec,sha,gha:mod360(ghaAries(date)-ra)};
+}
+
+// ══════════════════════════════════════════════════════
 //  MOON POSITION — Meeus Ch.45 simplified lunar theory
 // ══════════════════════════════════════════════════════
 function moonPosition(date){
@@ -609,6 +662,37 @@ function generate(){
     const ntS=st.nautTwlStart!=null?fmtHM(st.nautTwlStart):'--';
     const ntE=st.nautTwlEnd!=null?fmtHM(st.nautTwlEnd):'--';
     html+=`<tr><td class="lbl">${latStr}</td><td>${ntS}</td><td>${ctS}</td><td>${rise}</td><td>${set}</td><td>${ctE}</td><td>${ntE}</td></tr>`;
+  });
+  html+=`</tbody></table>`;
+
+  // ── Moon & Planet Rise / Set ──
+  html+=`<div class="sec-hdr" style="margin-top:16px">Moon &middot; Planet Rise / Set (LMT)</div>`;
+  html+=`<table><thead><tr><th>Body</th>`;
+  const rsLats=[72,60,50,40,30,20,10,0,-10,-20,-30,-40,-50,-60];
+  rsLats.forEach(lat=>{
+    const latStr=lat>=0?`N${lat}\u00b0`:`S${Math.abs(lat)}\u00b0`;
+    html+=`<th>${latStr}</th>`;
+  });
+  html+=`</tr></thead><tbody>`;
+  // Moon row
+  html+=`<tr><td class="lbl" style="font-weight:bold">Moon</td>`;
+  rsLats.forEach(lat=>{
+    const mrs=moonRiseSet(baseDate,lat);
+    if(mrs.alwaysUp) html+=`<td>\u25cb\u25cb</td>`;
+    else if(mrs.neverUp) html+=`<td>\u25cf\u25cf</td>`;
+    else html+=`<td>${mrs.rise!=null?fmtHM(mrs.rise):'--'}/${mrs.set!=null?fmtHM(mrs.set):'--'}</td>`;
+  });
+  html+=`</tr>`;
+  // Planet rows
+  ['Venus','Mars','Jupiter','Saturn'].forEach(name=>{
+    html+=`<tr><td class="lbl">${name}</td>`;
+    rsLats.forEach(lat=>{
+      const prs=bodyRiseSet(baseDate,lat,function(d){return planetPosition(name,d);},-0.5667);
+      if(prs.alwaysUp) html+=`<td>\u25cb\u25cb</td>`;
+      else if(prs.neverUp) html+=`<td>\u25cf\u25cf</td>`;
+      else html+=`<td>${prs.rise!=null?fmtHM(prs.rise):'--'}/${prs.set!=null?fmtHM(prs.set):'--'}</td>`;
+    });
+    html+=`</tr>`;
   });
   html+=`</tbody></table>`;
 
