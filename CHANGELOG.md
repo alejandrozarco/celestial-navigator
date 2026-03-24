@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-03-24 (v0.1.89)
+
+### Added
+- **Lunar distance method** — new sight mode for determining longitude from Moon-body angular distance. Includes clearing (Young's method), GMT interpolation via bisection, and longitude derivation
+- **Southern hemisphere star finder** — NCP/SCP toggle for polar stereographic sky chart, with adapted equatorial grid and pole marker
+- **End-to-end fix tests** — Polaris latitude, LS intercept fix, and COP direct fix verified against Florence demo session
+- **Expanded benchmarks** — lunar distance, moon phase, end-to-end fix, and rise/set reference data generated from Skyfield/DE440s (850 total benchmark cases)
+
+### Changed
+- Service worker cache bumped to v15
+- Benchmark output now shows dynamic case counts
+- Test suite expanded to 203 navigator tests + 97 almanac tests
+
 ## 2026-03-24 (v0.1.73)
 
 ### Added

@@ -135,7 +135,7 @@ node test-almanac-page.js    # Almanac (almanac.html) — 97 tests
 
 ### Current status
 
-**300 tests passing** (203 + 97). All celestial bodies validated against NASA/JPL Horizons apparent positions (equator of date):
+**300 tests passing** (203 + 97). Skyfield/DE440s benchmark covers 850 cases across 5 test categories. All celestial bodies validated against NASA/JPL Horizons apparent positions (equator of date):
 
 | Body | Dec accuracy | GHA/SHA accuracy |
 |------|-------------|-----------------|
