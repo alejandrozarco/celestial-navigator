@@ -1,5 +1,32 @@
 # Changelog
 
+## 2026-03-24 (v0.1.73)
+
+### Added
+- **IAU 1980 nutation** — `nutation()` with top 5 terms applied to ghaAries (equation of equinoxes), precessStar (Meeus Eq. 23.1), and all position functions
+- **Hipparcos proper motion catalog** — 58 navigational stars upgraded from pre-precessed SHA/Dec to J2000.0 RA/Dec + proper motion (pmR/pmD arcsec/yr)
+- **IAU 1976 precession matrix** — Lieske 1979 3-rotation matrix replaces simple linear precession for sub-arcminute star accuracy across decades
+- **Moon phase display** — `moonPhase()` from ecliptic elongation with illumination %, age, and phase name
+- **Moon phase icon on sky chart** — rendered with lit/dark halves and ellipse terminator curve, replacing the plain dot
+- **Moon phase in body selector** — phase name, illumination %, and age shown when Moon is selected
+- **Moon phase in almanac** — phase info in daily metadata block alongside Eq. of Time and Sun SD
+- **Body rise/set times** — `riseSet()` with polar disambiguation, `bodyRiseSet()` for Sun/planets, `moonRiseSet()` with 13-sample altitude sweep + bisection
+- **Moon & Planet Rise/Set table** — new almanac section with rise/set times for Moon, Venus, Mars, Jupiter, Saturn across 14 latitudes
+- **Rise/set in body info panel** — rise and set times shown for all bodies in the navigator body selector
+- **Planet positions in almanac** — `planetPosition()` and `helioPos()` ported to almanac.html for rise/set computation
+- **Skyfield benchmark** — `bench.py` generates random reference data from Skyfield/DE440s, `benchmark.js` compares against our engine (398/400 typical pass rate)
+- **Almanac test suite** — `test-almanac-page.js` with 97 tests covering almanac.html functions
+- **Version label** — version number and date displayed in both index.html and almanac.html headers
+
+### Fixed
+- `riseSet()` polar ambiguity — now returns `{neverRises:true}` vs `{neverSets:true}` instead of both returning `null`
+- `sunTimes()` updated to handle new riseSet return format with proper polar day/night detection
+
+### Changed
+- `test-almanac.js` renamed to `test-navigator.js` to reflect that it tests index.html, not the almanac
+- Star tolerances tightened from 0.3° to 0.05° (except Polaris at 0.3°) after nutation + proper motion improvements
+- Nutation computation unified across solarPosition, moonPosition, planetPosition, and ghaAries via shared `nutation()` function
+
 ## 2026-03-23
 
 ### Added

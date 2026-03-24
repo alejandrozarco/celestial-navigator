@@ -16,10 +16,11 @@ A browser-based celestial navigation tool for computing position fixes from sext
 - **Sight Averaging** — average multiple sights of the same body to reduce random error
 
 ### Celestial Bodies
-- **58 Navigational Stars** — full almanac database (J2000.0 with precession)
+- **58 Navigational Stars** — Hipparcos J2000.0 coordinates with proper motion, IAU 1976 precession matrix, and IAU 1980 nutation correction
 - **Sun** — Meeus Ch.25 solar position (~1' accuracy)
-- **Moon** — Meeus Ch.45 lunar theory with parallax and semi-diameter corrections
+- **Moon** — Meeus Ch.45 lunar theory with parallax, semi-diameter, and phase display (illumination, age, terminator rendering on sky chart)
 - **Planets** — Venus, Mars, Jupiter, Saturn via Standish orbital elements (~1-5')
+- **Rise/Set Times** — body rise/set for Sun, Moon, and planets with polar disambiguation
 
 ### Sextant Corrections
 - Index Error (IE)
@@ -105,12 +106,14 @@ The almanac includes:
 - Sun GHA and Dec at 10-minute intervals (AM/PM layout)
 - 58 navigational stars precessed to the selected year
 - Sunrise, sunset, civil and nautical twilight for 27 latitudes
+- Moon and planet rise/set times for 14 latitudes
+- Moon phase (name, illumination, age)
 - Equation of Time
 - Validation against Air Almanac 2026 reference data
 
 ## Testing
 
-The project includes `test-almanac.js`, a Node.js test suite that validates the core celestial computations against tabulated reference data (primarily the Air Almanac 2026). It extracts the JavaScript from `index.html`, runs it in a sandboxed VM, and checks:
+The project includes `test-navigator.js` (193 tests) and `test-almanac-page.js` (97 tests), Node.js test suites that validate the core celestial computations against tabulated reference data (Air Almanac 2026, Nautical Almanac, JPL Horizons). They extract JavaScript from their respective HTML files, run in sandboxed VMs, and check:
 
 - **GHA Aries** — against Air Almanac 2026 Day 001 values (tolerance: 1.2'), multi-date consistency, and 6-hour interval rate checks
 - **Sun GHA and Dec** — position at multiple dates including solstices and equinoxes (tolerance: 1-3'), hourly rate verification
@@ -124,12 +127,14 @@ The project includes `test-almanac.js`, a Node.js test suite that validates the 
 Run with:
 
 ```bash
-node test-almanac.js
+node test-navigator.js       # Navigator (index.html) — 193 tests
+node test-almanac-page.js    # Almanac (almanac.html) — 97 tests
+.venv/bin/python bench.py    # Skyfield/DE440s benchmark (requires skyfield)
 ```
 
 ### Current status
 
-**176/176 tests passing.** All celestial bodies validated against NASA/JPL Horizons apparent positions (equator of date):
+**290 tests passing** (193 + 97). All celestial bodies validated against NASA/JPL Horizons apparent positions (equator of date):
 
 | Body | Dec accuracy | GHA/SHA accuracy |
 |------|-------------|-----------------|
@@ -142,10 +147,8 @@ node test-almanac.js
 
 ### Possible future refinements
 
-- **Star precession** — the catalog uses pre-precessed ~2026 epoch values. Adding runtime precession with proper motion corrections (especially for high-PM stars like Polaris) would keep the catalog accurate across years.
 - **Planet accuracy** — Standish orbital elements give ~5-16' SHA accuracy; perturbation terms (especially for Jupiter-Saturn interaction and Venus) could improve this to sub-arcminute.
-- **Sun ephemeris** — already within ~1' of Air Almanac values; periodic perturbation terms from Meeus could push this to sub-arcminute.
-- **Additional test coverage** — end-to-end fix computation tests (known sights &rarr; known position), almanac page output validation, edge cases (polar regions, bodies near horizon).
+- **End-to-end fix tests** — known sights &rarr; known position verification.
 - **Southern hemisphere star finder** — the sky chart is currently north polar only; a south polar view would complete coverage.
 - **Lunar distance** — a classic method for determining longitude at sea, not yet implemented.
 
@@ -166,13 +169,16 @@ node test-almanac.js
 ## File Structure
 
 ```
-index.html          Main app (self-contained, no build step)
-almanac.html        Daily almanac page generator
-test-almanac.js     Almanac and computation test suite
-manifest.json       PWA manifest
-sw.js               Service worker for offline support
-screenshots/        README screenshots
-CHANGELOG.md        Version history
+index.html              Main app (self-contained, no build step)
+almanac.html            Daily almanac page generator
+test-navigator.js       Navigator test suite (193 tests)
+test-almanac-page.js    Almanac test suite (97 tests)
+bench.py                Skyfield/DE440s reference data generator
+benchmark.js            Benchmark runner (star + sight reduction)
+manifest.json           PWA manifest
+sw.js                   Service worker for offline support
+screenshots/            README screenshots
+CHANGELOG.md            Version history
 ```
 
 ## License
