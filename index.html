@@ -200,6 +200,7 @@ canvas#skyPlot:active{cursor:grabbing}
       <button class="mode-tab active" onclick="setMode('intercept')">INTERCEPT</button>
       <button class="mode-tab" onclick="setMode('polaris')">POLARIS</button>
       <button class="mode-tab" onclick="setMode('transit')">TRANSIT</button>
+      <button class="mode-tab" onclick="setMode('lunar')">LUNAR DIST</button>
     </div>
 
     <!-- Sextant Setup -->
@@ -282,6 +283,27 @@ canvas#skyPlot:active{cursor:grabbing}
         <span class="unit">&deg;</span>
         <input type="number" id="hsMin" placeholder="19.0" min="0" max="59.9" step="0.1" class="w64">
         <span class="unit">' (sextant reading)</span>
+      </div>
+      <div class="fr hidden" id="lunarRow1">
+        <label>MOON Hs</label>
+        <input type="number" id="lunarMoonDeg" placeholder="30" min="0" max="90" class="w40">
+        <span class="unit">&deg;</span>
+        <input type="number" id="lunarMoonMin" placeholder="0.0" min="0" max="59.9" step="0.1" class="w64">
+        <span class="unit">'</span>
+      </div>
+      <div class="fr hidden" id="lunarRow2">
+        <label>BODY Hs</label>
+        <input type="number" id="lunarBodyDeg" placeholder="45" min="0" max="90" class="w40">
+        <span class="unit">&deg;</span>
+        <input type="number" id="lunarBodyMin" placeholder="0.0" min="0" max="59.9" step="0.1" class="w64">
+        <span class="unit">'</span>
+      </div>
+      <div class="fr hidden" id="lunarRow3">
+        <label>DIST</label>
+        <input type="number" id="lunarDistDeg" placeholder="45" min="0" max="180" class="w40">
+        <span class="unit">&deg;</span>
+        <input type="number" id="lunarDistMin" placeholder="0.0" min="0" max="59.9" step="0.1" class="w64">
+        <span class="unit">' (limb-to-limb)</span>
       </div>
       <button class="btn btn-acc" onclick="addSight()">&#8853; ADD SIGHT</button>
       <div id="sightMsg" class="hidden"></div>
@@ -810,6 +832,75 @@ function moonPhase(date){
                'Full','Waning Gibbous','Last Quarter','Waning Crescent'];
   const name=NAMES[Math.round(D/45)%8];
   return{phase,illumination,age,name};
+}
+
+// ══════════════════════════════════════════════════════
+//  LUNAR DISTANCE
+// ══════════════════════════════════════════════════════
+
+// Geocentric angular distance between Moon and another body
+function geocentricLunarDist(utc, bodyName){
+  const moon=moonPosition(utc);
+  let other;
+  if(bodyName==='Sun') other=solarPosition(utc);
+  else if(['Venus','Mars','Jupiter','Saturn'].includes(bodyName))
+    other=planetPosition(bodyName,utc);
+  else{
+    const raw=STARS.find(s=>s.n===bodyName);
+    if(!raw) return NaN;
+    other=precessStar(raw,utc);
+  }
+  const d1=moon.dec*R, a1=mod360(360-moon.sha)*R;
+  const d2=other.dec*R, a2=mod360(360-(other.sha||mod360(360-other.ra)))*R;
+  const cosD=Math.sin(d1)*Math.sin(d2)+Math.cos(d1)*Math.cos(d2)*Math.cos(a1-a2);
+  return Math.acos(Math.max(-1,Math.min(1,cosD)))*D;
+}
+
+// Clear observed lunar distance: remove refraction + parallax from both altitudes
+// Uses Young's method (Borda variant)
+function clearLunarDist(dObs, moonAltApp, bodyAltApp, moonHP){
+  // Apparent altitudes (what observer sees)
+  const hm=moonAltApp, hb=bodyAltApp;
+  // True altitudes: remove refraction, add Moon parallax
+  const moonRef=refraction(hm); // negative arcmin
+  const bodyRef=refraction(hb);
+  const moonPar=moonHP*Math.cos(hm*R); // parallax correction (arcmin, positive)
+  const hmTrue=hm-moonRef/60+moonPar/60; // true Moon alt (higher due to parallax)
+  const hbTrue=hb-bodyRef/60;             // true body alt (no parallax for stars/planets)
+  // Young's clearing formula
+  const dR=dObs*R, hmR=hm*R, hbR=hb*R, hmtR=hmTrue*R, hbtR=hbTrue*R;
+  const cosD=Math.cos(dR)*(Math.cos(hmtR)*Math.cos(hbtR))/(Math.cos(hmR)*Math.cos(hbR))
+            +Math.cos(hmtR+hbtR)-Math.cos(hmR+hbR);
+  return Math.acos(Math.max(-1,Math.min(1,cosD)))*D;
+}
+
+// Find GMT from cleared lunar distance by interpolation
+function lunarDistToGMT(clearedDist, bodyName, approxUTC){
+  // Compute geocentric distances at 1-hour intervals, ±4 hours
+  const points=[];
+  for(let i=-4;i<=4;i++){
+    const t=new Date(approxUTC.getTime()+i*3600000);
+    const d=geocentricLunarDist(t,bodyName);
+    if(!isNaN(d)) points.push({t:t.getTime(),d});
+  }
+  if(points.length<2) return null;
+  // Find bracketing interval where distance crosses clearedDist
+  for(let i=0;i<points.length-1;i++){
+    const a=points[i], b=points[i+1];
+    if((a.d-clearedDist)*(b.d-clearedDist)<=0){
+      // Linear interpolation then refine with bisection
+      let lo=a.t, hi=b.t;
+      for(let j=0;j<20;j++){
+        const mid=(lo+hi)/2;
+        const midD=geocentricLunarDist(new Date(mid),bodyName);
+        if((midD-clearedDist)*(geocentricLunarDist(new Date(lo),bodyName)-clearedDist)>0) lo=mid;
+        else hi=mid;
+      }
+      return new Date((lo+hi)/2);
+    }
+  }
+  // No crossing found — distance monotonically increasing/decreasing, try closest
+  return null;
 }
 
 // ══════════════════════════════════════════════════════
@@ -1818,11 +1909,19 @@ function updateClock(){
 function setMode(m){
   state.mode=m;
   document.querySelectorAll('.mode-tab').forEach((b,i)=>{
-    b.classList.toggle('active',['intercept','polaris','transit'][i]===m);
+    b.classList.toggle('active',['intercept','polaris','transit','lunar'][i]===m);
   });
-  document.getElementById('apSection').classList.toggle('hidden',m!=='intercept');
+  document.getElementById('apSection').classList.toggle('hidden',m!=='intercept'&&m!=='lunar');
   document.getElementById('polLonSection').classList.toggle('hidden',m!=='polaris');
   document.getElementById('starRow').classList.toggle('hidden',m==='polaris');
+  // Lunar distance fields
+  const isLunar=m==='lunar';
+  document.getElementById('lunarRow1').classList.toggle('hidden',!isLunar);
+  document.getElementById('lunarRow2').classList.toggle('hidden',!isLunar);
+  document.getElementById('lunarRow3').classList.toggle('hidden',!isLunar);
+  // In lunar mode, Hs row label becomes "Hs (ignored)" — hide it
+  document.querySelector('#hsDeg').closest('.fr').classList.toggle('hidden',isLunar);
+  document.getElementById('limbRow').classList.toggle('hidden',isLunar||!['moon','sun'].includes(document.getElementById('starSel').value));
 }
 
 function setFixMethod(m){
@@ -1954,7 +2053,7 @@ function addSight(){
   const utc=readUTC();
   const hs=readHs();
 
-  if(isNaN(hs)||hs<-90||hs>90){showMsg('Invalid Hs \u2014 enter degrees and minutes','st-err');return;}
+  if(mode!=='lunar'&&(isNaN(hs)||hs<-90||hs>90)){showMsg('Invalid Hs \u2014 enter degrees and minutes','st-err');return;}
 
   // Read body first to check for Moon/Sun limb+parallax
   let bodyHP=0, bodySD=0, bodyType=null, limb='center';
@@ -1973,8 +2072,12 @@ function addSight(){
     }
   }
 
-  const {ho,dipC,refC,ha,parC,sdC}=correct(hs,ie,hoe,bodyType,bodyHP,bodySD,limb);
-  const sight={id:state.nextId++,mode,utc,hs,ho,ie,hoe,dipC,refC,ha,parC:parC||0,sdC:sdC||0,limb};
+  let ho=0,dipC=0,refC=0,ha=0,parC=0,sdC=0;
+  if(mode!=='lunar'){
+    const corr=correct(hs,ie,hoe,bodyType,bodyHP,bodySD,limb);
+    ho=corr.ho;dipC=corr.dipC;refC=corr.refC;ha=corr.ha;parC=corr.parC||0;sdC=corr.sdC||0;
+  }
+  const sight={id:state.nextId++,mode,utc,hs,ho,ie,hoe,dipC,refC,ha,parC,sdC,limb};
 
   if(mode==='polaris'){
     const lon=readPolLon();
@@ -1999,6 +2102,46 @@ function addSight(){
     Object.assign(sight,{star,ghaAries:ghaA,ghaStar:ghaSt,transitLon:tLon,
       transitLatSouth:latIfSouth,transitLatNorth:latIfNorth,z:90-ho});
     showMsg(`Transit Lon = ${fmt(tLon,'lon')} \u2014 see log for lat options`,'st-ok');
+
+  } else if(mode==='lunar'){
+    const star=readStar();
+    if(!star){showMsg('Select a body to measure distance to','st-err');return;}
+    const bodyName=star.n;
+    // Read lunar distance inputs
+    const moonHsDeg=parseFloat(document.getElementById('lunarMoonDeg').value)||0;
+    const moonHsMin=parseFloat(document.getElementById('lunarMoonMin').value)||0;
+    const moonHs=moonHsDeg+moonHsMin/60;
+    const bodyHsDeg=parseFloat(document.getElementById('lunarBodyDeg').value)||0;
+    const bodyHsMin=parseFloat(document.getElementById('lunarBodyMin').value)||0;
+    const bodyHs=bodyHsDeg+bodyHsMin/60;
+    const distDeg=parseFloat(document.getElementById('lunarDistDeg').value)||0;
+    const distMin=parseFloat(document.getElementById('lunarDistMin').value)||0;
+    const distObs=distDeg+distMin/60;
+    if(distObs<=0||distObs>180){showMsg('Invalid distance','st-err');return;}
+    if(moonHs<=0){showMsg('Enter Moon altitude','st-err');return;}
+    if(bodyHs<=0){showMsg('Enter body altitude','st-err');return;}
+    // Get Moon HP at approximate time
+    const moon=moonPosition(utc);
+    // Add Moon SD to distance (observer measures limb-to-limb, need center-to-center)
+    const moonSD=moon.SD/60; // degrees
+    let bodySd=0;
+    if(bodyName==='Sun'){bodySd=16.0/60;} // Sun SD ~16'
+    const distCenter=distObs+moonSD+bodySd; // near limb to near limb → center to center
+    // Clear the distance
+    const cleared=clearLunarDist(distCenter,moonHs,bodyHs,moon.HP);
+    // Find GMT
+    const gmt=lunarDistToGMT(cleared,bodyName,utc);
+    if(!gmt){showMsg('Could not determine GMT \u2014 distance may not match any time in \u00b14h window','st-err');return;}
+    // Compute longitude from GMT difference
+    const gmtDiffHr=(gmt.getTime()-utc.getTime())/3600000;
+    // The DR longitude assumption: utc was the DR time at the DR longitude
+    const ap=readAP();
+    const lonCorrection=gmtDiffHr*15; // degrees
+    const lunarLon=ap.lon-lonCorrection;
+    const fmtTime=(d)=>`${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}:${String(d.getUTCSeconds()).padStart(2,'0')}`;
+    Object.assign(sight,{star,lunarDist:distObs,lunarCleared:cleared,
+      lunarGMT:gmt,lunarLon,moonHs,bodyHs,moonHP:moon.HP,moonSD:moon.SD});
+    showMsg(`Lunar distance: GMT=${fmtTime(gmt)} \u2192 Lon=${fmt(lunarLon,'lon')} (\u0394${(gmtDiffHr*60).toFixed(1)} min)`,'st-ok');
 
   } else { // intercept
     const star=readStar();

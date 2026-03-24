@@ -613,6 +613,38 @@ check('Nutation |dpsi| < 0.01°',      Math.abs(nut2000.dpsi) < 0.01, `|dpsi|=${
 check('Nutation |deps| < 0.006°',     Math.abs(nut2000.deps) < 0.006, `|deps|=${Math.abs(nut2000.deps).toFixed(6)}°`);
 
 // ═══════════════════════════════════════════════════════════
+//  LUNAR DISTANCE
+// ═══════════════════════════════════════════════════════════
+console.log('\n\x1b[1mLunar Distance\x1b[0m');
+
+{
+  // Geocentric distance Moon-Sun at a known time
+  const dist1 = calc(`geocentricLunarDist(new Date('2026-03-21T18:00:00Z'), 'Sun')`);
+  check('Moon-Sun geocentric dist is finite', isFinite(dist1) && dist1 > 0 && dist1 < 180, `${dist1.toFixed(2)}°`);
+
+  // Moon-Regulus distance
+  const dist2 = calc(`geocentricLunarDist(new Date('2026-03-21T18:00:00Z'), 'Regulus')`);
+  check('Moon-Regulus dist is finite', isFinite(dist2) && dist2 > 0 && dist2 < 180, `${dist2.toFixed(2)}°`);
+
+  // Clearing: cleared distance should differ from observed due to refraction+parallax
+  const cleared = calc(`clearLunarDist(45, 30, 40, 57)`);
+  check('Cleared lunar dist is finite', isFinite(cleared) && cleared > 0, `${cleared.toFixed(3)}°`);
+  check('Cleared dist differs from observed', Math.abs(cleared - 45) > 0.01, `Δ=${Math.abs(cleared - 45).toFixed(3)}°`);
+
+  // Round-trip: compute geocentric dist, then find GMT from it — should return ~same time
+  const testTime = new Date('2026-06-15T12:00:00Z');
+  const testBody = 'Sun';
+  const geoDist = calc(`geocentricLunarDist(new Date('2026-06-15T12:00:00Z'), '${testBody}')`);
+  const foundGMT = calc(`lunarDistToGMT(${geoDist}, '${testBody}', new Date('2026-06-15T12:00:00Z'))`);
+  if (foundGMT) {
+    const diffMin = Math.abs(foundGMT.getTime() - testTime.getTime()) / 60000;
+    check('Lunar dist round-trip GMT within 2 min', diffMin < 2, `Δ=${diffMin.toFixed(1)} min`);
+  } else {
+    total++; failed++; console.log('  \x1b[31m✗\x1b[0m Round-trip GMT returned null');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
 //  END-TO-END FIX (Florence demo session)
 // ═══════════════════════════════════════════════════════════
 console.log('\n\x1b[1mEnd-to-End Fix\x1b[0m (Florence demo)');
