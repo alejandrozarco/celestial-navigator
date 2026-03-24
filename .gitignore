@@ -1,6 +1,17 @@
 .superpowers/
 .serena/
+.worktrees/
 *.pdf
 node_modules/
 package.json
 package-lock.json
+
+# Reference notes (AI brainstorming, ideas, etc.)
+notes/
+
+# Generated benchmark reference data (regenerate with bench.py)
+star_sha_ref.csv
+sight_reduction_ref.csv
+
+# Ephemeris data
+*.bsp
