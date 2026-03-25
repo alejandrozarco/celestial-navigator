@@ -130,7 +130,7 @@ Run with:
 ```bash
 node test-navigator.js       # Navigator (index.html) — 203 tests
 node test-almanac-page.js    # Almanac (almanac.html) — 97 tests
-node benchmark.js            # Run Skyfield/DE440s benchmark (2500 cases)
+node benchmark.js            # Run Skyfield/DE440s benchmark (5000 cases)
 .venv/bin/python bench.py    # Regenerate Skyfield reference data (requires skyfield)
 ```
 
@@ -140,37 +140,61 @@ node benchmark.js            # Run Skyfield/DE440s benchmark (2500 cases)
 
 ### Skyfield/DE440s Benchmark
 
-2500 cases across 5 categories, validated against Skyfield with JPL DE440s ephemeris. Reference data spans **2000&ndash;2050** (500 cases per category, randomly distributed).
+5000 cases across 10 categories, validated against Skyfield with JPL DE440s ephemeris. Reference data spans **2000&ndash;2050** with random dates and globally randomized observer positions (lat &plusmn;70&deg;, lon &plusmn;180&deg;).
+
+#### Core accuracy
 
 | Category | Cases | Pass Rate | Mean Error | P90 | Max |
 |----------|------:|----------:|-----------:|----:|----:|
-| Star SHA/Dec | 500 | 100% | 0.27' | 0.34' | 0.39' |
-| Sight Reduction | 500 | 100% | 0.91' | 0.43' | 59.8' |
-| Lunar Distance | 500 | 98% | 5.2' | 14.9' | 151' |
+| Star SHA/Dec | 500 | 100% | 0.27' | 0.34' | 0.38' |
+| Sight Reduction | 500 | 99.2% | 1.4' | 0.51' | 57' |
+| Lunar Distance | 500 | 97.2% | 5.4' | 17.1' | 94' |
 | Moon Phase | 500 | 100% | 0.006% | 0.01% | 0.02% |
-| End-to-End Fix | 500 | 99.8% | 2.4 nm | 10.5 nm | 46.9 nm |
 
-**Stars** &mdash; 58 navigational stars hold sub-arcminute accuracy across the full 50-year range (mean sky separation 0.27', max 0.39'). Proper motion + IAU 1976 precession + nutation keeps all stars within 0.4' of Skyfield/DE440s.
+**Stars** &mdash; 58 navigational stars hold sub-arcminute accuracy across the full 50-year range (mean sky separation 0.27', max 0.38'). Proper motion + IAU 1976 precession + nutation keeps all stars within 0.4' of Skyfield/DE440s.
 
-**Sight reduction** &mdash; computed altitude and azimuth match Skyfield to a median of 0.17' (P90: 0.43'). Outliers (up to ~1') are driven by planetary ephemeris error, not the reduction itself. 98% of cases fall within 7.5'.
+**Sight reduction** &mdash; computed altitude and azimuth match Skyfield to a median of 0.16' (P90: 0.51'). Outliers are driven by planetary ephemeris error, not the reduction itself. 97% of cases fall within 7.2'.
 
-**Lunar distance** &mdash; clearing and angular distance computation matches Skyfield to a median of 0.8'. Accuracy degrades for Venus (Standish mean elements) at dates far from J2000; 93% of cases are within 19'.
+**Lunar distance** &mdash; clearing and angular distance computation matches Skyfield to a median of 0.8'. Accuracy degrades for Venus (Standish mean elements) at dates far from J2000; 84% of cases are within 12'.
 
 **Moon phase** &mdash; illumination fraction matches Skyfield to within 0.02% across all 500 cases.
 
-**End-to-end fix** &mdash; full pipeline (ephemeris &rarr; sight reduction &rarr; least-squares fix) tested with 6 random sights per case. Median fix error: 0.3 nm. 88% of fixes land within 6 nm; 99.8% within 30 nm.
+#### Position fix accuracy
+
+| Category | Cases | Pass Rate | Mean Error | P90 | Max |
+|----------|------:|----------:|-----------:|----:|----:|
+| End-to-End Fix (LS) | 500 | 99.8% | 2.3 nm | 9.1 nm | 30.4 nm |
+| Direct COP Fix | 500 | 99.8% | 1.5 nm | 0.6 nm | 30.9 nm |
+| Running Fix (DR) | 500 | 99.8% | 2.1 nm | 6.5 nm | 41.3 nm |
+
+**LS intercept fix** &mdash; full pipeline (ephemeris &rarr; sight reduction &rarr; least-squares fix) tested with up to 6 random sights per case at randomized global positions. 89% of fixes land within 6 nm.
+
+**Direct COP fix** &mdash; Gauss-Newton circle-of-position iteration on the same cases. Lower mean error (1.5 nm vs 2.3 nm) with tighter distribution. Both solvers achieve 99.8% pass rate at 30 nm tolerance.
+
+**Running fix (DR)** &mdash; observer moves along a random course (4&ndash;12 kn) over 30-minute sight windows. Tests `advanceLops()` DR correction pipeline. Accuracy matches the stationary fix, confirming DR advancement works correctly.
+
+#### Sextant noise sensitivity
+
+| Noise Level | Mean Error | P90 | Max |
+|-------------|----------:|---------:|--------:|
+| Clean (no noise) | 2.3 nm | 9.1 nm | 30.4 nm |
+| &sigma; = 0.5' | 2.4 nm | 8.7 nm | 30.4 nm |
+| &sigma; = 1.0' | 2.7 nm | 9.1 nm | 29.4 nm |
+| &sigma; = 2.0' | 3.3 nm | 8.7 nm | 28.5 nm |
+
+Simulated Gaussian sextant error added to reference altitudes. Even at &sigma; = 2.0' (rough conditions), mean fix error only increases by ~1 nm, demonstrating the least-squares solver's robustness to random observation noise.
 
 #### Per-decade accuracy (mean error)
 
-| Decade | Stars | Sight Red. | Lunar Dist. | Fix |
-|--------|------:|-----------:|------------:|----:|
-| 2000s | 0.28' | 1.3' | 1.6' | 1.5 nm |
-| 2010s | 0.28' | 0.7' | 3.7' | 2.0 nm |
-| 2020s | 0.26' | 0.4' | 3.9' | 1.8 nm |
-| 2030s | 0.26' | 0.7' | 7.2' | 3.4 nm |
-| 2040s | 0.27' | 1.0' | 8.5' | 3.1 nm |
+| Decade | Stars | Sight Red. | Lunar Dist. | LS Fix | DR Fix |
+|--------|------:|-----------:|------------:|-------:|-------:|
+| 2000s | 0.28' | 1.8' | 1.6' | 1.5 nm | 1.3 nm |
+| 2010s | 0.28' | 0.4' | 3.7' | 2.5 nm | 1.6 nm |
+| 2020s | 0.27' | 1.5' | 3.9' | 2.7 nm | 2.0 nm |
+| 2030s | 0.27' | 1.1' | 7.2' | 3.3 nm | 3.2 nm |
+| 2040s | 0.27' | 1.8' | 8.5' | 2.2 nm | 2.9 nm |
 
-Star and sight reduction accuracy remains stable across all decades. Lunar distance and end-to-end fix accuracy degrade at the edges of the date range due to Standish mean orbital elements (especially Venus), which are optimized for dates near J2000.
+Star accuracy remains stable across all decades. Lunar distance and fix accuracy degrade at the edges of the date range due to Standish mean orbital elements (especially Venus), which are optimized for dates near J2000.
 
 ### Possible future refinements
 
@@ -198,7 +222,7 @@ almanac.html            Daily almanac page generator
 test-navigator.js       Navigator test suite (203 tests)
 test-almanac-page.js    Almanac test suite (97 tests)
 bench.py                Skyfield/DE440s reference data generator
-benchmark.js            Benchmark runner (star + sight reduction)
+benchmark.js            Benchmark runner (5000 cases, 10 categories)
 manifest.json           PWA manifest
 sw.js                   Service worker for offline support
 screenshots/            README screenshots
