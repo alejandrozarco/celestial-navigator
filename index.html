@@ -154,6 +154,8 @@ tr:hover td{background:rgba(255,255,255,0.015)}
 .leaflet-control-layers-separator{border-top-color:var(--b1)!important}
 .leaflet-control-zoom a{background:var(--s2)!important;color:var(--tx1)!important;border-color:var(--b1)!important}
 .leaflet-control-zoom a:hover{background:var(--s3)!important}
+.leaflet-control-attribution{background:rgba(6,9,26,0.7)!important;color:var(--tx3)!important;font-size:9px!important}
+.leaflet-control-attribution a{color:var(--tx3)!important}
 .leaflet-tooltip{background:var(--s2)!important;color:var(--acc)!important;border:1px solid var(--b1)!important;font-family:var(--mono)!important;font-size:13px!important}
 .leaflet-tooltip-top:before{border-top-color:var(--b1)!important}
 .leaflet-tooltip-bottom:before{border-bottom-color:var(--b1)!important}
@@ -346,17 +348,6 @@ canvas#skyPlot:active{cursor:grabbing}
       </div>
     </div>
 
-    <!-- LOP Plot -->
-    <div class="plot-wrap">
-      <div class="plot-hdr" onclick="toggleLopPlot()" style="cursor:pointer">
-        <span>LINE OF POSITION PLOT</span>
-        <span><button id="heatmapBtn" onclick="event.stopPropagation();toggleHeatmap()" style="font:9px 'Share Tech Mono';background:transparent;border:1px solid var(--b1);color:var(--tx3);padding:1px 5px;cursor:pointer;border-radius:3px;margin-right:6px" title="Toggle residual error heatmap">HEATMAP</button><span id="plotScale" style="color:var(--tx3)"></span> <span id="lopToggle">&#9662;</span></span>
-      </div>
-      <div id="lopBody">
-        <canvas id="plot" width="480" height="380"></canvas>
-      </div>
-    </div>
-
     <!-- Star Finder -->
     <div class="plot-wrap" id="skySection">
       <div class="plot-hdr" onclick="toggleSkyPlot()" style="cursor:pointer">
@@ -380,6 +371,17 @@ canvas#skyPlot:active{cursor:grabbing}
           <span style="color:var(--tx3);font-size:10px">scroll to zoom · drag to pan · dbl-click reset</span>
         </div>
         <div id="suggestedStars" style="padding:8px 12px;font-family:var(--mono);font-size:14px;color:var(--tx2)"></div>
+      </div>
+    </div>
+
+    <!-- LOP Plot -->
+    <div class="plot-wrap">
+      <div class="plot-hdr" onclick="toggleLopPlot()" style="cursor:pointer">
+        <span>LINE OF POSITION PLOT</span>
+        <span><button id="heatmapBtn" onclick="event.stopPropagation();toggleHeatmap()" style="font:9px 'Share Tech Mono';background:transparent;border:1px solid var(--b1);color:var(--tx3);padding:1px 5px;cursor:pointer;border-radius:3px;margin-right:6px" title="Toggle residual error heatmap">HEATMAP</button><span id="plotScale" style="color:var(--tx3)"></span> <span id="lopToggle">&#9662;</span></span>
+      </div>
+      <div id="lopBody">
+        <canvas id="plot" width="480" height="380"></canvas>
       </div>
     </div>
 
@@ -1343,7 +1345,7 @@ let state={
   lastFixLat:null, lastFixLon:null, // last computed fix position for sky plot
 };
 let skyPlotOpen=true;
-let fixMap=null,fixMarker=null,apMarker=null,lopLayerGroup=null,ellipseLayer=null,apFixLine=null,copFixMarker=null;
+let fixMap=null,fixMarker=null,apMarker=null,lopLayerGroup=null,ellipseLayer=null,apFixLine=null,copFixMarker=null,graticuleLayer=null;
 const PLANET_NAMES={venus:'Venus',mars:'Mars',jupiter:'Jupiter',saturn:'Saturn'};
 const PLANET_MAGS={venus:-4.0,mars:0.0,jupiter:-2.5,saturn:0.5};
 
@@ -2291,7 +2293,9 @@ function renderFix(){
   if(!state.sights.length){
     out.innerHTML='<div class="empty">Add sights to compute a fix</div>';
     state.directFix=null;
-    updateFixMap(null,null,null,null);
+    const hasAP=document.getElementById('apLatD').value!==''&&document.getElementById('apLonD').value!=='';
+    if(hasAP){const ap=readAP();updateFixMap(null,null,ap.lat,ap.lon);}
+    else{updateFixMap(null,null,null,null);}
     return;
   }
 
@@ -3590,19 +3594,119 @@ function initFixMap(){
   fixMap=L.map('fixMap',{
     center:[45,0],zoom:5,
     zoomControl:true,
-    attributionControl:false
+    attributionControl:true
   });
 
   // Tile layers
-  const darkBase=L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19});
+  const darkBase=L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+    maxZoom:19,
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+  });
   darkBase.addTo(fixMap);
+
+  // Lat/Lon graticule overlay
+  graticuleLayer=L.layerGroup();
+  function drawGraticule(){
+    graticuleLayer.clearLayers();
+    const z=fixMap.getZoom();
+    // Adaptive spacing based on zoom
+    let step;
+    if(z>=10)step=1;else if(z>=7)step=2;else if(z>=5)step=5;else if(z>=3)step=10;else if(z>=2)step=15;else step=30;
+    const bounds=fixMap.getBounds();
+    const s=Math.floor(bounds.getSouth()/step)*step;
+    const n=Math.ceil(bounds.getNorth()/step)*step;
+    const w=Math.floor(bounds.getWest()/step)*step;
+    const e=Math.ceil(bounds.getEast()/step)*step;
+    const style={color:'rgba(200,168,75,0.25)',weight:0.8,interactive:false};
+    const labelStyle='font:10px "Share Tech Mono";color:rgba(200,168,75,0.6);background:transparent;border:none;padding:0;white-space:nowrap;text-shadow:0 0 3px #06091a,0 0 6px #06091a';
+    // Lat lines
+    for(let lat=s;lat<=n;lat+=step){
+      if(lat<-90||lat>90)continue;
+      L.polyline([[lat,w-10],[lat,e+10]],style).addTo(graticuleLayer);
+      const lbl=Math.abs(lat)+'°'+(lat>=0?'N':'S');
+      if(lat===0) continue;
+      const lng=Math.max(w,bounds.getWest()+0.5);
+      L.marker([lat,lng],{interactive:false,icon:L.divIcon({html:`<span style="${labelStyle}">${lbl}</span>`,className:'',iconSize:[50,14],iconAnchor:[0,7]})}).addTo(graticuleLayer);
+    }
+    // Lon lines
+    for(let lon=w;lon<=e;lon+=step){
+      if(lon<-180||lon>180)continue;
+      L.polyline([[Math.max(s,-85),lon],[Math.min(n,85),lon]],style).addTo(graticuleLayer);
+      const lbl=Math.abs(lon)+'°'+(lon>=0?'E':'W');
+      if(lon===0) continue;
+      const lt=Math.max(s,bounds.getSouth()+0.3);
+      L.marker([lt,lon],{interactive:false,icon:L.divIcon({html:`<span style="${labelStyle}">${lbl}</span>`,className:'',iconSize:[50,14],iconAnchor:[0,0]})}).addTo(graticuleLayer);
+    }
+  }
+  fixMap.on('moveend zoomend',drawGraticule);
+
+  // Offline coastline base layer
+  const offlineBase=L.layerGroup();
+  // Ocean background — lighter shade like CartoDB dark water
+  const oceanBg=L.rectangle([[-90,-180],[90,180]],{
+    fillColor:'#2b3345',fillOpacity:1,stroke:false,interactive:false
+  });
+  oceanBg.addTo(offlineBase);
+  if(typeof COASTLINE_DATA!=='undefined'){
+    L.geoJSON(COASTLINE_DATA,{
+      style:{fillColor:'#1a1c25',fillOpacity:1,color:'#3a4060',weight:0.6,interactive:false}
+    }).addTo(offlineBase);
+  }
+  if(typeof BORDER_DATA!=='undefined'){
+    L.geoJSON(BORDER_DATA,{
+      style:{color:'#4a5070',weight:0.8,opacity:0.6,dashArray:'4,3',interactive:false}
+    }).addTo(offlineBase);
+  }
+  // City labels — zoom-dependent visibility
+  let cityLayer=null;
+  if(typeof CITY_DATA!=='undefined'){
+    cityLayer=L.layerGroup();
+    function updateCities(){
+      cityLayer.clearLayers();
+      if(!fixMap.hasLayer(offlineBase))return;
+      const z=fixMap.getZoom();
+      if(z<3)return;
+      const bounds=fixMap.getBounds();
+      // Filter by zoom: capitals+large cities at low zoom, all at high zoom
+      const minPop=z>=8?0:z>=6?100000:z>=4?500000:1000000;
+      CITY_DATA.features.forEach(f=>{
+        const p=f.properties;
+        const c=f.geometry.coordinates;
+        if(p.pop<minPop&&!(p.cap&&z>=4))return;
+        if(!bounds.contains([c[1],c[0]]))return;
+        const size=p.cap?'11px':'10px';
+        const color=p.cap?'#c8a84b':'#8090a8';
+        const weight=p.cap?'600':'400';
+        const dot=p.cap?'background:#c8a84b;width:4px;height:4px':'background:#6878a0;width:3px;height:3px';
+        const icon=L.divIcon({
+          html:`<div style="display:flex;align-items:center;gap:3px"><div style="${dot};border-radius:50%;flex-shrink:0"></div><span style="font:${weight} ${size} 'Share Tech Mono';color:${color};white-space:nowrap;text-shadow:0 0 4px #0a0e1a,0 0 8px #0a0e1a,1px 1px 2px #0a0e1a">${p.n}</span></div>`,
+          className:'',iconSize:[0,0],iconAnchor:[-4,6]
+        });
+        L.marker([c[1],c[0]],{icon,interactive:false}).addTo(cityLayer);
+      });
+    }
+    cityLayer.addTo(offlineBase);
+    fixMap.on('moveend zoomend',updateCities);
+    fixMap.on('baselayerchange',function(){setTimeout(updateCities,100);});
+  }
 
   L.control.layers({
     'Dark':darkBase,
-    'Satellite':L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:18}),
-    'Standard':L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18}),
+    'Offline':offlineBase,
+    'Satellite':L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{
+      maxZoom:18,
+      attribution:'&copy; <a href="https://www.esri.com/">Esri</a> &mdash; Sources: Esri, DigitalGlobe, Earthstar Geographics'
+    }),
+    'Standard':L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+      maxZoom:18,
+      attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }),
   },{
-    'Nautical overlay':L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',{maxZoom:18}),
+    'Nautical overlay':L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',{
+      maxZoom:18,
+      attribution:'&copy; <a href="https://www.openseamap.org/">OpenSeaMap</a>'
+    }),
+    'Lat/Lon grid':graticuleLayer,
   },{position:'topright',collapsed:true}).addTo(fixMap);
 
   // Fix icon — larger, more visible
@@ -3777,6 +3881,7 @@ function updateFixMap(fixLat,fixLon,apLat,apLon){
 }
 </script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="coastline.js"></script>
 <script>
 // Initialize map after Leaflet loads
 initFixMap();
