@@ -314,15 +314,11 @@ print(f"  → riseset_ref.csv: {len(riseset_rows)} readings")
 # ── End-to-end fix reference (synthetic sights at known positions) ──
 print(f"Generating {N} end-to-end fix reference cases...")
 fix_rows = []
-fix_locs = [
-    (43.77, 11.25), (35.0, -40.0), (-33.87, 151.21), (1.35, 103.82),
-    (64.15, -21.95), (-55.9, -67.2), (20.0, 179.9), (0.0, 0.0),
-]
-
 for i in range(N):
     dt = random_date()
     t = ts.utc(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second)
-    true_lat, true_lon = random.choice(fix_locs)
+    true_lat = random.uniform(-70, 70)
+    true_lon = random.uniform(-180, 180)
     observer = earth + Topos(latitude_degrees=true_lat, longitude_degrees=true_lon)
 
     # Pick 4-6 random bright bodies above 15°
@@ -332,10 +328,17 @@ for i in range(N):
         obs = observer.at(t).observe(body)
         alt, az, _ = obs.apparent().altaz()
         if alt.degrees > 15 and alt.degrees < 75:
+            # Geocentric apparent position for dec/gha
+            geo = earth.at(t).observe(body).apparent()
+            ra, dec, _ = geo.radec(epoch='date')
+            gha_deg = (360 - ra._degrees) % 360
+            dec_deg = dec.degrees
             sights.append({
                 'body': body_name,
                 'alt_deg': round(alt.degrees, 4),
                 'az_deg': round(az.degrees, 4),
+                'dec_deg': round(dec_deg, 5),
+                'gha_deg': round(gha_deg, 5),
             })
     random.shuffle(sights)
     sights = sights[:min(6, len(sights))]
@@ -346,7 +349,7 @@ for i in range(N):
             'true_lat': true_lat,
             'true_lon': true_lon,
             'num_sights': len(sights),
-            'sights': '|'.join(f"{s['body']}:{s['alt_deg']}:{s['az_deg']}" for s in sights),
+            'sights': '|'.join(f"{s['body']}:{s['alt_deg']}:{s['az_deg']}:{s['dec_deg']}:{s['gha_deg']}" for s in sights),
         })
 
 with open('fix_ref.csv', 'w', newline='') as f:

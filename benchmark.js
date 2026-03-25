@@ -400,8 +400,8 @@ if (fs.existsSync('fix_ref.csv')) {
     const trueLat = +row.true_lat;
     const trueLon = +row.true_lon;
     const sightData = row.sights.split('|').map(s => {
-      const [body, alt, az] = s.split(':');
-      return { body, alt: +alt, az: +az };
+      const [body, alt, az, dec, gha] = s.split(':');
+      return { body, alt: +alt, az: +az, dec: +dec, gha: +gha };
     });
 
     totalTests++;
