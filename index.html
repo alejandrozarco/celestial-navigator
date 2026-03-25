@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#c8a84b">
 <link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
 <title>Celestial Navigator</title>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Share+Tech+Mono&family=Crimson+Pro:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -45,6 +47,7 @@ header h1{font-family:var(--disp);font-size:24px;font-weight:700;letter-spacing:
 .layout{flex:1;display:grid;grid-template-columns:380px 1fr;grid-template-rows:1fr;overflow:hidden;min-height:0}
 .panel-left{border-right:1px solid var(--b1);overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px;background:var(--s1)}
 .panel-right{overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px}
+.rp-row{display:grid;grid-template-columns:1fr 2fr;gap:12px}
 
 /* ─── SECTION ─── */
 .sec-title{font-family:var(--disp);font-size:15px;font-weight:700;letter-spacing:3px;color:var(--acc2);text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--b1)}
@@ -55,6 +58,7 @@ header h1{font-family:var(--disp);font-size:24px;font-weight:700;letter-spacing:
 .mode-tab{flex:1;padding:7px 4px;background:var(--s2);border:1px solid var(--b1);color:var(--tx3);font-family:var(--disp);font-size:12px;font-weight:600;letter-spacing:1.5px;cursor:pointer;text-align:center;transition:all 0.15s}
 .mode-tab:hover{border-color:var(--acc2);color:var(--tx2)}
 .mode-tab.active{background:var(--s3);border-color:var(--acc);color:var(--acc)}
+.mode-tabs-sec{margin-top:0}.mode-tabs-sec .mode-tab{padding:4px 4px;font-size:10px;opacity:0.6}.mode-tabs-sec .mode-tab:hover,.mode-tabs-sec .mode-tab.active{opacity:1}
 
 /* ─── FORM ─── */
 .fr{display:flex;align-items:center;gap:6px;margin-bottom:7px}
@@ -96,10 +100,9 @@ select.dir{width:40px;flex:none}
 .st-warn{border-color:var(--acc);color:var(--acc);background:var(--acc3)}
 .st-err{border-color:var(--red);color:var(--red);background:rgba(224,82,82,0.05)}
 
-/* ─── FIX ROW ─── */
-.fix-row{display:flex;gap:12px}
-.fix-panel{background:var(--s2);border:1px solid var(--b1);padding:14px;flex:1;min-width:0}
-.fix-map-wrap{flex:1;min-width:0;min-height:300px;background:var(--s2);border:1px solid var(--b1);position:relative;overflow:hidden}
+/* ─── FIX / MAP ─── */
+.fix-panel{background:var(--s2);border:1px solid var(--b1);padding:14px;min-width:0}
+.fix-map-wrap{min-width:0;min-height:300px;background:var(--s2);border:1px solid var(--b1);position:relative;overflow:hidden}
 .live-toggle{transition:all 0.15s}.live-toggle.active{color:var(--grn)!important;border-color:var(--grn)!important;background:rgba(82,201,138,0.1)!important;box-shadow:0 0 6px rgba(82,201,138,0.25)}
 #fixMap{position:absolute;top:0;left:0;right:0;bottom:0;width:100%!important;height:100%!important}
 .fix-coords{font-family:var(--mono);font-size:25px;color:var(--acc);margin:10px 0;line-height:1.5}
@@ -134,6 +137,7 @@ tr:hover td{background:rgba(255,255,255,0.015)}
 .b-pol{background:rgba(200,168,75,0.12);color:var(--acc);border-color:rgba(200,168,75,0.3)}
 .b-trs{background:rgba(82,201,138,0.12);color:var(--grn);border-color:rgba(82,201,138,0.3)}
 .b-avg{background:rgba(200,168,75,0.18);color:var(--acc);border-color:rgba(200,168,75,0.4);font-weight:600}
+.b-alt{background:rgba(100,149,237,0.12);color:cornflowerblue;border-color:rgba(100,149,237,0.3);font-size:10px;padding:1px 3px}
 .avg-prompt{padding:6px 10px;margin-top:6px;font-size:11px;color:var(--tx2);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .avg-prompt button{font-size:10px;padding:2px 8px}
 .toward{color:var(--grn)}.away{color:var(--red)}
@@ -200,6 +204,8 @@ canvas#skyPlot:active{cursor:grabbing}
 
     <div class="mode-tabs">
       <button class="mode-tab active" onclick="setMode('intercept')">INTERCEPT</button>
+    </div>
+    <div class="mode-tabs mode-tabs-sec">
       <button class="mode-tab" onclick="setMode('polaris')">POLARIS</button>
       <button class="mode-tab" onclick="setMode('transit')">TRANSIT</button>
       <button class="mode-tab" onclick="setMode('lunar')">LUNAR DIST</button>
@@ -209,7 +215,15 @@ canvas#skyPlot:active{cursor:grabbing}
     <div class="section">
       <div class="sec-title">SEXTANT CORRECTIONS</div>
       <div class="fr"><label>IE</label><input type="number" id="ie" value="0" step="0.1" class="w52"><span class="unit">arcmin (+on / &minus;off arc)</span></div>
-      <div class="fr"><label>HoE</label><input type="number" id="hoe" value="1.5" step="0.1" min="0" class="w52"><span class="unit">metres above sea</span></div>
+      <div class="fr"><label>Dip</label>
+        <select id="dipMode" onchange="onDipModeChange()" style="width:120px">
+          <option value="sea">Sea level</option>
+          <option value="alt">Altitude</option>
+          <option value="artHz">Artificial horizon</option>
+        </select>
+        <input type="number" id="hoe" value="1.5" step="0.1" min="0" class="w52">
+        <span class="unit" id="dipUnit">m</span>
+      </div>
     </div>
 
     <!-- AP (intercept mode) -->
@@ -330,11 +344,11 @@ canvas#skyPlot:active{cursor:grabbing}
 
   </div><!-- /panel-left -->
 
-  <!-- ══════ RIGHT PANEL ══════ -->
+  <!-- ══════ RIGHT PANEL (2-column grid) ══════ -->
   <div class="panel-right">
 
-    <!-- Fix Result + Map -->
-    <div class="fix-row">
+    <!-- Row 1: Fix Result + Map -->
+    <div class="rp-row">
       <div class="fix-panel">
         <div class="sec-title" style="border:none;margin-bottom:4px">COMPUTED FIX</div>
         <div id="fixOut"><div class="empty">Add sights to compute a fix</div></div>
@@ -357,6 +371,9 @@ canvas#skyPlot:active{cursor:grabbing}
       <div id="skyBody">
         <canvas id="skyPlot" width="400" height="400" style="display:block;width:100%;aspect-ratio:1;max-height:520px"></canvas>
         <div class="sky-controls">
+          <button class="sky-btn active" id="skyViewPolar" onclick="setSkyView('polar')">POLAR</button>
+          <button class="sky-btn" id="skyViewPano" onclick="setSkyView('pano')">PANORAMIC</button>
+          <span style="color:var(--tx3);font-size:10px;margin-left:4px">|</span>
           <button class="sky-btn active" id="skyGridAz" onclick="setSkyGrid('az')">AZIMUTHAL</button>
           <button class="sky-btn" id="skyGridEq" onclick="setSkyGrid('eq')">EQUATORIAL</button>
           <span style="color:var(--tx3);font-size:10px;margin-left:4px">|</span>
@@ -374,17 +391,6 @@ canvas#skyPlot:active{cursor:grabbing}
       </div>
     </div>
 
-    <!-- LOP Plot -->
-    <div class="plot-wrap">
-      <div class="plot-hdr" onclick="toggleLopPlot()" style="cursor:pointer">
-        <span>LINE OF POSITION PLOT</span>
-        <span><button id="heatmapBtn" onclick="event.stopPropagation();toggleHeatmap()" style="font:9px 'Share Tech Mono';background:transparent;border:1px solid var(--b1);color:var(--tx3);padding:1px 5px;cursor:pointer;border-radius:3px;margin-right:6px" title="Toggle residual error heatmap">HEATMAP</button><span id="plotScale" style="color:var(--tx3)"></span> <span id="lopToggle">&#9662;</span></span>
-      </div>
-      <div id="lopBody">
-        <canvas id="plot" width="480" height="380"></canvas>
-      </div>
-    </div>
-
     <!-- Reduction Workings -->
     <div class="workings" id="workingsPanel">
       <div class="wrk-hdr" onclick="toggleWorkings()">
@@ -393,6 +399,17 @@ canvas#skyPlot:active{cursor:grabbing}
       </div>
       <div class="wrk-body" id="wrkBody">
         <div style="color:var(--tx3);font-style:italic">Click a sight in the log to show full reduction</div>
+      </div>
+    </div>
+
+    <!-- LOP Plot -->
+    <div class="plot-wrap">
+      <div class="plot-hdr" onclick="toggleLopPlot()" style="cursor:pointer">
+        <span>LINE OF POSITION PLOT</span>
+        <span><button id="heatmapBtn" onclick="event.stopPropagation();toggleHeatmap()" style="font:9px 'Share Tech Mono';background:transparent;border:1px solid var(--b1);color:var(--tx3);padding:1px 5px;cursor:pointer;border-radius:3px;margin-right:6px" title="Toggle residual error heatmap">HEATMAP</button><span id="plotScale" style="color:var(--tx3)"></span> <span id="lopToggle">&#9662;</span></span>
+      </div>
+      <div id="lopBody">
+        <canvas id="plot" width="480" height="380"></canvas>
       </div>
     </div>
 
@@ -410,6 +427,7 @@ canvas#skyPlot:active{cursor:grabbing}
     <div class="empty" style="padding:20px">No sights entered — select a mode and add your first observation above</div>
   </div>
 </div>
+
 
 <script>
 // ══════════════════════════════════════════════════════
@@ -980,13 +998,27 @@ function refraction(alt){
 }
 
 // Dip correction — arcminutes
+// Sea level: standard maritime formula (valid to ~50m)
 function dip(hM){return hM>0?-1.76*Math.sqrt(hM):0;}
+// Altitude: geodetic dip with terrestrial refraction (k≈0.13)
+function dipAlt(hM){
+  if(hM<=0)return 0;
+  const R=6371000; // Earth mean radius, metres
+  const geom=Math.acos(R/(R+hM))*D; // geometric dip, degrees
+  return -(geom*(1-0.13))*60; // refracted dip, arcminutes
+}
+
+// Compute dip from current UI mode and value
+function computeDip(dipMode,val){
+  if(dipMode==='artHz')return 0;
+  if(dipMode==='alt')return dipAlt(val*0.3048); // val in feet → metres
+  return dip(val); // sea level: val in metres
+}
 
 // Apply corrections Hs -> Ho
 // Extended for Moon/Sun: parallax (HP arcmin), semi-diameter (SD arcmin), limb ('upper'/'lower'/'center')
-function correct(hsDeg,ieMoa,hoeM,bodyType,HP,SD,limb){
+function correct(hsDeg,ieMoa,dipC,bodyType,HP,SD,limb){
   const hs=hsDeg-ieMoa/60;
-  const dipC=dip(hoeM);
   const ha=hs+dipC/60;
   const refC=refraction(ha);
   let ho=ha+refC/60;
@@ -1362,6 +1394,7 @@ let heatmapOn=false;
 // Sky plot state
 let skyGrid='az'; // 'az' = azimuthal (alt/az), 'eq' = equatorial (RA/Dec)
 let skyPole='north'; // 'north' = NCP centered, 'south' = SCP centered
+let skyView='polar'; // 'polar' = stereographic, 'pano' = panoramic (Stellarium-style)
 let skyRotation=0; // manual rotation offset in degrees
 let skyShowConst=false;
 let skyZoom=1, skyPanX=0, skyPanY=0; // zoom level + pan offset in pixels
@@ -1692,9 +1725,51 @@ const ASTERISMS={
   document.getElementById('liveUtc').classList.add('active');
   setInterval(updateClock,1000);
   updateClock();
-  // Uncheck live UTC when user manually edits time
-  ['utcIn','utcSec'].forEach(id=>{
-    document.getElementById(id).addEventListener('input',()=>{document.getElementById('liveUtc').classList.remove('active');});
+  // Track previous UTC value so we can detect overflow direction
+  let prevUtcVal=document.getElementById('utcIn').value;
+  document.getElementById('utcIn').addEventListener('input',()=>{
+    document.getElementById('liveUtc').classList.remove('active');
+    const inp=document.getElementById('utcIn');
+    const cur=inp.value;
+    if(prevUtcVal&&cur){
+      const prev=new Date(prevUtcVal+'Z');
+      const now=new Date(cur+'Z');
+      // Detect minute wrap: e.g. 12:59→12:00 means should be 13:00
+      const dm=(now-prev)/60000; // difference in minutes
+      if(dm===-59){// went 59→00, carry hour forward
+        now.setUTCHours(now.getUTCHours()+1);
+        inp.value=now.toISOString().slice(0,16);
+      }else if(dm===59){// went 00→59, borrow hour back
+        now.setUTCHours(now.getUTCHours()-1);
+        inp.value=now.toISOString().slice(0,16);
+      }
+      const dh=(now-prev)/3600000; // difference in hours
+      if(Math.abs(dh+23)<0.02){// went 23→00, carry day forward
+        now.setUTCDate(now.getUTCDate()+1);
+        inp.value=now.toISOString().slice(0,16);
+      }else if(Math.abs(dh-23)<0.02){// went 00→23, borrow day back
+        now.setUTCDate(now.getUTCDate()-1);
+        inp.value=now.toISOString().slice(0,16);
+      }
+    }
+    prevUtcVal=inp.value;
+    drawSkyPlot();
+  });
+  document.getElementById('utcIn').addEventListener('change',()=>{prevUtcVal=document.getElementById('utcIn').value;drawSkyPlot();});
+  // Seconds: wrap 0↔59 and carry into minutes
+  const secEl=document.getElementById('utcSec');
+  secEl.addEventListener('input',()=>{
+    document.getElementById('liveUtc').classList.remove('active');
+    let s=parseInt(secEl.value);
+    if(isNaN(s))return;
+    if(s>59||s<0){
+      const utc=readUTC();
+      utc.setUTCSeconds(utc.getUTCSeconds()+(s>59?1:-1));
+      const inp=document.getElementById('utcIn');
+      inp.value=utc.toISOString().slice(0,16);
+      secEl.value=s>59?0:59;
+    }
+    drawSkyPlot();
   });
   // Recalculate on AP change
   ['apLatD','apLatM','apLonD','apLonM'].forEach(id=>{
@@ -1754,6 +1829,16 @@ function setSkyPole(pole){
   document.getElementById('skyPoleN').classList.toggle('active',pole==='north');
   document.getElementById('skyPoleS').classList.toggle('active',pole==='south');
   skyZoom=1;skyPanX=0;skyPanY=0;
+  drawSkyPlot();
+}
+function setSkyView(mode){
+  skyView=mode;
+  document.getElementById('skyViewPolar').classList.toggle('active',mode==='polar');
+  document.getElementById('skyViewPano').classList.toggle('active',mode==='pano');
+  skyZoom=1;skyPanX=0;skyPanY=0;
+  // Hide pole selector in pano mode (not relevant)
+  document.getElementById('skyPoleN').style.display=mode==='pano'?'none':'';
+  document.getElementById('skyPoleS').style.display=mode==='pano'?'none':'';
   drawSkyPlot();
 }
 function toggleConstellations(){
@@ -2061,6 +2146,13 @@ function onBodyChange(){
 
 function getIE(){return parseFloat(document.getElementById('ie').value)||0;}
 function getHoE(){return parseFloat(document.getElementById('hoe').value)||0;}
+function getDipMode(){return document.getElementById('dipMode').value;}
+function onDipModeChange(){
+  const m=getDipMode(),inp=document.getElementById('hoe'),unit=document.getElementById('dipUnit');
+  if(m==='artHz'){inp.style.display='none';unit.textContent='';}
+  else if(m==='alt'){inp.style.display='';inp.disabled=false;if(parseFloat(inp.value)<100)inp.value='35000';inp.step='100';inp.min='0';unit.textContent='ft';inp.style.width='72px';}
+  else{inp.style.display='';inp.disabled=false;if(parseFloat(inp.value)>100)inp.value='1.5';inp.step='0.1';inp.min='0';unit.textContent='m';inp.style.width='';}
+}
 
 // ══════════════════════════════════════════════════════
 //  ADD SIGHT
@@ -2070,7 +2162,7 @@ function addSight(){
   const showMsg=(txt,cls)=>{msg.className='status '+cls;msg.textContent=txt;msg.classList.remove('hidden')};
 
   const mode=state.mode;
-  const ie=getIE(),hoe=getHoE();
+  const ie=getIE(),hoe=getHoE(),dipMode=getDipMode();
   const utc=readUTC();
   const hs=readHs();
 
@@ -2095,10 +2187,11 @@ function addSight(){
 
   let ho=0,dipC=0,refC=0,ha=0,parC=0,sdC=0;
   if(mode!=='lunar'){
-    const corr=correct(hs,ie,hoe,bodyType,bodyHP,bodySD,limb);
+    dipC=computeDip(dipMode,hoe);
+    const corr=correct(hs,ie,dipC,bodyType,bodyHP,bodySD,limb);
     ho=corr.ho;dipC=corr.dipC;refC=corr.refC;ha=corr.ha;parC=corr.parC||0;sdC=corr.sdC||0;
   }
-  const sight={id:state.nextId++,mode,utc,hs,ho,ie,hoe,dipC,refC,ha,parC,sdC,limb};
+  const sight={id:state.nextId++,mode,utc,hs,ho,ie,hoe,dipMode,dipC,refC,ha,parC,sdC,limb};
 
   if(mode==='polaris'){
     const lon=readPolLon();
@@ -2248,7 +2341,9 @@ function renderLog(){
     else if(s.mode==='polaris') html+=`<td><span class="badge b-pol">POL</span></td>`;
     else if(s.mode==='lunar') html+=`<td><span class="badge b-trs">LUN</span></td>`;
     else html+=`<td><span class="badge b-trs">TRS</span></td>`;
-    html+=`<td>${s.star?s.star.n:'Polaris'}</td>`;
+    const dm=s.dipMode||'sea';
+    const dipTag=dm==='alt'?`<span class="badge b-alt" title="Altitude dip correction">${s.hoe} ft</span>`:dm==='artHz'?'<span class="badge b-alt" title="Artificial horizon">AH</span>':'';
+    html+=`<td>${s.star?s.star.n:'Polaris'}${dipTag?' '+dipTag:''}</td>`;
     html+=`<td>${fmtUTC(s.utc)}</td>`;
     html+=`<td>${s.mode==='lunar'?fmtDeg(s.lunarDist||0,1):fmtDeg(s.hs,1)}</td>`;
     html+=`<td>${s.mode==='lunar'?fmtDeg(s.lunarCleared||0,1):fmtDeg(s.ho,1)}</td>`;
@@ -2482,17 +2577,24 @@ function renderFix(){
       }
     }
   }
-  html+=`</div>`;
-  out.innerHTML=html;
-  // Store fix for sky plot reference
-  state.lastFixLat=fixLat;state.lastFixLon=fixLon;
-  // Always compute direct fix for LOP plot overlay (before updateFixMap so map can show it)
+  // COP comparison (compute early so we can show offset)
   const copSightsForPlot=state.sights.filter(s=>s.star||s.mode==='polaris');
   if(copSightsForPlot.length>=2){
     state.directFix=directFix(copSightsForPlot,readAP());
   }else{
     state.directFix=null;
   }
+  if(state.directFix&&fixLat!==null&&fixLon!==null){
+    const cdx=(state.directFix.lon-fixLon)*60*Math.cos(fixLat*R);
+    const cdy=(state.directFix.lat-fixLat)*60;
+    const cdist=Math.sqrt(cdx*cdx+cdy*cdy);
+    const color=cdist<2?'var(--grn)':cdist<10?'var(--acc)':'var(--red)';
+    html+=`<div>COP fix offset: <span style="color:${color}">${cdist.toFixed(1)} nm (${fmt(state.directFix.lat,'lat')}, ${fmt(state.directFix.lon,'lon')})</span></div>`;
+  }
+  html+=`</div>`;
+  out.innerHTML=html;
+  // Store fix for sky plot reference
+  state.lastFixLat=fixLat;state.lastFixLon=fixLon;
   // Update map
   const apM=apRef||readAP();
   updateFixMap(fixLat,fixLon,apM.lat,apM.lon);
@@ -2503,6 +2605,13 @@ function selectSight(id){
   state.selectedSightId=id;
   showWorkings(id);
   renderLog();
+}
+
+function dipLabel(s){
+  const dm=s.dipMode||'sea';
+  if(dm==='artHz')return "0.0' (artificial horizon)";
+  if(dm==='alt')return `${s.dipC.toFixed(1)}' (alt ${s.hoe} ft)`;
+  return `${s.dipC.toFixed(1)}' (HoE ${s.hoe}m)`;
 }
 
 function showWorkings(id){
@@ -2528,7 +2637,7 @@ function showWorkings(id){
     h+=sep;
     h+=row('Hs',fmtDeg(s.hs));
     h+=row('IE',`${s.ie>=0?'+':''}${s.ie.toFixed(1)}'`);
-    h+=row('Dip',`${s.dipC.toFixed(1)}' (HoE ${s.hoe}m)`);
+    h+=row('Dip',dipLabel(s));
     h+=row('Ha (app. alt)',fmtDeg(s.ha));
     h+=row('Refraction',`${s.refC.toFixed(1)}'`);
     if(s.parC) h+=row('Parallax',`+${s.parC.toFixed(1)}' (HP \u00d7 cos Ha)`);
@@ -2562,7 +2671,7 @@ function showWorkings(id){
     h+=row('LHA Aries',fmtDeg(s.lhaAries));
     h+=sep;
     h+=row('Hs',fmtDeg(s.hs));
-    h+=row('Dip',`${s.dipC.toFixed(1)}'`);
+    h+=row('Dip',dipLabel(s));
     h+=row('Refraction',`${s.refC.toFixed(1)}'`);
     h+=row('Ho',fmtDeg(s.ho,2));
     h+=sep;
@@ -2937,19 +3046,228 @@ function drawSkyPlot(){
   const cx=W/2,cy=H/2;
   const baseRadius=S*0.42; // maps to 90° polar distance (equator)
 
+  // Adjust aspect ratio for panoramic mode
+  cv.style.aspectRatio=skyView==='pano'?'2.5':'1';
   ctx.fillStyle='#07091a';ctx.fillRect(0,0,W,H);
 
-  // Use fix position if available, otherwise AP
-  const rawAp=readAP();
-  const ap=(state.lastFixLat!=null&&state.lastFixLon!=null)
-    ?{lat:state.lastFixLat,lon:state.lastFixLon>180?state.lastFixLon-360:state.lastFixLon}
-    :rawAp;
+  // Always use AP for sky plot — responds to user input directly
+  const ap=readAP();
   const utc=readUTC();
   const bodies=computeSky(ap.lat,ap.lon,utc);
   const sunAlt=bodies.find(b=>b.name==='Sun')?.alt||-90;
   const ghaA=ghaAries(utc);
   const lst=mod360(ghaA+ap.lon);
   const isEq=(skyGrid==='eq');
+
+  // ══════════════════════════════════════════════════════
+  //  PANORAMIC VIEW (Stellarium-style: flat horizon)
+  // ══════════════════════════════════════════════════════
+  if(skyView==='pano'){
+    const margin={l:36,r:12,t:12,b:24};
+    const pw=W-margin.l-margin.r, ph=H-margin.t-margin.b;
+    const fov=180; // field of view in degrees
+    const halfFov=fov/2;
+    // Center azimuth: North (0°) by default, skyPanX shifts it.
+    const centerAz=mod360(0-skyPanX);
+    // Project alt/az → canvas coords.  180° FOV centered on centerAz.
+    // Azimuth compressed by cos(alt) so lines converge at zenith.
+    function panoProject(alt,az){
+      let da=mod360(az-centerAz+180)-180; // delta from center, -180..180
+      const altClamped=Math.max(0,Math.min(90,alt));
+      const squeeze=0.3+0.7*Math.cos(altClamped*R); // 1 at horizon, 0.3 at zenith
+      const x=margin.l+pw/2+pw*da/fov*squeeze;
+      const y=margin.t+ph*(1-altClamped/90);
+      return{x,y,inFov:Math.abs(da)<=halfFov};
+    }
+    function panoProjectBody(b){return panoProject(b.alt,b.az);}
+
+    ctx.save();ctx.beginPath();ctx.rect(margin.l,margin.t,pw,ph);ctx.clip();
+
+    // Twilight
+    if(sunAlt<0&&sunAlt>-18){
+      const tw=Math.max(0,(sunAlt+18)/18);
+      ctx.fillStyle=`rgba(30,50,90,${tw*0.15})`;ctx.fillRect(margin.l,margin.t,pw,ph);
+    }
+
+    // Horizon line
+    ctx.strokeStyle='rgba(100,60,20,0.7)';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(margin.l,margin.t+ph);ctx.lineTo(margin.l+pw,margin.t+ph);ctx.stroke();
+
+    if(!isEq){
+      // Altitude lines (curved — shorter at higher altitudes)
+      [15,30,45,60,75].forEach(alt=>{
+        const pts=[];
+        for(let da=-90;da<=90;da+=2){
+          const az=mod360(centerAz+da);
+          pts.push(panoProject(alt,az));
+        }
+        ctx.strokeStyle='rgba(26,50,88,0.5)';ctx.lineWidth=0.5;
+        ctx.beginPath();pts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));ctx.stroke();
+        ctx.fillStyle='rgba(61,84,112,0.5)';ctx.font='9px "Share Tech Mono"';
+        ctx.textAlign='right';ctx.textBaseline='middle';
+        const y=margin.t+ph*(1-alt/90);
+        ctx.fillText(alt+'°',margin.l-4,y);
+      });
+      // Azimuth lines (converging curves)
+      for(let az=0;az<360;az+=15){
+        const p0=panoProject(0,az);
+        if(!p0.inFov)continue;
+        const isMajor=az%45===0;
+        ctx.strokeStyle=isMajor?'rgba(26,50,88,0.5)':'rgba(26,50,88,0.25)';
+        ctx.lineWidth=0.5;
+        ctx.beginPath();
+        for(let alt=0;alt<=89;alt+=2){
+          const p=panoProject(alt,az);
+          alt===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y);
+        }
+        ctx.stroke();
+      }
+    }
+
+    // Equatorial grid in pano mode
+    if(isEq){
+      // Trace Dec circles through alt/az
+      ([-60,-30,0,30,60]).forEach(dec=>{
+        const pts=[];
+        for(let ra=0;ra<360;ra+=2){
+          // RA/Dec → alt/az
+          const ha=mod360(lst-ra);
+          const sinAlt=Math.sin(dec*R)*Math.sin(ap.lat*R)+Math.cos(dec*R)*Math.cos(ap.lat*R)*Math.cos(ha*R);
+          const alt=Math.asin(Math.max(-1,Math.min(1,sinAlt)))*D;
+          if(alt<0)continue;
+          const cosAz=(Math.sin(dec*R)-Math.sin(ap.lat*R)*sinAlt)/(Math.cos(ap.lat*R)*Math.cos(alt*R));
+          const sinAz=-Math.sin(ha*R)*Math.cos(dec*R)/Math.cos(alt*R);
+          const az=mod360(Math.atan2(sinAz,Math.max(-1,Math.min(1,cosAz)))*D);
+          pts.push(panoProject(alt,az));
+        }
+        ctx.strokeStyle='rgba(70,50,120,0.4)';ctx.lineWidth=0.5;
+        if(pts.length>1){ctx.beginPath();pts.forEach((p,i)=>{if(i===0)ctx.moveTo(p.x,p.y);else if(Math.abs(p.x-pts[i-1].x)<pw*0.5)ctx.lineTo(p.x,p.y);else ctx.moveTo(p.x,p.y);});ctx.stroke();}
+      });
+      // RA hour lines
+      for(let h=0;h<24;h+=2){
+        const ra=h*15,pts=[];
+        for(let dec=-80;dec<=80;dec+=2){
+          const ha=mod360(lst-ra);
+          const sinAlt=Math.sin(dec*R)*Math.sin(ap.lat*R)+Math.cos(dec*R)*Math.cos(ap.lat*R)*Math.cos(ha*R);
+          const alt=Math.asin(Math.max(-1,Math.min(1,sinAlt)))*D;
+          if(alt<0)continue;
+          const cosAz=(Math.sin(dec*R)-Math.sin(ap.lat*R)*sinAlt)/(Math.cos(ap.lat*R)*Math.cos(alt*R));
+          const sinAz=-Math.sin(ha*R)*Math.cos(dec*R)/Math.cos(alt*R);
+          const az=mod360(Math.atan2(sinAz,Math.max(-1,Math.min(1,cosAz)))*D);
+          pts.push(panoProject(alt,az));
+        }
+        ctx.strokeStyle='rgba(70,50,120,0.3)';ctx.lineWidth=0.5;
+        if(pts.length>1){ctx.beginPath();pts.forEach((p,i)=>{if(i===0)ctx.moveTo(p.x,p.y);else if(Math.abs(p.x-pts[i-1].x)<pw*0.5)ctx.lineTo(p.x,p.y);else ctx.moveTo(p.x,p.y);});ctx.stroke();}
+      }
+    }
+
+    // Zenith marker
+    const zenP=panoProject(90,0);
+    ctx.fillStyle='rgba(200,168,75,0.4)';ctx.beginPath();ctx.arc(zenP.x,zenP.y,2,0,2*Math.PI);ctx.fill();
+    ctx.fillStyle='rgba(61,84,112,0.6)';ctx.font='9px "Share Tech Mono"';
+    ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText('zenith',zenP.x,zenP.y+4);
+
+    // Suggested stars
+    const suggested=suggestStars(bodies);
+    const sugNames=new Set(suggested.map(s=>s.name));
+
+    // Constellations
+    if(skyShowConst){
+      const posMap={};bodies.forEach(b=>{if(b.alt>-5)posMap[b.name]=panoProjectBody(b);});
+      [CONSTELLATIONS,ASTERISMS].forEach((dict,di)=>{
+        ctx.strokeStyle=di===0?'rgba(80,100,140,0.35)':'rgba(120,100,60,0.3)';
+        ctx.lineWidth=di===0?0.8:0.6;
+        if(di===1)ctx.setLineDash([4,4]);
+        Object.entries(dict).forEach(([name,lines])=>{
+          lines.forEach(([s1,s2])=>{
+            const p1=posMap[s1],p2=posMap[s2];
+            if(p1&&p2&&Math.abs(p1.x-p2.x)<pw*0.5){ctx.beginPath();ctx.moveTo(p1.x,p1.y);ctx.lineTo(p2.x,p2.y);ctx.stroke();}
+          });
+          const pts=[];lines.flat().forEach(s=>{if(posMap[s])pts.push(posMap[s]);});
+          if(pts.length>=2){
+            const mx=pts.reduce((a,p)=>a+p.x,0)/pts.length;
+            const my=pts.reduce((a,p)=>a+p.y,0)/pts.length;
+            ctx.fillStyle=di===0?'rgba(80,100,140,0.4)':'rgba(120,100,60,0.35)';
+            ctx.font='italic 8px "Crimson Pro"';ctx.textAlign='center';ctx.textBaseline='bottom';
+            ctx.fillText(name,mx,my-6);
+          }
+        });
+        if(di===1)ctx.setLineDash([]);
+      });
+    }
+
+    // Bodies
+    const moonPhaseData=moonPhase(utc);
+    bodies.sort((a,b)=>b.mag-a.mag);
+    bodies.forEach(b=>{
+      if(b.alt<-2)return; // skip bodies well below horizon
+      const p=panoProjectBody(b);
+      if(p.x<margin.l-20||p.x>margin.l+pw+20||p.y<margin.t-20||p.y>margin.t+ph+20)return;
+      const isAux=(b.type==='aux');
+      const dotR=isAux?Math.max(0.8,Math.min(3,3-b.mag*0.4)):Math.max(1.5,Math.min(6,4-b.mag*0.6));
+      let color=isAux?'rgba(160,155,140,0.6)':'rgba(220,215,200,0.9)';
+      if(b.type==='sun')color='#c8a84b';
+      else if(b.type==='planet')color='#f97316';
+      else if(b.type==='moon')color='#b8c4d0';
+      if(b.alt<0)color=isAux?'rgba(60,50,40,0.25)':'rgba(80,70,60,0.4)';
+      if(!isAux&&sugNames.has(b.name)&&b.alt>0){
+        ctx.beginPath();ctx.arc(p.x,p.y,dotR+5,0,2*Math.PI);
+        ctx.fillStyle='rgba(82,201,138,0.15)';ctx.fill();
+        ctx.strokeStyle='rgba(82,201,138,0.5)';ctx.lineWidth=1;
+        ctx.beginPath();ctx.arc(p.x,p.y,dotR+5,0,2*Math.PI);ctx.stroke();
+      }
+      if(b.type==='moon'){
+        const mr=dotR+4;
+        const Deg=moonPhaseData.phase*360;
+        const cosD=Math.cos(Deg*R);
+        const waxing=Deg<=180;
+        const dark=b.alt<0?'rgba(30,32,48,0.35)':'#1e2840';
+        const litCol=b.alt<0?'rgba(120,130,150,0.35)':'#c0c8d4';
+        ctx.save();
+        ctx.beginPath();ctx.arc(p.x,p.y,mr,0,2*Math.PI);ctx.clip();
+        if(waxing){
+          ctx.fillStyle=dark;ctx.fillRect(p.x-mr,p.y-mr,mr,2*mr);
+          ctx.fillStyle=litCol;ctx.fillRect(p.x,p.y-mr,mr,2*mr);
+          if(Math.abs(cosD)>0.01){ctx.fillStyle=cosD>0?dark:litCol;ctx.beginPath();ctx.ellipse(p.x,p.y,Math.abs(cosD)*mr,mr,0,0,2*Math.PI);ctx.fill();}
+        }else{
+          ctx.fillStyle=litCol;ctx.fillRect(p.x-mr,p.y-mr,mr,2*mr);
+          ctx.fillStyle=dark;ctx.fillRect(p.x,p.y-mr,mr,2*mr);
+          if(Math.abs(cosD)>0.01){ctx.fillStyle=cosD<0?litCol:dark;ctx.beginPath();ctx.ellipse(p.x,p.y,Math.abs(cosD)*mr,mr,0,0,2*Math.PI);ctx.fill();}
+        }
+        ctx.restore();
+        ctx.strokeStyle=b.alt<0?'rgba(120,130,150,0.3)':'rgba(184,196,208,0.6)';
+        ctx.lineWidth=0.7;ctx.beginPath();ctx.arc(p.x,p.y,mr,0,2*Math.PI);ctx.stroke();
+        if(b.alt>0){ctx.fillStyle='rgba(184,196,208,0.85)';ctx.font='9px "Share Tech Mono"';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(b.name,p.x+mr+3,p.y);}
+      }else{
+        ctx.fillStyle=color;ctx.beginPath();ctx.arc(p.x,p.y,dotR,0,2*Math.PI);ctx.fill();
+        if(!isAux&&(b.mag<=2.5||b.type!=='star')&&b.alt>0){
+          ctx.fillStyle=sugNames.has(b.name)?'rgba(82,201,138,0.9)':color;
+          ctx.font='9px "Share Tech Mono"';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(b.name,p.x+dotR+3,p.y);
+        }
+      }
+    });
+
+    ctx.restore();
+
+    // Direction markers along horizon (drawn outside clip region)
+    const cardinals={0:'N',45:'NE',90:'E',135:'SE',180:'S',225:'SW',270:'W',315:'NW'};
+    Object.entries(cardinals).forEach(([azStr,lbl])=>{
+      const p=panoProject(0,+azStr);
+      if(!p.inFov)return;
+      ctx.fillStyle='#c8a84b';
+      ctx.font=lbl.length===1?'bold 12px "Share Tech Mono"':'9px "Share Tech Mono"';
+      ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText(lbl,p.x,margin.t+ph+3);
+    });
+
+    // Info text
+    ctx.fillStyle='rgba(61,84,112,0.6)';ctx.font='10px "Share Tech Mono"';
+    ctx.textAlign='left';ctx.textBaseline='bottom';
+    ctx.fillText(`${fmt(ap.lat,'lat')} ${fmt(ap.lon,'lon')}  ${fmtUTC(utc)} UTC  PANORAMIC`,8,H-4);
+    const aboveCount=bodies.filter(b=>b.alt>0&&b.type!=='aux').length;
+    ctx.textAlign='right';ctx.fillText(`${aboveCount} above horizon`,W-8,H-4);
+    renderSuggested(suggested);
+    return;
+  }
 
   // ══ POLAR STEREOGRAPHIC — NCP or SCP at center ══
   const isSouth=(skyPole==='south');
@@ -3151,8 +3469,7 @@ function drawSkyPlot(){
   ctx.fillStyle='rgba(61,84,112,0.6)';ctx.font='10px "Share Tech Mono"';
   ctx.textAlign='left';ctx.textBaseline='bottom';
   const gridLabel=isEq?'EQUATORIAL GRID':'AZIMUTHAL GRID';
-  const posSource=state.lastFixLat!=null?' (fix)':' (AP)';
-  ctx.fillText(`${fmt(ap.lat,'lat')} ${fmt(ap.lon,'lon')}${posSource}  ${fmtUTC(utc)} UTC  ${gridLabel}`,8,H-4);
+  ctx.fillText(`${fmt(ap.lat,'lat')} ${fmt(ap.lon,'lon')}  ${fmtUTC(utc)} UTC  ${gridLabel}`,8,H-4);
   const aboveCount=bodies.filter(b=>b.alt>0&&b.type!=='aux').length;
   ctx.textAlign='right';
   const zoomTxt=skyZoom>1.05?` ${skyZoom.toFixed(1)}\u00d7`:'';
@@ -3235,7 +3552,7 @@ function averageGroup(bodyName){
   // Recompute with averaged Ho — create the sight with averaged values
   const sight={
     id:state.nextId++, mode:'intercept', utc:meanUTC,
-    hs:meanHs, ho:meanHo, ie, hoe,
+    hs:meanHs, ho:meanHo, ie, hoe, dipMode:template.dipMode,
     dipC:template.dipC, refC:template.refC, ha:template.ha,
     parC:template.parC||0, sdC:template.sdC||0, limb:template.limb||'center',
     star:{...template.star},
@@ -3280,7 +3597,7 @@ function serializeState(){
   return{
     version:1,
     exported:new Date().toISOString(),
-    ie:getIE(), hoe:getHoE(),
+    ie:getIE(), hoe:getHoE(), dipMode:getDipMode(),
     ap:readAP(),
     mode:state.mode, fixMethod:state.fixMethod,
     drEnabled:state.drEnabled, drCourse:state.drCourse, drSpeed:state.drSpeed,
@@ -3292,6 +3609,9 @@ function deserializeState(data){
   // Restore corrections
   document.getElementById('ie').value=data.ie||0;
   document.getElementById('hoe').value=data.hoe||1.5;
+  if(data.dipMode){document.getElementById('dipMode').value=data.dipMode;}
+  else if(data.artHz){document.getElementById('dipMode').value='artHz';}
+  onDipModeChange();
   // Restore AP
   if(data.ap){
     const latAbs=Math.abs(data.ap.lat);
@@ -3481,10 +3801,11 @@ function loadDemo(){
 
   demoSights.forEach(ds=>{
     const utc=new Date(ds.utc);
-    const ie=0,hoe=2;
+    const ie=0,hoe=2,dipMode='sea';
     const hs=ds.hsDeg+ds.hsMin/60;
-    const {ho,dipC,refC,ha}=correct(hs,ie,hoe);
-    const sight={id:state.nextId++,mode:ds.mode,utc,hs,ho,ie,hoe,dipC,refC,ha};
+    const dipC0=computeDip(dipMode,hoe);
+    const {ho,dipC,refC,ha}=correct(hs,ie,dipC0);
+    const sight={id:state.nextId++,mode:ds.mode,utc,hs,ho,ie,hoe,dipMode,dipC,refC,ha};
 
     if(ds.mode==='polaris'){
       const lon=ds.lon;
@@ -3542,9 +3863,13 @@ function editSight(id){
   document.getElementById('hsDeg').value=hsDeg;
   document.getElementById('hsMin').value=hsMin.toFixed(1);
 
-  // Populate IE / HoE
+  // Populate IE / HoE / artificial horizon
   document.getElementById('ie').value=s.ie;
   document.getElementById('hoe').value=s.hoe;
+  if(s.dipMode){document.getElementById('dipMode').value=s.dipMode;}
+  else if(s.artHz){document.getElementById('dipMode').value='artHz';}
+  else{document.getElementById('dipMode').value='sea';}
+  onDipModeChange();
 
   if(s.mode==='intercept'&&s.star){
     if(s.star.isBody){
@@ -3598,7 +3923,7 @@ function editSight(id){
 // ══════════════════════════════════════════════════════
 function initFixMap(){
   fixMap=L.map('fixMap',{
-    center:[45,0],zoom:5,
+    center:[45,0],zoom:6,
     zoomControl:true,
     attributionControl:true
   });

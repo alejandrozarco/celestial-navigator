@@ -8,9 +8,10 @@
   "theme_color": "#c8a84b",
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%2306091a' stroke='%23c8a84b' stroke-width='3'/><text x='50' y='62' font-size='40' text-anchor='middle' fill='%23c8a84b'>☆</text></svg>",
+      "src": "icon.svg",
       "sizes": "any",
-      "type": "image/svg+xml"
+      "type": "image/svg+xml",
+      "purpose": "any"
     }
   ]
 }
