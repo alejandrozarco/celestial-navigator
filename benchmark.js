@@ -119,6 +119,27 @@ function histogram(errors, numBins, unit = "'", tol = null) {
 // Track results per category for summary table
 const results = [];
 
+// Per-decade breakdown helper
+function decadeBreakdown(entries, unit = "'") {
+  // entries: [{utc: string, error: number}, ...]
+  const decades = {};
+  for (const e of entries) {
+    const year = new Date(e.utc).getUTCFullYear();
+    const decade = Math.floor(year / 10) * 10;
+    const key = `${decade}s`;
+    if (!decades[key]) decades[key] = [];
+    decades[key].push(e.error);
+  }
+  const keys = Object.keys(decades).sort();
+  if (keys.length <= 1) return; // no point showing if single decade
+  console.log(`\n  ${B}Per-decade breakdown:${X}`);
+  for (const k of keys) {
+    const s = stats(decades[k]);
+    const dp = s.max < 0.1 ? 4 : s.max < 1 ? 3 : 2;
+    console.log(`    ${k}: n=${String(s.n).padStart(4)}  mean=${s.mean.toFixed(dp).padStart(7)}${unit}  p90=${s.p90.toFixed(dp).padStart(7)}${unit}  max=${s.max.toFixed(dp).padStart(7)}${unit}`);
+  }
+}
+
 // ANSI colors
 const G = '\x1b[32m', R = '\x1b[31m', Y = '\x1b[33m', B = '\x1b[1m', X = '\x1b[0m';
 
@@ -129,7 +150,7 @@ let totalTests = 0, totalFail = 0;
 // ══════════════════════════════════════════════════════════════
 const shaRef = parseCSV('star_sha_ref.csv');
 console.log(`\n${B}═══ Star SHA/Dec vs Skyfield/DE440s (${shaRef.length} readings) ═══${X}`);
-const shaErrors = [], decErrors = [], skyErrors = [];
+const shaErrors = [], decErrors = [], skyErrors = [], skyEntries = [];
 let shaFails = 0;
 // Tolerance: 1.5' for SHA (generous for nutation/aberration we don't model),
 // but Polaris gets 20' due to pole amplification
@@ -165,7 +186,7 @@ for (const row of shaRef) {
 
   if (!isNaN(dSHA)) shaErrors.push(dSHA);
   if (!isNaN(dDec)) decErrors.push(dDec);
-  if (!isNaN(dSky)) skyErrors.push(dSky);
+  if (!isNaN(dSky)) { skyErrors.push(dSky); skyEntries.push({utc: utcStr, error: dSky}); }
 
   const tol = Math.abs(refDec) >= 80 ? POLE_SHA_TOL : SHA_TOL;
   if (dSHA > tol || dDec > DEC_TOL) {
@@ -183,6 +204,7 @@ console.log(fmtStats(stats(decErrors)));
 console.log(`  ${B}Sky separation distribution (arcmin):${X}`);
 console.log(fmtStats(stats(skyErrors)));
 histogram(skyErrors, 8, "'", SHA_TOL);
+decadeBreakdown(skyEntries);
 results.push({ name: 'Star SHA/Dec', total: shaRef.length, passed: shaPassed, unit: "'", errors: skyErrors });
 
 // ══════════════════════════════════════════════════════════════
@@ -190,7 +212,7 @@ results.push({ name: 'Star SHA/Dec', total: shaRef.length, passed: shaPassed, un
 // ══════════════════════════════════════════════════════════════
 const sightRef = parseCSV('sight_reduction_ref.csv');
 console.log(`\n${B}═══ Sight Reduction vs Skyfield/DE440s (${sightRef.length} sightings) ═══${X}`);
-const altErrors = [], azErrors = [];
+const altErrors = [], azErrors = [], altEntries = [];
 let sightFails = 0, sightSkips = 0;
 
 for (const row of sightRef) {
@@ -251,6 +273,7 @@ for (const row of sightRef) {
 
   altErrors.push(dAlt);
   azErrors.push(dAz);
+  altEntries.push({utc: utcStr, error: dAlt});
 
   // Tolerances by body type (arcmin)
   // Moon: geocentric vs topocentric differs by HP (~57'), so 60' tolerance
@@ -282,6 +305,7 @@ console.log(fmtStats(stats(altErrors)));
 console.log(`  ${B}Azimuth error distribution (arcmin):${X}`);
 console.log(fmtStats(stats(azErrors)));
 histogram(altErrors, 8, "'");
+decadeBreakdown(altEntries);
 results.push({ name: 'Sight Reduction', total: sightRef.length, passed: sightPassed, unit: "'", errors: altErrors });
 
 // ══════════════════════════════════════════════════════════════
@@ -290,7 +314,7 @@ results.push({ name: 'Sight Reduction', total: sightRef.length, passed: sightPas
 if (fs.existsSync('lunar_dist_ref.csv')) {
   const lunarRef = parseCSV('lunar_dist_ref.csv');
   console.log(`\n${B}═══ Lunar Distance vs Skyfield (${lunarRef.length} readings) ═══${X}`);
-  const lunarErrors = [];
+  const lunarErrors = [], lunarEntries = [];
   let lunarFails = 0;
   const LUNAR_TOL = 30; // arcmin — Venus/Mars ephemeris errors dominate
 
@@ -304,6 +328,7 @@ if (fs.existsSync('lunar_dist_ref.csv')) {
       const ourDist = calc(`geocentricLunarDist(new Date('${utcStr}'), '${bodyName}')`);
       const dDist = Math.abs(ourDist - refDist) * 60; // arcmin
       lunarErrors.push(dDist);
+      lunarEntries.push({utc: utcStr, error: dDist});
       if (dDist > LUNAR_TOL) {
         lunarFails++; totalFail++;
         console.log(`  ${R}✗${X} ${bodyName} ${utcStr}: Δ=${dDist.toFixed(1)}' (ours=${ourDist.toFixed(3)}° ref=${refDist.toFixed(3)}°)`);
@@ -318,6 +343,7 @@ if (fs.existsSync('lunar_dist_ref.csv')) {
   console.log(`  ${B}Lunar distance error distribution (arcmin):${X}`);
   console.log(fmtStats(stats(lunarErrors)));
   histogram(lunarErrors, 8, "'", LUNAR_TOL);
+  decadeBreakdown(lunarEntries);
   results.push({ name: 'Lunar Distance', total: lunarRef.length, passed: lunarPassed, unit: "'", errors: lunarErrors });
 }
 
@@ -327,7 +353,7 @@ if (fs.existsSync('lunar_dist_ref.csv')) {
 if (fs.existsSync('moon_phase_ref.csv')) {
   const phaseRef = parseCSV('moon_phase_ref.csv');
   console.log(`\n${B}═══ Moon Phase vs Skyfield (${phaseRef.length} readings) ═══${X}`);
-  const phaseErrors = [];
+  const phaseErrors = [], phaseEntries = [];
   let phaseFails = 0;
   const PHASE_TOL = 5; // percent illumination
 
@@ -340,6 +366,7 @@ if (fs.existsSync('moon_phase_ref.csv')) {
       const our = calc(`moonPhase(new Date('${utcStr}'))`);
       const dIllum = Math.abs(our.illumination - refIllum);
       phaseErrors.push(dIllum);
+      phaseEntries.push({utc: utcStr, error: dIllum});
       if (dIllum > PHASE_TOL) {
         phaseFails++; totalFail++;
         console.log(`  ${R}✗${X} ${utcStr}: Δ=${dIllum.toFixed(1)}% (ours=${our.illumination.toFixed(1)}% ref=${refIllum.toFixed(1)}%)`);
@@ -354,6 +381,7 @@ if (fs.existsSync('moon_phase_ref.csv')) {
   console.log(`  ${B}Illumination error distribution (%):${X}`);
   console.log(fmtStats(stats(phaseErrors), '%'));
   histogram(phaseErrors, 6, '%', PHASE_TOL);
+  decadeBreakdown(phaseEntries, '%');
   results.push({ name: 'Moon Phase', total: phaseRef.length, passed: phasePassed, unit: '%', errors: phaseErrors });
 }
 
@@ -363,7 +391,7 @@ if (fs.existsSync('moon_phase_ref.csv')) {
 if (fs.existsSync('fix_ref.csv')) {
   const fixRef = parseCSV('fix_ref.csv');
   console.log(`\n${B}═══ End-to-End Fix (${fixRef.length} cases) ═══${X}`);
-  const fixErrors = [];
+  const fixErrors = [], fixEntries = [];
   let fixFails = 0;
   const FIX_TOL = 30; // nm — generous for simplified ephemeris
 
@@ -408,6 +436,7 @@ if (fs.existsSync('fix_ref.csv')) {
       const dLon = (fixLon - trueLon) * 60 * Math.cos(trueLat * Math.PI / 180);
       const errNm = Math.sqrt(dLat * dLat + dLon * dLon);
       fixErrors.push(errNm);
+      fixEntries.push({utc: utcStr, error: errNm});
 
       if (errNm > FIX_TOL) {
         fixFails++; totalFail++;
@@ -423,6 +452,7 @@ if (fs.existsSync('fix_ref.csv')) {
   console.log(`  ${B}Fix error distribution (nm):${X}`);
   console.log(fmtStats(stats(fixErrors), ' nm'));
   histogram(fixErrors, 8, ' nm', FIX_TOL);
+  decadeBreakdown(fixEntries, ' nm');
   results.push({ name: 'End-to-End Fix', total: fixRef.length, passed: fixPassed, unit: ' nm', errors: fixErrors });
 }
 

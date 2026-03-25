@@ -97,7 +97,7 @@ def make_star(d):
         parallax_mas=d.get('parallax', 0.0),
     )
 
-def random_date(start_year=2020, end_year=2035):
+def random_date(start_year=2000, end_year=2050):
     start = datetime(start_year, 1, 1)
     end = datetime(end_year, 12, 31)
     delta = (end - start).days * 86400

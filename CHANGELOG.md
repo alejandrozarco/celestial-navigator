@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-03-25 (v0.1.103)
+
+### Changed
+- **Wider benchmark range** — reference data now spans 2000–2050 (was 2020–2035) with 400 cases per category (2000 total). Per-decade error breakdown added to all benchmark sections. Tested 1900–2100 during development: stars hold to 0.27' across 200 years; planetary ephemeris (Standish mean elements) degrades beyond ±30 years from J2000 — Venus reaches 100'+ by 2090s.
+
 ## 2026-03-24 (v0.1.102)
 
 ### Fixed
