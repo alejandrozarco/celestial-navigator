@@ -457,6 +457,66 @@ if (fs.existsSync('fix_ref.csv')) {
 }
 
 // ══════════════════════════════════════════════════════════════
+//  TEST 6: Direct COP Fix — Gauss-Newton circle-of-position iteration
+// ══════════════════════════════════════════════════════════════
+if (fs.existsSync('fix_ref.csv')) {
+  const fixRef = parseCSV('fix_ref.csv');
+  console.log(`\n${B}═══ Direct COP Fix (${fixRef.length} cases) ═══${X}`);
+  const copErrors = [], copEntries = [];
+  let copFails = 0;
+  const COP_TOL = 30;
+
+  for (const row of fixRef) {
+    const utcStr = row.utc;
+    const trueLat = +row.true_lat;
+    const trueLon = +row.true_lon;
+    const sightData = row.sights.split('|').map(s => {
+      const [body, alt, az, dec, gha] = s.split(':');
+      return { body, alt: +alt, az: +az, dec: +dec, gha: +gha };
+    });
+
+    totalTests++;
+    try {
+      // Build fake sight objects inside sandbox, compute SHA from GHA - ghaAries
+      // Run directFix in a single calc() to keep Date objects intact
+      // CSV 'gha' column is actually SHA (360 - RA), so use directly as star.sha
+      const sightsCode = sightData.map(s => {
+        return `{star:{sha:${s.gha},dec:${s.dec},n:'${s.body}'},utc:new Date('${utcStr}'),ho:${s.alt}}`;
+      });
+      const fix = calc(`directFix([${sightsCode.join(',')}])`);
+
+      if (!fix) {
+        copFails++; totalFail++;
+        console.log(`  ${R}✗${X} ${utcStr}: directFix returned null`);
+        continue;
+      }
+
+      // directFix returns {lat, lon} directly
+      const dLat = (fix.lat - trueLat) * 60;
+      const dLon = (fix.lon - trueLon) * 60 * Math.cos(trueLat * Math.PI / 180);
+      const errNm = Math.sqrt(dLat * dLat + dLon * dLon);
+      copErrors.push(errNm);
+      copEntries.push({utc: utcStr, error: errNm});
+
+      if (errNm > COP_TOL) {
+        copFails++; totalFail++;
+        console.log(`  ${R}✗${X} ${utcStr} @ (${trueLat.toFixed(1)},${trueLon.toFixed(1)}): ${errNm.toFixed(1)} nm (${sightData.length} sights)`);
+      }
+    } catch (e) {
+      copFails++; totalFail++;
+      console.log(`  ${R}✗${X} ${utcStr}: error: ${e.message}`);
+    }
+  }
+  const copPassed = fixRef.length - copFails;
+  console.log(`\n  ${copPassed === fixRef.length ? G : Y}${copPassed}/${fixRef.length} within ${COP_TOL} nm${X}`);
+  console.log(`  ${B}Fix error distribution (nm):${X}`);
+  console.log(fmtStats(stats(copErrors), ' nm'));
+  histogram(copErrors, 8, ' nm', COP_TOL);
+  decadeBreakdown(copEntries, ' nm');
+  results.push({ name: 'Direct COP Fix', total: fixRef.length, passed: copPassed, unit: ' nm', errors: copErrors });
+}
+
+// ══════════════════════════════════════════════════════════════
 //  SUMMARY TABLE
 // ══════════════════════════════════════════════════════════════
 console.log(`\n${B}══════════════════════════════════════════════════${X}`);
