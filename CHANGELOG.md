@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-03-25 (v0.1.119)
+
+### Added
+- **Offline map** — fully offline base layer using Natural Earth 50m data (coastlines, country borders, lakes, rivers, country labels, 1251 cities), cached by service worker on first visit
+- **Lat/Lon graticule** — toggleable grid overlay with adaptive spacing, enabled by default
+- **Lakes and rivers** — 328 lakes and 447 rivers rendered on the offline map
+- **Country labels** — zoom-dependent labels with population-based filtering (large countries visible from zoom 2)
+- **City labels** — 1251 cities with zoom-dependent visibility, capitals shown in gold
+
+### Changed
+- Star Finder panel moved above LOP Plot panel in layout
+- Leaflet attribution control re-enabled with proper source credits for all tile providers
+- Service worker cache bumped to v17
+- AP marker now remains visible on map when all sights are cleared
+
+### Fixed
+- LOPs disappearing when switching to offline base layer (custom pane z-ordering)
+- Labels not updating when panning map (moved label layer out of nested layerGroup)
+
 ## 2026-03-25 (v0.1.103)
 
 ### Changed

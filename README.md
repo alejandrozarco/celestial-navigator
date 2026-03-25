@@ -54,7 +54,8 @@ A browser-based celestial navigation tool for computing position fixes from sext
 
 ### Offline
 - Progressive Web App (PWA) with service worker
-- Works offline after first visit (except map tiles)
+- Works fully offline after first visit, including offline map with Natural Earth 50m coastlines, borders, lakes, rivers, country labels, and 1251 cities
+- Toggleable lat/lon graticule overlay with adaptive grid spacing
 
 ## Getting Started
 
@@ -234,7 +235,7 @@ CHANGELOG.md            Version history
 
 | Source | Use | License |
 |--------|-----|---------|
-| [Natural Earth](https://www.naturalearthdata.com/) | Offline map (1:50m land, borders, cities) | Public domain |
+| [Natural Earth](https://www.naturalearthdata.com/) | Offline map (1:50m land, borders, lakes, rivers, cities) | Public domain |
 | [CartoDB](https://carto.com/attributions) | Dark basemap tiles | CC BY 3.0 |
 | [OpenStreetMap](https://www.openstreetmap.org/copyright) | Standard basemap tiles | ODbL |
 | [OpenSeaMap](https://www.openseamap.org/) | Nautical chart overlay | CC BY-SA 2.0 |
