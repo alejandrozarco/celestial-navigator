@@ -18,6 +18,7 @@ lunar_dist_ref.csv
 moon_phase_ref.csv
 riseset_ref.csv
 fix_ref.csv
+fix_dr_ref.csv
 
 # Ephemeris data
 *.bsp

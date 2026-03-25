@@ -373,6 +373,99 @@ with open('fix_ref.csv', 'w', newline='') as f:
     w.writerows(fix_rows)
 print(f"  → fix_ref.csv: {len(fix_rows)} cases")
 
+# ── Running fix (DR) reference — observer moves between sights ──
+import math as pymath
+
+print(f"Generating {N} running fix (DR) reference cases...")
+dr_rows = []
+
+for i in range(N):
+    dt = random_date()
+    start_lat = random.uniform(-70, 70)
+    start_lon = random.uniform(-180, 180)
+    course = random.uniform(0, 360)
+    speed = random.uniform(4, 12)  # knots
+
+    # Spread sights across 30 minutes
+    sight_offsets = sorted([random.uniform(0, 30) for _ in range(6)])  # minutes
+
+    sights = []
+    for offset_min in sight_offsets:
+        dt_sight = dt + timedelta(minutes=offset_min)
+        t = ts.utc(dt_sight.year, dt_sight.month, dt_sight.day,
+                    dt_sight.hour, dt_sight.minute, dt_sight.second)
+
+        # DR position at this sight time
+        hours = offset_min / 60
+        dlat = speed * hours * pymath.cos(pymath.radians(course)) / 60
+        dlon = speed * hours * pymath.sin(pymath.radians(course)) / (
+            60 * pymath.cos(pymath.radians(start_lat + dlat)))
+        obs_lat = start_lat + dlat
+        obs_lon = start_lon + dlon
+
+        observer = earth + Topos(latitude_degrees=obs_lat, longitude_degrees=obs_lon)
+
+        # Find visible bodies
+        candidates = []
+        for body_name, body in body_map.items():
+            obs = observer.at(t).observe(body)
+            alt, az, _ = obs.apparent().altaz()
+            if 15 < alt.degrees < 75:
+                geo = earth.at(t).observe(body).apparent()
+                ra, dec, _ = geo.radec(epoch='date')
+                sha = (360 - ra._degrees) % 360
+                candidates.append({
+                    'body': body_name,
+                    'alt_deg': round(alt.degrees, 4),
+                    'az_deg': round(az.degrees, 4),
+                    'dec_deg': round(dec.degrees, 4),
+                    'gha_deg': round(sha, 4),
+                    'offset_sec': round(offset_min * 60),
+                })
+        if candidates:
+            sights.append(random.choice(candidates))
+
+    if len(sights) >= 3:
+        # True position = position at latest sight time
+        final_offset = sight_offsets[-1]
+        hours = final_offset / 60
+        dlat = speed * hours * pymath.cos(pymath.radians(course)) / 60
+        dlon = speed * hours * pymath.sin(pymath.radians(course)) / (
+            60 * pymath.cos(pymath.radians(start_lat + dlat)))
+        true_lat = start_lat + dlat
+        true_lon = start_lon + dlon
+
+        dt_start = dt + timedelta(minutes=sight_offsets[0])
+        dt_end = dt + timedelta(minutes=sight_offsets[-1])
+        t_start = ts.utc(dt_start.year, dt_start.month, dt_start.day,
+                         dt_start.hour, dt_start.minute, dt_start.second)
+        t_end = ts.utc(dt_end.year, dt_end.month, dt_end.day,
+                       dt_end.hour, dt_end.minute, dt_end.second)
+
+        sights_str = '|'.join(
+            f"{s['body']}:{s['alt_deg']}:{s['az_deg']}:{s['dec_deg']}:{s['gha_deg']}:{s['offset_sec']}"
+            for s in sights
+        )
+        dr_rows.append({
+            'utc_start': t_start.utc_iso(),
+            'utc_end': t_end.utc_iso(),
+            'true_lat': round(true_lat, 5),
+            'true_lon': round(true_lon, 5),
+            'course': round(course, 1),
+            'speed': round(speed, 1),
+            'num_sights': len(sights),
+            'sights': sights_str,
+        })
+
+with open('fix_dr_ref.csv', 'w', newline='') as f:
+    w = csv.DictWriter(f, fieldnames=[
+        'utc_start', 'utc_end', 'true_lat', 'true_lon',
+        'course', 'speed', 'num_sights', 'sights',
+    ])
+    w.writeheader()
+    w.writerows(dr_rows)
+print(f"  → fix_dr_ref.csv: {len(dr_rows)} cases")
+
 print("\nDone. Reference data generated from Skyfield + JPL DE440s.")
 sys.stdout.flush()
 

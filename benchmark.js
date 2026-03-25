@@ -593,6 +593,93 @@ if (fs.existsSync('fix_ref.csv')) {
 }
 
 // ══════════════════════════════════════════════════════════════
+//  TEST: Running Fix / DR — observer moves between sights
+// ══════════════════════════════════════════════════════════════
+if (fs.existsSync('fix_dr_ref.csv')) {
+  const drRef = parseCSV('fix_dr_ref.csv');
+  console.log(`\n${B}═══ Running Fix / DR (${drRef.length} cases) ═══${X}`);
+  const drErrors = [], drEntries = [];
+  let drFails = 0;
+  const DR_TOL = 30;
+
+  for (const row of drRef) {
+    const utcEnd = row.utc_end;
+    const trueLat = +row.true_lat;
+    const trueLon = +row.true_lon;
+    const course = +row.course;
+    const speed = +row.speed;
+    const sightData = row.sights.split('|').map(s => {
+      const parts = s.split(':');
+      return {
+        body: parts[0], alt: +parts[1], az: +parts[2],
+        dec: +parts[3], gha: +parts[4], offsetSec: +parts[5],
+      };
+    });
+
+    totalTests++;
+    try {
+      const startMs = new Date(row.utc_start).getTime();
+      const firstOffsetSec = sightData[0].offsetSec;
+
+      // Build LOPs with individual UTC timestamps, then advance and fix — all in one calc()
+      // offsetSec is relative to the base time dt, and utc_start = dt + first offset,
+      // so sight UTC = startMs + (offsetSec - firstOffsetSec) * 1000
+      const lopsCode = sightData.map(s => {
+        const sightMs = startMs + (s.offsetSec - firstOffsetSec) * 1000;
+        const isBody = ['Sun','Moon','Venus','Mars','Jupiter','Saturn'].includes(s.body);
+        return `(function(){
+          const utc=new Date(${sightMs});
+          ${isBody
+            ? (s.body === 'Sun' ? `const pos=solarPosition(utc);` :
+               s.body === 'Moon' ? `const pos=moonPosition(utc);` :
+               `const pos=planetPosition('${s.body}',utc);`)
+            : `const raw=STARS.find(s=>s.n==='${s.body}');
+               const pos=precessStar(raw,utc);`
+          }
+          const ghaA=ghaAries(utc);
+          const ghaSt=mod360(ghaA+(pos.sha||mod360(360-pos.ra)));
+          const lha=mod360(ghaSt+${trueLon});
+          const r=reduce(${trueLat},pos.dec,lha);
+          return{intercept:(${s.alt}-r.Hc)*60, azimuth:r.Zn, utc:utc, Zn:r.Zn};
+        })()`;
+      });
+
+      // Single calc: build LOPs, advance for DR, then LS fix
+      const fullCode = `(function(){
+        const lops=[${lopsCode.join(',')}];
+        const adv=advanceLops(lops,${course},${speed});
+        return lsFix(adv);
+      })()`;
+      const fix = calc(fullCode);
+
+      const fixLat = trueLat + fix.dy / 60;
+      const fixLon = trueLon + fix.dx / (60 * Math.cos(trueLat * Math.PI / 180));
+
+      const dLat = (fixLat - trueLat) * 60;
+      const dLon = (fixLon - trueLon) * 60 * Math.cos(trueLat * Math.PI / 180);
+      const errNm = Math.sqrt(dLat * dLat + dLon * dLon);
+      drErrors.push(errNm);
+      drEntries.push({utc: utcEnd, error: errNm});
+
+      if (errNm > DR_TOL) {
+        drFails++; totalFail++;
+        console.log(`  ${R}✗${X} ${utcEnd} @ (${trueLat.toFixed(1)},${trueLon.toFixed(1)}): ${errNm.toFixed(1)} nm (${sightData.length} sights, ${course.toFixed(0)}°T ${speed}kn)`);
+      }
+    } catch (e) {
+      drFails++; totalFail++;
+      console.log(`  ${R}✗${X} ${utcEnd}: error: ${e.message}`);
+    }
+  }
+  const drPassed = drRef.length - drFails;
+  console.log(`\n  ${drPassed === drRef.length ? G : Y}${drPassed}/${drRef.length} within ${DR_TOL} nm${X}`);
+  console.log(`  ${B}Fix error distribution (nm):${X}`);
+  console.log(fmtStats(stats(drErrors), ' nm'));
+  histogram(drErrors, 8, ' nm', DR_TOL);
+  decadeBreakdown(drEntries, ' nm');
+  results.push({ name: 'Running Fix (DR)', total: drRef.length, passed: drPassed, unit: ' nm', errors: drErrors });
+}
+
+// ══════════════════════════════════════════════════════════════
 //  SUMMARY TABLE
 // ══════════════════════════════════════════════════════════════
 console.log(`\n${B}══════════════════════════════════════════════════${X}`);
