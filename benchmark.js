@@ -118,6 +118,7 @@ function histogram(errors, numBins, unit = "'", tol = null) {
 
 // Track results per category for summary table
 const results = [];
+let geoData = [];
 
 // Per-decade breakdown helper
 function decadeBreakdown(entries, unit = "'") {
@@ -138,6 +139,17 @@ function decadeBreakdown(entries, unit = "'") {
     const dp = s.max < 0.1 ? 4 : s.max < 1 ? 3 : 2;
     console.log(`    ${k}: n=${String(s.n).padStart(4)}  mean=${s.mean.toFixed(dp).padStart(7)}${unit}  p90=${s.p90.toFixed(dp).padStart(7)}${unit}  max=${s.max.toFixed(dp).padStart(7)}${unit}`);
   }
+}
+
+function azimuthSpread(azimuths) {
+  if (azimuths.length < 2) return 0;
+  const sorted = [...azimuths].sort((a, b) => a - b);
+  let maxGap = 0;
+  for (let i = 1; i < sorted.length; i++) {
+    maxGap = Math.max(maxGap, sorted[i] - sorted[i - 1]);
+  }
+  maxGap = Math.max(maxGap, 360 - sorted[sorted.length - 1] + sorted[0]);
+  return 360 - maxGap;
 }
 
 // ANSI colors
@@ -438,6 +450,9 @@ if (fs.existsSync('fix_ref.csv')) {
       fixErrors.push(errNm);
       fixEntries.push({utc: utcStr, error: errNm});
 
+      const azimuths = lops.map(l => l.azimuth);
+      geoData.push({ spread: azimuthSpread(azimuths), error: errNm });
+
       if (errNm > FIX_TOL) {
         fixFails++; totalFail++;
         console.log(`  ${R}✗${X} ${utcStr} @ (${trueLat},${trueLon}): ${errNm.toFixed(1)} nm (${sightData.length} sights)`);
@@ -699,5 +714,27 @@ if (totalFail === 0) {
   console.log(`  ${totalFail <= totalTests * 0.05 ? Y : R}TOTAL: ${totalTests - totalFail}/${totalTests} passed (${totalPct}%)${X}`);
 }
 console.log();
+
+if (geoData.length > 0) {
+  console.log(`${B}Geometry analysis (LS fix — azimuth spread vs fix error):${X}`);
+  const buckets = [
+    { label: '< 90°', min: 0, max: 90 },
+    { label: '90°-150°', min: 90, max: 150 },
+    { label: '150°-240°', min: 150, max: 240 },
+    { label: '> 240°', min: 240, max: 361 },
+  ];
+  console.log(`  ${'Spread'.padEnd(12)} ${'n'.padStart(5)}  ${'Mean'.padStart(8)}  ${'P90'.padStart(8)}  ${'Max'.padStart(8)}`);
+  console.log(`  ${'─'.repeat(48)}`);
+  for (const b of buckets) {
+    const errs = geoData.filter(g => g.spread >= b.min && g.spread < b.max).map(g => g.error);
+    if (errs.length === 0) {
+      console.log(`  ${b.label.padEnd(12)} ${String(0).padStart(5)}       -         -         -`);
+      continue;
+    }
+    const s = stats(errs);
+    console.log(`  ${b.label.padEnd(12)} ${String(errs.length).padStart(5)}  ${s.mean.toFixed(1).padStart(6)} nm  ${s.p90.toFixed(1).padStart(6)} nm  ${s.max.toFixed(1).padStart(6)} nm`);
+  }
+  console.log();
+}
 
 process.exit(totalFail > 0 ? 1 : 0);
