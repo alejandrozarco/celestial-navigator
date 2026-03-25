@@ -1,8 +1,9 @@
-const CACHE_NAME = 'celnav-v16';
+const CACHE_NAME = 'celnav-v17';
 const ASSETS = [
   './',
   'index.html',
   'almanac.html',
+  'coastline.js',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
   'https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Share+Tech+Mono&family=Crimson+Pro:ital,wght@0,300;0,400;1,300&display=swap',
