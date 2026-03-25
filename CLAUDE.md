@@ -19,7 +19,7 @@ No build, lint, or compile steps. Open `index.html` directly in a browser.
 
 **Two self-contained HTML files with intentionally duplicated computation code:**
 
-- `index.html` (~3400 lines) — Main app: sight entry, fix computation, LOP plot, Leaflet map, sky chart. All JS/CSS inline.
+- `index.html` (~3800 lines) — Main app: sight entry, fix computation, LOP plot, Leaflet map, sky chart. All JS/CSS inline.
 - `almanac.html` — Companion page: generates daily almanac tables (GHA, Dec, rise/set times). Duplicates core astronomical functions from index.html by design.
 
 **Computation pipeline (both files share these functions):**
@@ -29,7 +29,7 @@ No build, lint, or compile steps. Open `index.html` directly in a browser.
 - `lsFix()` / `directFix()` — Position fix (least-squares intercept or Gauss-Newton COP iteration)
 
 **Supporting files:**
-- `sw.js` — Service worker (cache-first PWA, version `celnav-v14`)
+- `sw.js` — Service worker (cache-first PWA, version `celnav-v15`)
 - `manifest.json` — PWA manifest
 - `test-navigator.js` — Node.js test harness: extracts `<script>` from index.html, creates browser stubs, runs in VM sandbox. Tests validate against JPL Horizons, Air Almanac 2026, and Nautical Almanac reference data.
 
