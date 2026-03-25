@@ -223,11 +223,26 @@ test-navigator.js       Navigator test suite (203 tests)
 test-almanac-page.js    Almanac test suite (97 tests)
 bench.py                Skyfield/DE440s reference data generator
 benchmark.js            Benchmark runner (5000 cases, 10 categories)
+coastline.js            Offline map data (land, borders, cities)
 manifest.json           PWA manifest
 sw.js                   Service worker for offline support
 screenshots/            README screenshots
 CHANGELOG.md            Version history
 ```
+
+## Acknowledgements
+
+| Source | Use | License |
+|--------|-----|---------|
+| [Natural Earth](https://www.naturalearthdata.com/) | Offline map (1:50m land, borders, cities) | Public domain |
+| [CartoDB](https://carto.com/attributions) | Dark basemap tiles | CC BY 3.0 |
+| [OpenStreetMap](https://www.openstreetmap.org/copyright) | Standard basemap tiles | ODbL |
+| [OpenSeaMap](https://www.openseamap.org/) | Nautical chart overlay | CC BY-SA 2.0 |
+| [Esri](https://www.esri.com/) | Satellite imagery tiles | Free for display |
+| [Leaflet](https://leafletjs.com/) | Map framework | BSD-2-Clause |
+| VSOP87, Hipparcos | Ephemeris & star catalog | Public domain |
+| [NASA/JPL Horizons](https://ssd.jpl.nasa.gov/horizons/) | Validation reference | Public domain |
+| [Skyfield](https://rhodesmill.org/skyfield/) + JPL DE440s | Benchmark reference | MIT / Public domain |
 
 ## License
 
