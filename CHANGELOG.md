@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-03-25 (v0.1.120)
+
+### Fixed
+- **Direct COP fix hemisphere disambiguation** — `linearSeed` now picks the 2-circle intersection candidate closest to the assumed position instead of always selecting the northernmost. Fixes incorrect fix selection for southern-hemisphere navigators.
+
+### Changed
+- Added full Standish paper citation to `PLANET_ELEMS` source comment
+
 ## 2026-03-25 (v0.1.119)
 
 ### Added
