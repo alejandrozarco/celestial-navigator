@@ -654,6 +654,8 @@ function solarPosition(date){
 }
 
 // Planetary positions — Meeus low-precision using Standish (1992) mean elements
+// Source: E.M. Standish, "Keplerian Elements for Approximate Positions of the
+//         Major Planets", Solar System Dynamics Group, JPL/Caltech
 // Supports Venus, Mars, Jupiter, Saturn (~1-5' accuracy)
 const PLANET_ELEMS={
   // [L0 deg, Ldot deg/cy, a AU, e0, edot /cy, i0 deg, idot deg/cy, Om0 deg, Omdot deg/cy, pomega0 deg, pomegadot deg/cy]
@@ -1221,7 +1223,7 @@ function angDist(lat1,lon1,lat2,lon2){
 }
 
 // Initial guess via linear Cartesian solve (for seeding the iterator)
-function linearSeed(cops){
+function linearSeed(cops,hint){
   const n=cops.length;
   const G=[],b=[];
   for(const c of cops){
@@ -1250,8 +1252,12 @@ function linearSeed(cops){
       const x=pp[0]+tt*dir[0],y=pp[1]+tt*dir[1],z=pp[2]+tt*dir[2];
       return{lat:Math.asin(Math.max(-1,Math.min(1,z)))*D,lon:Math.atan2(y,x)*D};
     });
-    // Pick northern hemisphere candidate (most nav happens there)
-    cands.sort((a,b)=>b.lat-a.lat);
+    // Pick candidate closest to hint position, or northernmost if no hint
+    if(hint){
+      cands.sort((a,b)=>angDist(hint.lat,hint.lon,a.lat,a.lon)-angDist(hint.lat,hint.lon,b.lat,b.lon));
+    }else{
+      cands.sort((a,b)=>b.lat-a.lat);
+    }
     return cands[0];
   }
   // n>=3: least squares
@@ -1278,14 +1284,14 @@ function linearSeed(cops){
 }
 
 // Gauss-Newton iteration on sphere: minimize sum of (angDist - zenithDist)^2
-function directFix(sights){
+function directFix(sights,hint){
   const cops=sights.map(sightToCOP);
   const n=cops.length;
   if(n<2)return null;
 
-  // Get initial guess from linear solve
-  let fix=linearSeed(cops);
-  if(!fix) fix={lat:45,lon:0}; // fallback
+  // Get initial guess from linear solve (hint = AP for disambiguation)
+  let fix=linearSeed(cops,hint);
+  if(!fix) fix=hint||{lat:45,lon:0}; // fallback
 
   // Iterate: Gauss-Newton in (lat,lon) space
   for(let iter=0;iter<20;iter++){
@@ -2309,7 +2315,7 @@ function renderFix(){
       updateFixMap(null,null,null,null);
       return;
     }
-    const fix=directFix(copSights);
+    const fix=directFix(copSights,readAP());
     if(!fix){
       out.innerHTML='<div class="empty">Could not compute direct fix \u2014 circles may not intersect</div>';
       state.directFix=null;
@@ -2483,7 +2489,7 @@ function renderFix(){
   // Always compute direct fix for LOP plot overlay (before updateFixMap so map can show it)
   const copSightsForPlot=state.sights.filter(s=>s.star||s.mode==='polaris');
   if(copSightsForPlot.length>=2){
-    state.directFix=directFix(copSightsForPlot);
+    state.directFix=directFix(copSightsForPlot,readAP());
   }else{
     state.directFix=null;
   }
@@ -3372,7 +3378,7 @@ function exportGPX(){
   let lat=null,lon=null;
   if(state.fixMethod==='direct'){
     const copSights=state.sights.filter(s=>s.star||s.mode==='polaris');
-    if(copSights.length>=2){const fix=directFix(copSights);if(fix){lat=fix.lat;lon=fix.lon;}}
+    if(copSights.length>=2){const fix=directFix(copSights,readAP());if(fix){lat=fix.lat;lon=fix.lon;}}
   }else if(iSights.length){
     const ap=iSights[0].ap;
     const drOn=state.drEnabled&&state.drSpeed>0;
