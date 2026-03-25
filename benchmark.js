@@ -517,6 +517,82 @@ if (fs.existsSync('fix_ref.csv')) {
 }
 
 // ══════════════════════════════════════════════════════════════
+//  TESTS: Noisy Fix — LS fix with simulated sextant error
+// ══════════════════════════════════════════════════════════════
+if (fs.existsSync('fix_ref.csv')) {
+  const fixRef = parseCSV('fix_ref.csv');
+  const noiseLevels = [
+    { key: 'sights_noise_05', label: "Fix (\u03c3=0.5')", tol: 30 },
+    { key: 'sights_noise_10', label: "Fix (\u03c3=1.0')", tol: 50 },
+    { key: 'sights_noise_20', label: "Fix (\u03c3=2.0')", tol: 80 },
+  ];
+
+  for (const nl of noiseLevels) {
+    if (!fixRef[0][nl.key]) continue;
+    console.log(`\n${B}═══ ${nl.label} (${fixRef.length} cases) ═══${X}`);
+    const nErrors = [], nEntries = [];
+    let nFails = 0;
+
+    for (const row of fixRef) {
+      const utcStr = row.utc;
+      const trueLat = +row.true_lat;
+      const trueLon = +row.true_lon;
+      const sightData = row[nl.key].split('|').map(s => {
+        const [body, alt, az, dec, gha] = s.split(':');
+        return { body, alt: +alt, az: +az, dec: +dec, gha: +gha };
+      });
+
+      totalTests++;
+      try {
+        // Same LS fix logic as the clean test
+        const lopsCode = sightData.map(s => {
+          const isBody = ['Sun','Moon','Venus','Mars','Jupiter','Saturn'].includes(s.body);
+          return `(function(){
+            const utc=new Date('${utcStr}');
+            ${isBody
+              ? (s.body === 'Sun' ? `const pos=solarPosition(utc);` :
+                 s.body === 'Moon' ? `const pos=moonPosition(utc);` :
+                 `const pos=planetPosition('${s.body}',utc);`)
+              : `const raw=STARS.find(s=>s.n==='${s.body}');
+                 const pos=precessStar(raw,utc);`
+            }
+            const ghaA=ghaAries(utc);
+            const ghaSt=mod360(ghaA+(pos.sha||mod360(360-pos.ra)));
+            const lha=mod360(ghaSt+${trueLon});
+            const r=reduce(${trueLat},pos.dec,lha);
+            return{intercept:(${s.alt}-r.Hc)*60, azimuth:r.Zn};
+          })()`;
+        });
+
+        const lops = calc(`[${lopsCode.join(',')}]`);
+        const fix = calc(`lsFix(${JSON.stringify(lops)})`);
+        const fixLat = trueLat + fix.dy / 60;
+        const fixLon = trueLon + fix.dx / (60 * Math.cos(trueLat * Math.PI / 180));
+
+        const dLat = (fixLat - trueLat) * 60;
+        const dLon = (fixLon - trueLon) * 60 * Math.cos(trueLat * Math.PI / 180);
+        const errNm = Math.sqrt(dLat * dLat + dLon * dLon);
+        nErrors.push(errNm);
+        nEntries.push({utc: utcStr, error: errNm});
+
+        if (errNm > nl.tol) {
+          nFails++; totalFail++;
+        }
+      } catch (e) {
+        nFails++; totalFail++;
+      }
+    }
+    const nPassed = fixRef.length - nFails;
+    console.log(`\n  ${nPassed === fixRef.length ? G : Y}${nPassed}/${fixRef.length} within ${nl.tol} nm${X}`);
+    console.log(`  ${B}Fix error distribution (nm):${X}`);
+    console.log(fmtStats(stats(nErrors), ' nm'));
+    histogram(nErrors, 8, ' nm', nl.tol);
+    decadeBreakdown(nEntries, ' nm');
+    results.push({ name: nl.label, total: fixRef.length, passed: nPassed, unit: ' nm', errors: nErrors });
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
 //  SUMMARY TABLE
 // ══════════════════════════════════════════════════════════════
 console.log(`\n${B}══════════════════════════════════════════════════${X}`);

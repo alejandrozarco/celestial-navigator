@@ -344,16 +344,31 @@ for i in range(N):
     sights = sights[:min(6, len(sights))]
 
     if len(sights) >= 3:
+        # Generate noisy altitude sets
+        noise_levels = [0.5, 1.0, 2.0]  # arcmin sigma
+        noisy_sights = {}
+        for sigma in noise_levels:
+            key = f"sights_noise_{str(sigma).replace('.','')}"
+            noisy = []
+            for s in sights:
+                noisy_alt = s['alt_deg'] + random.gauss(0, sigma / 60)  # arcmin -> degrees
+                noisy.append(f"{s['body']}:{round(noisy_alt,4)}:{s['az_deg']}:{s['dec_deg']}:{s['gha_deg']}")
+            noisy_sights[key] = '|'.join(noisy)
+
         fix_rows.append({
             'utc': t.utc_iso(),
             'true_lat': true_lat,
             'true_lon': true_lon,
             'num_sights': len(sights),
             'sights': '|'.join(f"{s['body']}:{s['alt_deg']}:{s['az_deg']}:{s['dec_deg']}:{s['gha_deg']}" for s in sights),
+            **noisy_sights,
         })
 
 with open('fix_ref.csv', 'w', newline='') as f:
-    w = csv.DictWriter(f, fieldnames=['utc', 'true_lat', 'true_lon', 'num_sights', 'sights'])
+    w = csv.DictWriter(f, fieldnames=[
+        'utc', 'true_lat', 'true_lon', 'num_sights', 'sights',
+        'sights_noise_05', 'sights_noise_10', 'sights_noise_20',
+    ])
     w.writeheader()
     w.writerows(fix_rows)
 print(f"  → fix_ref.csv: {len(fix_rows)} cases")
