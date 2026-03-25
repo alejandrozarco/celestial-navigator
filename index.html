@@ -3638,56 +3638,87 @@ function initFixMap(){
       L.marker([lt,lon],{interactive:false,icon:L.divIcon({html:`<span style="${labelStyle}">${lbl}</span>`,className:'',iconSize:[50,14],iconAnchor:[0,0]})}).addTo(graticuleLayer);
     }
   }
-  fixMap.on('moveend zoomend',drawGraticule);
+  graticuleLayer.addTo(fixMap);
+  fixMap.on('moveend',drawGraticule);
+  fixMap.on('zoomend',drawGraticule);
+  drawGraticule();
 
-  // Offline coastline base layer
+  // Offline coastline base layer — use custom pane below overlays
+  fixMap.createPane('offlineBase');
+  fixMap.getPane('offlineBase').style.zIndex=250;
   const offlineBase=L.layerGroup();
   // Ocean background — lighter shade like CartoDB dark water
   const oceanBg=L.rectangle([[-90,-180],[90,180]],{
-    fillColor:'#2b3345',fillOpacity:1,stroke:false,interactive:false
+    fillColor:'#2b3345',fillOpacity:1,stroke:false,interactive:false,pane:'offlineBase'
   });
   oceanBg.addTo(offlineBase);
   if(typeof COASTLINE_DATA!=='undefined'){
     L.geoJSON(COASTLINE_DATA,{
-      style:{fillColor:'#1a1c25',fillOpacity:1,color:'#3a4060',weight:0.6,interactive:false}
+      style:{fillColor:'#1a1c25',fillOpacity:1,color:'#3a4060',weight:0.6,interactive:false},pane:'offlineBase'
+    }).addTo(offlineBase);
+  }
+  // Lakes — same fill as ocean (water)
+  if(typeof LAKE_DATA!=='undefined'){
+    L.geoJSON(LAKE_DATA,{
+      style:{fillColor:'#2b3345',fillOpacity:1,color:'#3a4060',weight:0.5,interactive:false},pane:'offlineBase'
+    }).addTo(offlineBase);
+  }
+  // Rivers
+  if(typeof RIVER_DATA!=='undefined'){
+    L.geoJSON(RIVER_DATA,{
+      style:{color:'#3a5f78',weight:0.8,opacity:0.4,interactive:false},pane:'offlineBase'
     }).addTo(offlineBase);
   }
   if(typeof BORDER_DATA!=='undefined'){
     L.geoJSON(BORDER_DATA,{
-      style:{color:'#4a5070',weight:0.8,opacity:0.6,dashArray:'4,3',interactive:false}
+      style:{color:'#4a5070',weight:0.8,opacity:0.6,dashArray:'4,6',interactive:false},pane:'offlineBase'
     }).addTo(offlineBase);
   }
-  // City labels — zoom-dependent visibility
-  let cityLayer=null;
-  if(typeof CITY_DATA!=='undefined'){
-    cityLayer=L.layerGroup();
-    function updateCities(){
-      cityLayer.clearLayers();
+  // Country + city labels — zoom-dependent, added directly to map
+  const labelData=[];
+  if(typeof COUNTRY_LABEL_DATA!=='undefined') labelData.push(...COUNTRY_LABEL_DATA.features.map(f=>({...f.properties,type:'country',coords:f.geometry.coordinates})));
+  if(typeof CITY_DATA!=='undefined') labelData.push(...CITY_DATA.features.map(f=>({...f.properties,type:'city',coords:f.geometry.coordinates})));
+  if(labelData.length){
+    const labelLayer=L.layerGroup().addTo(fixMap);
+    function updateLabels(){
+      labelLayer.clearLayers();
       if(!fixMap.hasLayer(offlineBase))return;
       const z=fixMap.getZoom();
-      if(z<3)return;
       const bounds=fixMap.getBounds();
-      // Filter by zoom: capitals+large cities at low zoom, all at high zoom
-      const minPop=z>=8?0:z>=6?100000:z>=4?500000:1000000;
-      CITY_DATA.features.forEach(f=>{
-        const p=f.properties;
-        const c=f.geometry.coordinates;
-        if(p.pop<minPop&&!(p.cap&&z>=4))return;
+      labelData.forEach(f=>{
+        const c=f.coords;
         if(!bounds.contains([c[1],c[0]]))return;
-        const size=p.cap?'11px':'10px';
-        const color=p.cap?'#c8a84b':'#8090a8';
-        const weight=p.cap?'600':'400';
-        const dot=p.cap?'background:#c8a84b;width:4px;height:4px':'background:#6878a0;width:3px;height:3px';
-        const icon=L.divIcon({
-          html:`<div style="display:flex;align-items:center;gap:3px"><div style="${dot};border-radius:50%;flex-shrink:0"></div><span style="font:${weight} ${size} 'Share Tech Mono';color:${color};white-space:nowrap;text-shadow:0 0 4px #0a0e1a,0 0 8px #0a0e1a,1px 1px 2px #0a0e1a">${p.n}</span></div>`,
-          className:'',iconSize:[0,0],iconAnchor:[-4,6]
-        });
-        L.marker([c[1],c[0]],{icon,interactive:false}).addTo(cityLayer);
+        if(f.type==='country'){
+          const big=f.pop>50000000;
+          const mid=f.pop>10000000;
+          if(z<2)return;
+          if(z<3&&!big)return;
+          if(z<4&&!mid&&!big)return;
+          const size=big?'12px':'10px';
+          const icon=L.divIcon({
+            html:`<span style="font:${size} 'Cinzel';color:rgba(180,170,150,0.5);white-space:nowrap;text-shadow:0 0 4px #0a0e1a;letter-spacing:2px;text-transform:uppercase">${f.n}</span>`,
+            className:'',iconSize:[0,0],iconAnchor:[0,6]
+          });
+          L.marker([c[1],c[0]],{icon,interactive:false}).addTo(labelLayer);
+        } else {
+          if(z<3)return;
+          const minPop=z>=8?0:z>=6?100000:z>=4?500000:1000000;
+          if(f.pop<minPop&&!(f.cap&&z>=4))return;
+          const size=f.cap?'11px':'10px';
+          const color=f.cap?'#c8a84b':'#8090a8';
+          const weight=f.cap?'600':'400';
+          const dot=f.cap?'background:#c8a84b;width:4px;height:4px':'background:#6878a0;width:3px;height:3px';
+          const icon=L.divIcon({
+            html:`<div style="display:flex;align-items:center;gap:3px"><div style="${dot};border-radius:50%;flex-shrink:0"></div><span style="font:${weight} ${size} 'Share Tech Mono';color:${color};white-space:nowrap;text-shadow:0 0 4px #0a0e1a,0 0 8px #0a0e1a,1px 1px 2px #0a0e1a">${f.n}</span></div>`,
+            className:'',iconSize:[0,0],iconAnchor:[-4,6]
+          });
+          L.marker([c[1],c[0]],{icon,interactive:false}).addTo(labelLayer);
+        }
       });
     }
-    cityLayer.addTo(offlineBase);
-    fixMap.on('moveend zoomend',updateCities);
-    fixMap.on('baselayerchange',function(){setTimeout(updateCities,100);});
+    fixMap.on('moveend',updateLabels);
+    fixMap.on('zoomend',updateLabels);
+    fixMap.on('baselayerchange',function(){setTimeout(updateLabels,100);});
   }
 
   L.control.layers({
@@ -3739,6 +3770,7 @@ function initFixMap(){
   apMarker=L.marker([0,0],{icon:apIcon}).addTo(fixMap);
   apMarker.setOpacity(0);
   lopLayerGroup=L.layerGroup().addTo(fixMap);
+
 }
 
 // Draw LOPs on the Leaflet map
