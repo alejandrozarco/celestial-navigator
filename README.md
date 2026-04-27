@@ -2,7 +2,7 @@
 
 A browser-based celestial navigation tool for computing position fixes from sextant observations. No server required — runs entirely in the browser as a single HTML file.
 
-**[Live App](https://alexanderkeur-del.github.io/celestial-navigator/)** | **[Almanac Generator](https://alexanderkeur-del.github.io/celestial-navigator/almanac.html)**
+**[Live App](https://alejandrozarco.github.io/celestial-navigator/)** | **[Almanac Generator](https://alejandrozarco.github.io/celestial-navigator/almanac.html)**
 
 ![Celestial Navigator — Strait of Magellan Fix](screenshots/demo-fix-map.png)
 
@@ -59,7 +59,7 @@ A browser-based celestial navigation tool for computing position fixes from sext
 
 ## Getting Started
 
-Open `index.html` in any modern browser. No build step, no dependencies to install. Or visit the **[live app](https://alexanderkeur-del.github.io/celestial-navigator/)** directly.
+Open `index.html` in any modern browser. No build step, no dependencies to install. Or visit the **[live app](https://alejandrozarco.github.io/celestial-navigator/)** directly.
 
 ### Quick Tutorial
 
@@ -98,7 +98,7 @@ Sessions auto-save to localStorage and restore on next visit. Use **Export JSON*
 
 ## Almanac Generator
 
-The included [almanac page](https://alexanderkeur-del.github.io/celestial-navigator/almanac.html) generates daily almanac data for any date, similar to the official Air Almanac or Nautical Almanac. Use it to:
+The included [almanac page](https://alejandrozarco.github.io/celestial-navigator/almanac.html) generates daily almanac data for any date, similar to the official Air Almanac or Nautical Almanac. Use it to:
 
 - **Verify computations** &mdash; cross-check GHA and Dec values used by the navigator
 - **Plan observations** &mdash; find sunrise/sunset and twilight times for your latitude
