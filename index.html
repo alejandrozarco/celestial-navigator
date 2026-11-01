@@ -187,7 +187,7 @@ canvas#skyPlot:active{cursor:grabbing}
 
 <header>
   <div>
-    <h1 style="display:inline">&#10022; CELESTIAL NAVIGATOR</h1> <span style="font-family:var(--mono);font-size:10px;color:rgba(200,168,75,0.4);letter-spacing:1.5px;vertical-align:middle;margin-left:8px">v0.1.122 &middot; 2026-11-01</span>
+    <h1 style="display:inline">&#10022; CELESTIAL NAVIGATOR</h1> <span style="font-family:var(--mono);font-size:10px;color:rgba(200,168,75,0.4);letter-spacing:1.5px;vertical-align:middle;margin-left:8px">v0.1.123 &middot; 2026-11-01</span>
     <div class="hdr-sub">SIGHT REDUCTION &middot; FIX COMPUTATION &middot; SUN &middot; MOON &middot; PLANETS &middot; 58 STARS</div>
     <div class="hdr-motto"><em>Seguendo il corso del sole</em></div>
   </div>
@@ -251,6 +251,34 @@ canvas#skyPlot:active{cursor:grabbing}
       <div class="fr dr-row hidden" id="drFields">
         <label>CRS</label><input type="number" id="drCourse" value="0" min="0" max="359" class="w52"><span class="unit">°T</span>
         <label style="margin-left:8px">SPD</label><input type="number" id="drSpeed" value="6" min="0" step="0.5" class="w52"><span class="unit">kn</span>
+      </div>
+    </div>
+
+    <!-- Check sights against a known (GPS) position -->
+    <div class="section" id="gpsSection">
+      <div class="fr dr-row">
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="gpsEnable"> Check vs GPS (expected Hs)</label>
+      </div>
+      <div id="gpsFields" class="hidden">
+        <div class="fr">
+          <label>LAT</label>
+          <input type="number" id="gpsLatD" placeholder="45" min="-90" max="90" class="w40">
+          <span class="unit">&deg;</span>
+          <input type="number" id="gpsLatM" placeholder="00.0" min="0" max="59.9" step="0.1" class="w52">
+          <span class="unit">'</span>
+          <button type="button" id="gpsLatH" class="dir-toggle" value="N" onclick="toggleDir(this,'N','S')">N</button>
+        </div>
+        <div class="fr">
+          <label>LON</label>
+          <input type="number" id="gpsLonD" placeholder="0" min="0" max="180" class="w40">
+          <span class="unit">&deg;</span>
+          <input type="number" id="gpsLonM" placeholder="00.0" min="0" max="59.9" step="0.1" class="w52">
+          <span class="unit">'</span>
+          <button type="button" id="gpsLonH" class="dir-toggle" onclick="toggleDir(this,'W','E')">W</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="copyApToGps()" title="Copy the assumed position">USE AP</button>
+        </div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--tx3);line-height:1.5;margin:4px 0">Enter where you really were. Each sight then shows the Hs you should have read, and the session is split into sextant offset, clock error and scatter.</div>
+        <div id="gpsSummary" class="fix-detail"></div>
       </div>
     </div>
 
@@ -1063,6 +1091,76 @@ function polarisGeom(lhaAriesDeg,utc){
   return {lhaP:mod360(lhaAriesDeg+p.sha),dec:p.dec,sha:p.sha,pDist:(90-p.dec)*60};
 }
 
+// ── Check vs known position ──
+// Given where the observer really was, work out the sextant reading (Hs) they
+// should have got, and how much of the difference a clock error explains.
+
+// Body position for a logged sight (Polaris sights store no star object)
+function sightBody(s){
+  if(s.star)return s.star;
+  if(s.mode==='polaris'){
+    const p=precessStar(STARS.find(x=>x.n==='Polaris'),s.utc);
+    return{n:'Polaris',sha:p.sha,dec:p.dec};
+  }
+  return null;
+}
+
+// Invert correct(): the Hs that this sight's IE, dip, limb and parallax turn into hoTarget
+function hsForHo(hoTarget,s){
+  const b=sightBody(s)||{},bt=b.bodyType||null;
+  const HP=bt==='moon'?b.HP:bt==='sun'?0.15:0;
+  const SD=bt==='moon'?b.SD:bt==='sun'?16.0:0;
+  let hs=hoTarget;
+  for(let i=0;i<20;i++){ // dHo/dHs ≈ 1, so this converges in a few steps
+    const d=hoTarget-correct(hs,s.ie||0,s.dipC||0,bt,HP,SD,s.limb).ho;
+    hs+=d;
+    if(Math.abs(d)<1e-8)break;
+  }
+  return hs;
+}
+
+// GHA rate of each body type, degrees per hour (stars: sidereal)
+const GHA_RATE={sun:15.0,moon:14.49};
+
+// Per-sight check → {Hc, Zn, hsExp, dHs (arcmin, + = read too high),
+//   rate (arcmin/s altitude change), clockErr (s, + = recorded time ahead of true UTC)}
+function gpsCheck(s,gps){
+  if(!gps||s.mode==='lunar'||s.hs==null)return null;
+  const b=sightBody(s);
+  if(!b)return null;
+  const lha=mod360(ghaAries(s.utc)+b.sha+gps.lon);
+  const {Hc,Zn}=reduce(gps.lat,b.dec,lha);
+  const hsExp=hsForHo(Hc,s);
+  const dHs=(s.hs-hsExp)*60;
+  // Altitude change over 60 s: degrees per minute = arcmin per second
+  const step=(GHA_RATE[b.bodyType]||15.0411)/60;
+  const rate=reduce(gps.lat,b.dec,mod360(lha+step)).Hc-Hc;
+  // Recorded time ahead by e seconds → expected Hs is computed rate·e too far along
+  const clockErr=Math.abs(rate)>=0.02?-dHs/rate:null;
+  return{Hc,Zn,hsExp,dHs,rate,clockErr};
+}
+
+// Session diagnosis: fit dHs_i = c − rate_i·e to split a constant altitude
+// offset c (IE, dip, personal error) from a clock error e; residual = scatter
+function gpsDiagnose(checks){
+  const n=checks.length;
+  if(!n)return null;
+  const mean=checks.reduce((a,c)=>a+c.dHs,0)/n;
+  const sd=n>1?Math.sqrt(checks.reduce((a,c)=>a+(c.dHs-mean)**2,0)/(n-1)):0;
+  const out={n,mean,sd,separable:false};
+  if(n<3)return out;
+  let Sr=0,Srr=0,Sd=0,Srd=0;
+  checks.forEach(c=>{Sr+=c.rate;Srr+=c.rate*c.rate;Sd+=c.dHs;Srd+=c.rate*c.dHs;});
+  const varR=Srr/n-(Sr/n)**2;
+  // Rates must differ (bodies east and west) for clock and offset to be separable
+  if(Math.sqrt(Math.max(varR,0))<0.03)return out;
+  const det=n*Srr-Sr*Sr;
+  const k=(n*Srd-Sr*Sd)/det, c0=(Sd-k*Sr)/n;
+  const resid=checks.map(c=>c.dHs-(c0+k*c.rate));
+  const scatter=n>2?Math.sqrt(resid.reduce((a,r)=>a+r*r,0)/(n-2)):0;
+  return{...out,separable:true,offset:c0,clockErr:-k,scatter};
+}
+
 // Advance LOPs for running fix (DR)
 // Returns new intercepts adjusted for vessel motion between sights
 function advanceLops(sights, course, speed){
@@ -1787,6 +1885,15 @@ const ASTERISMS={
     document.getElementById('drFields').classList.toggle('hidden',!e.target.checked);
     render();
   });
+  // GPS check controls
+  document.getElementById('gpsEnable').addEventListener('change',e=>{
+    state.gpsEnabled=e.target.checked;
+    document.getElementById('gpsFields').classList.toggle('hidden',!e.target.checked);
+    render();
+  });
+  ['gpsLatD','gpsLatM','gpsLonD','gpsLonM'].forEach(id=>{
+    document.getElementById(id).addEventListener('input',()=>render());
+  });
   ['drCourse','drSpeed'].forEach(id=>{
     document.getElementById(id).addEventListener('input',()=>{
       state.drCourse=parseFloat(document.getElementById('drCourse').value)||0;
@@ -2059,6 +2166,23 @@ function readAP(){
   return{lat,lon};
 }
 
+// Known (GPS) position for the sight check — null when off or incomplete
+function readGPS(){
+  if(!state.gpsEnabled)return null;
+  const v=id=>document.getElementById(id).value;
+  if(v('gpsLatD')===''||v('gpsLonD')==='')return null;
+  const lat=((parseFloat(v('gpsLatD'))||0)+(parseFloat(v('gpsLatM'))||0)/60)*(v('gpsLatH')==='S'?-1:1);
+  const lon=((parseFloat(v('gpsLonD'))||0)+(parseFloat(v('gpsLonM'))||0)/60)*(v('gpsLonH')==='W'?-1:1);
+  return{lat,lon};
+}
+
+function copyApToGps(){
+  ['LatD','LatM','LatH','LonD','LonM','LonH'].forEach(k=>{
+    document.getElementById('gps'+k).value=document.getElementById('ap'+k).value;
+  });
+  render();
+}
+
 function readPolLon(){
   const d=parseFloat(document.getElementById('polLonD').value)||0;
   const m=parseFloat(document.getElementById('polLonM').value)||0;
@@ -2294,7 +2418,7 @@ function addSight(){
 // ══════════════════════════════════════════════════════
 //  RENDER ALL
 // ══════════════════════════════════════════════════════
-function render(){renderLog();renderFix();drawPlot();drawSkyPlot();autoSave();}
+function render(){renderLog();renderFix();renderGpsCheck();drawPlot();drawSkyPlot();autoSave();}
 
 // ─── FORMAT HELPERS ───
 function fmtDeg(d,frac=1){
@@ -2330,10 +2454,11 @@ function renderLog(){
   if(!state.sights.length){
     body.innerHTML='<div class="empty" style="padding:18px">No sights entered</div>';return;
   }
+  const gps=readGPS();
   let html=`<table><thead><tr>
     <th>#</th><th>MODE</th><th>STAR</th><th>UTC</th>
     <th>Hs</th><th>Ho</th><th>Hc</th><th>Zn</th>
-    <th>INTERCEPT</th><th>RESULT</th><th></th>
+    <th>INTERCEPT</th><th>RESULT</th>${gps?'<th title="Sextant reading minus the reading expected at the GPS position">\u0394Hs vs GPS</th>':''}<th></th>
   </tr></thead><tbody>`;
   state.sights.forEach((s,i)=>{
     const c=colorFor(i);
@@ -2371,6 +2496,10 @@ function renderLog(){
       html+=`<td colspan="3" style="color:var(--grn)">\u2014</td>`;
       html+=`<td>Lon ${fmt(s.transitLon,'lon')}</td>`;
     }
+    if(gps){
+      const g=gpsCheck(s,gps);
+      html+=g?`<td style="color:${gpsColor(g.dHs)}">${g.dHs>=0?'+':''}${g.dHs.toFixed(1)}'</td>`:'<td style="color:var(--tx3)">\u2014</td>';
+    }
     html+=`<td style="white-space:nowrap"><button class="btn btn-edit btn-sm" onclick="event.stopPropagation();editSight(${s.id})" title="Edit">\u270e</button> <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteSight(${s.id})" title="Delete">\u2715</button></td>`;
     html+='</tr>';
   });
@@ -2387,6 +2516,41 @@ function renderLog(){
   }
 
   body.innerHTML=html;
+}
+
+// ─── GPS CHECK SUMMARY ───
+function gpsColor(dHs){const a=Math.abs(dHs);return a<1?'var(--grn)':a<3?'var(--acc)':'var(--red)';}
+
+function renderGpsCheck(){
+  const out=document.getElementById('gpsSummary');
+  const gps=readGPS();
+  if(!gps){out.innerHTML='';return;}
+  const checks=state.sights.filter(s=>!s.isAverage).map(s=>gpsCheck(s,gps)).filter(Boolean);
+  if(!checks.length){out.innerHTML='<div>Add sights to compare against this position</div>';return;}
+  const dg=gpsDiagnose(checks);
+  const sg=v=>(v>=0?'+':'')+v.toFixed(1);
+  let h=`<div>Sights checked: <span>${dg.n}</span></div>`;
+  h+=`<div>Mean ΔHs: <span style="color:${gpsColor(dg.mean)}">${sg(dg.mean)}'</span>${dg.n>1?` <span>±${dg.sd.toFixed(1)}'</span>`:''}</div>`;
+  if(dg.separable){
+    const oCol=Math.abs(dg.offset)>1.5?'var(--red)':'var(--grn)';
+    const cCol=Math.abs(dg.clockErr)>4?'var(--red)':'var(--grn)';
+    const sCol=dg.scatter>2?'var(--red)':dg.scatter>1?'var(--acc)':'var(--grn)';
+    h+=`<div title="Constant error in every sight: index error, height of eye/dip, or personal error">Sextant/dip offset: <span style="color:${oCol}">${sg(dg.offset)}'</span></div>`;
+    h+=`<div title="Watch error that best explains the remaining differences">Clock: <span style="color:${cCol}">${Math.abs(dg.clockErr).toFixed(0)} s ${dg.clockErr>=0?'fast':'slow'}</span></div>`;
+    h+=`<div title="What is left after removing offset and clock error: sight technique, horizon, motion">Scatter (technique): <span style="color:${sCol}">±${dg.scatter.toFixed(1)}'</span></div>`;
+  }else if(dg.n>=3){
+    h+=`<div style="color:var(--tx3)">Clock and offset can't be split: shoot bodies both east and west</div>`;
+  }else{
+    h+=`<div style="color:var(--tx3)">3+ sights east and west split clock error from sextant offset</div>`;
+  }
+  if(state.lastFix){
+    const dy=(state.lastFix.lat-gps.lat)*60;
+    let dl=state.lastFix.lon-gps.lon;dl=((dl+540)%360)-180;
+    const dx=dl*60*Math.cos(gps.lat*R);
+    const dist=Math.hypot(dx,dy),brg=mod360(Math.atan2(dx,dy)*D);
+    h+=`<div>Fix vs GPS: <span style="color:${dist<3?'var(--grn)':dist<10?'var(--acc)':'var(--red)'}">${dist.toFixed(1)} nm</span> <span>${brg.toFixed(0)}°T</span></div>`;
+  }
+  out.innerHTML=h;
 }
 
 // ─── FIX OUTPUT ───
@@ -2723,6 +2887,19 @@ function showWorkings(id){
     h+=row('Lat (S transit)',fmt(s.transitLatSouth,'lat'));
     h+=row('Lat (N transit)',fmt(s.transitLatNorth,'lat'));
     h+=row('Note','Use S-transit if Dec < Lat, N-transit if Dec > Lat');
+  }
+
+  const gps=readGPS(),g=gpsCheck(s,gps);
+  if(g){
+    h+=sep;
+    h+=row('GPS position',`${fmt(gps.lat,'lat')}, ${fmt(gps.lon,'lon')}`);
+    h+=row('Hc at GPS',`${fmtDeg(g.Hc,2)} (Zn ${g.Zn.toFixed(1)}\u00b0)`);
+    h+=row('Expected Hs',`${fmtDeg(g.hsExp,1)} (same IE, dip, limb)`);
+    h+=row('Your Hs',fmtDeg(s.hs,1));
+    h+=row('\u0394Hs',`<span style="color:${gpsColor(g.dHs)}">${g.dHs>=0?'+':''}${g.dHs.toFixed(1)}' (${Math.abs(g.dHs).toFixed(1)} nm ${g.dHs>=0?'toward':'away from'} the body)</span>`);
+    h+=row('Altitude rate',`${(g.rate*60).toFixed(1)}'/min (${g.rate>0?'rising':'falling'})`);
+    h+=row('If clock alone',g.clockErr==null?'n/a \u2014 body near meridian, altitude barely changing':
+      `recorded time ${Math.abs(g.clockErr).toFixed(0)} s ${g.clockErr>=0?'ahead of':'behind'} true UTC`);
   }
 
   body.innerHTML=h;
@@ -3607,6 +3784,7 @@ function serializeState(){
     ap:readAP(),
     mode:state.mode, fixMethod:state.fixMethod,
     drEnabled:state.drEnabled, drCourse:state.drCourse, drSpeed:state.drSpeed,
+    gpsEnabled:!!state.gpsEnabled, gps:state.gpsEnabled?readGPS():null,
     sights:state.sights.map(s=>({...s, utc:s.utc.toISOString()}))
   };
 }
@@ -3641,6 +3819,17 @@ function deserializeState(data){
     document.getElementById('drFields').classList.toggle('hidden',!state.drEnabled);
     document.getElementById('drCourse').value=state.drCourse;
     document.getElementById('drSpeed').value=state.drSpeed;
+  }
+  // Restore GPS check
+  state.gpsEnabled=!!data.gpsEnabled;
+  document.getElementById('gpsEnable').checked=state.gpsEnabled;
+  document.getElementById('gpsFields').classList.toggle('hidden',!state.gpsEnabled);
+  if(data.gps){
+    const set=(pre,val,pos,neg)=>{const a=Math.abs(val);
+      document.getElementById(pre+'D').value=Math.floor(a);
+      document.getElementById(pre+'M').value=((a-Math.floor(a))*60).toFixed(1);
+      document.getElementById(pre+'H').value=val>=0?pos:neg;};
+    set('gpsLat',data.gps.lat,'N','S');set('gpsLon',data.gps.lon,'E','W');
   }
   // Restore sights
   state.sights=data.sights.map(s=>({...s, utc:new Date(s.utc)}));
@@ -4215,6 +4404,7 @@ function drawMapEllipse(lat,lon,ell){
 }
 
 function updateFixMap(fixLat,fixLon,apLat,apLon){
+  state.lastFix=(fixLat!=null&&fixLon!=null)?{lat:fixLat,lon:fixLon}:null;
   if(!fixMap)return;
   // Remove previous AP-Fix line
   if(apFixLine){fixMap.removeLayer(apFixLine);apFixLine=null;}

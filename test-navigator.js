@@ -667,6 +667,74 @@ for (const [lat, lon, iso] of [
 }
 
 // ═══════════════════════════════════════════════════════════
+//  CHECK vs GPS (expected Hs at a known position)
+// ═══════════════════════════════════════════════════════════
+console.log('\n\x1b[1mCheck vs GPS\x1b[0m');
+
+{
+  // hsForHo must invert correct() for every body type and limb
+  const inv = calc(`(function(){
+    const utc = new Date('2026-03-21T12:00:00Z');
+    const m = moonPosition(utc);
+    const cases = [
+      {ie:1.5, dipC:dip(3), limb:'center', star:{n:'Vega', sha:80.6, dec:38.8}},
+      {ie:-2, dipC:dip(2), limb:'lower', star:{n:'Sun', bodyType:'sun', isBody:true}},
+      {ie:0, dipC:dip(4), limb:'upper', star:{n:'Moon', bodyType:'moon', isBody:true, HP:m.HP, SD:m.SD}},
+    ];
+    return cases.map(s => { let worst = 0;
+      for (const ho of [3, 12, 35, 70]) {
+        const hs = hsForHo(ho, s), b = s.star, bt = b.bodyType || null;
+        const HP = bt==='moon'?b.HP:bt==='sun'?0.15:0, SD = bt==='moon'?b.SD:bt==='sun'?16:0;
+        worst = Math.max(worst, Math.abs(correct(hs, s.ie, s.dipC, bt, HP, SD, s.limb).ho - ho));
+      }
+      return {n: s.star.n + ' ' + s.limb, worst}; });
+  })()`);
+  inv.forEach(r => check(`hsForHo inverts correct() (${r.n})`, r.worst * 60 < 0.001,
+    `worst ${(r.worst * 60).toFixed(5)}'`));
+
+  // Synthetic session at a known position: perfect sights, then sights with
+  // a +2.0' sextant offset and a watch 12 s fast. The diagnosis must recover both.
+  const syn = (offsetArcmin, clockFastS) => calc(`(function(){
+    const gps = {lat: 43.77, lon: 11.25};
+    const tTrue = new Date('2026-03-21T18:30:00Z');
+    const tRec = new Date(tTrue.getTime() + ${clockFastS} * 1000);
+    const dipC = dip(2), lhaOf = (sha, t) => mod360(ghaAries(t) + sha + gps.lon);
+    const checks = [];
+    STARS.forEach(raw => {
+      const p = precessStar(raw, tTrue);
+      const {Hc, Zn} = reduce(gps.lat, p.dec, lhaOf(p.sha, tTrue));
+      if (Hc < 15 || Hc > 75) return;
+      const s = {mode:'intercept', utc:tRec, ie:0, dipC, limb:'center', star:{n:raw.n, sha:p.sha, dec:p.dec}};
+      s.hs = hsForHo(Hc, s) + ${offsetArcmin} / 60; // what the sextant read at the true time
+      checks.push(gpsCheck(s, gps));
+    });
+    return {checks, dg: gpsDiagnose(checks)};
+  })()`);
+
+  const perfect = syn(0, 0);
+  const worstPerfect = Math.max(...perfect.checks.map(c => Math.abs(c.dHs)));
+  check(`Perfect sights: ΔHs ≈ 0 (${perfect.checks.length} stars)`, worstPerfect < 0.01,
+    `worst ${worstPerfect.toFixed(4)}'`);
+  check('Perfect sights: separable, offset ≈ 0, clock ≈ 0',
+    perfect.dg.separable && Math.abs(perfect.dg.offset) < 0.05 && Math.abs(perfect.dg.clockErr) < 0.5,
+    `offset ${perfect.dg.offset?.toFixed(2)}', clock ${perfect.dg.clockErr?.toFixed(2)} s`);
+
+  const bad = syn(2.0, 12);
+  check('Recovers +2.0\' sextant offset', Math.abs(bad.dg.offset - 2.0) < 0.1,
+    `offset ${bad.dg.offset.toFixed(2)}'`);
+  check('Recovers watch 12 s fast', Math.abs(bad.dg.clockErr - 12) < 0.5,
+    `clock ${bad.dg.clockErr.toFixed(2)} s`);
+  check('Scatter ≈ 0 once offset and clock are removed', bad.dg.scatter < 0.1,
+    `scatter ${bad.dg.scatter.toFixed(3)}'`);
+
+  // Single-sight clock attribution: a pure clock error on a fast-moving body
+  const clockOnly = syn(0, 20).checks.filter(c => c.clockErr != null && Math.abs(c.rate) > 0.1);
+  const worstClock = Math.max(...clockOnly.map(c => Math.abs(c.clockErr - 20)));
+  check(`Per-sight clock error = 20 s (${clockOnly.length} fast-moving stars)`, worstClock < 1,
+    `worst Δ ${worstClock.toFixed(2)} s`);
+}
+
+// ═══════════════════════════════════════════════════════════
 //  END-TO-END FIX (Florence demo session)
 // ═══════════════════════════════════════════════════════════
 console.log('\n\x1b[1mEnd-to-End Fix\x1b[0m (Florence demo)');

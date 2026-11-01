@@ -11,7 +11,7 @@ A browser-based celestial navigation tool for computing position fixes from sext
 ### Sight Reduction
 - **Intercept Method** (Marcq St. Hilaire) — computed altitude, azimuth, and intercept from assumed position
 - **Direct COP Fix** — AP-free Gauss-Newton iteration on circles of position
-- **Polaris Latitude** — direct latitude from Polaris with a0/a1/a2 corrections
+- **Polaris Latitude** — exact latitude from Polaris using its precessed position
 - **Meridian Transit** — longitude from star transit observations
 - **Lunar Distance** — determine GMT from Moon-body angular distance (clearing + interpolation)
 - **Sight Averaging** — average multiple sights of the same body to reduce random error
@@ -39,6 +39,7 @@ A browser-based celestial navigation tool for computing position fixes from sext
 - **COP Fix on Map** — direct circle-of-position fix shown as a green diamond on the Leaflet map
 - **Leaflet Map** — dark/satellite/standard tiles with nautical chart overlay, LOPs, and body labels
 - **Live AP Recalculation** — all sights update when assumed position changes
+- **Check vs GPS** — enter where you really were to see the Hs each sight should have read, and split a session's error into sextant/dip offset, clock error and sight-technique scatter
 
 ### Star Finder
 - **Polar Stereographic Chart** — interactive sky plot centered on NCP or SCP (toggle)

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-01 (v0.1.123)
+
+### Added
+- **Check vs GPS**: enter a known position and every sight shows the Hs it should have read (the inverse of the Hs→Ho corrections, using that sight's IE, dip, limb and parallax), its ΔHs, and the clock error that would explain it. With 3+ sights on bodies east and west, the session is split into a constant sextant/dip offset, a clock error and the remaining scatter, plus the fix's distance from the GPS position. Saved with the session.
+- Tests: `hsForHo` inverts `correct()` for stars, Sun and Moon limbs; synthetic sessions with a +2.0' offset and a 12 s fast watch are recovered exactly.
+
 ## 2026-11-01 (v0.1.122)
 
 ### Fixed
