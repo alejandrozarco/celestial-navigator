@@ -187,7 +187,7 @@ canvas#skyPlot:active{cursor:grabbing}
 
 <header>
   <div>
-    <h1 style="display:inline">&#10022; CELESTIAL NAVIGATOR</h1> <span style="font-family:var(--mono);font-size:10px;color:rgba(200,168,75,0.4);letter-spacing:1.5px;vertical-align:middle;margin-left:8px">v0.1.121 &middot; 2026-11-01</span>
+    <h1 style="display:inline">&#10022; CELESTIAL NAVIGATOR</h1> <span style="font-family:var(--mono);font-size:10px;color:rgba(200,168,75,0.4);letter-spacing:1.5px;vertical-align:middle;margin-left:8px">v0.1.122 &middot; 2026-11-01</span>
     <div class="hdr-sub">SIGHT REDUCTION &middot; FIX COMPUTATION &middot; SUN &middot; MOON &middot; PLANETS &middot; 58 STARS</div>
     <div class="hdr-motto"><em>Seguendo il corso del sole</em></div>
   </div>
@@ -1048,14 +1048,19 @@ function reduce(latDeg,decDeg,lhaDeg){
   return{Hc,Zn};
 }
 
-// Polaris latitude — direct computation
-function polarisLat(hoDeg,lhaAriesDeg,month){
-  // polar distance p ~ 42' for 2026
-  const p=42/60; // degrees
-  const a0=-p*cos(lhaAriesDeg);
-  const a1=0.3*sin(lhaAriesDeg)*sin(lhaAriesDeg)/60;
-  const a2=[0.7,0.7,0.7,0.6,0.5,0.4,0.3,0.3,0.3,0.4,0.5,0.6][(month-1)%12]/60;
-  return hoDeg+a0+a1+a2;
+// Polaris latitude — exact solution of the altitude equation using the
+// precessed position of Polaris, so no almanac a0/a1/a2 tables are needed.
+// sin Ho = sin L·sin d + cos L·cos d·cos t  (t = LHA Polaris)
+//        = ρ·sin(L+φ),  ρ = √(A²+B²), φ = atan2(B,A), A = sin d, B = cos d·cos t
+function polarisLat(hoDeg,lhaAriesDeg,utc){
+  const {lhaP,dec}=polarisGeom(lhaAriesDeg,utc);
+  const A=sin(dec),B=cos(dec)*cos(lhaP);
+  const rho=Math.hypot(A,B);
+  return asin(Math.max(-1,Math.min(1,sin(hoDeg)/rho)))-Math.atan2(B,A)*D;
+}
+function polarisGeom(lhaAriesDeg,utc){
+  const p=precessStar(STARS.find(s=>s.n==='Polaris'),utc);
+  return {lhaP:mod360(lhaAriesDeg+p.sha),dec:p.dec,sha:p.sha,pDist:(90-p.dec)*60};
 }
 
 // Advance LOPs for running fix (DR)
@@ -2196,7 +2201,7 @@ function addSight(){
   if(mode==='polaris'){
     const lon=readPolLon();
     const lhaA=mod360(ghaAries(utc)+lon);
-    const lat=polarisLat(ho,lhaA,utc.getUTCMonth()+1);
+    const lat=polarisLat(ho,lhaA,utc);
     Object.assign(sight,{lon,lhaAries:lhaA,polarisLat:lat,
       ghaAries:ghaAries(utc)});
     showMsg(`Polaris Lat = ${fmt(lat,'lat')} (click sight to see workings)`,'st-ok');
@@ -2675,11 +2680,12 @@ function showWorkings(id){
     h+=row('Refraction',`${s.refC.toFixed(1)}'`);
     h+=row('Ho',fmtDeg(s.ho,2));
     h+=sep;
-    h+=row('Polar dist p',"42' (2026)");
-    h+=row('a0',`-p\u00b7cos(LHA Aries) = ${(-42/60*cos(s.lhaAries)*60).toFixed(1)}'`);
-    h+=row('a1',"\u2248 +0.3'");
-    h+=row('a2',"\u2248 +0.6' (month correction)");
-    h+=row('Latitude',`Ho + a0 + a1 + a2 = ${fmt(s.polarisLat,'lat')}`);
+    const pg=polarisGeom(s.lhaAries,s.utc);
+    h+=row('SHA Polaris',fmtDeg(pg.sha));
+    h+=row('LHA Polaris',`LHA Aries + SHA = ${fmtDeg(pg.lhaP)}`);
+    h+=row('Polar dist p',`90\u00b0 \u2212 Dec = ${pg.pDist.toFixed(1)}'`);
+    h+=row('\u2248 \u2212p\u00b7cos(LHA)',`${(-pg.pDist*cos(pg.lhaP)).toFixed(1)}'`);
+    h+=row('Latitude',`exact solution = ${fmt(s.polarisLat,'lat')}`);
 
   }else if(s.mode==='lunar'){
     h+=row('Body',`${s.star.n}`);
@@ -3638,6 +3644,10 @@ function deserializeState(data){
   }
   // Restore sights
   state.sights=data.sights.map(s=>({...s, utc:new Date(s.utc)}));
+  // Recompute Polaris latitudes so sessions saved before v0.1.122 get the corrected formula
+  state.sights.forEach(s=>{
+    if(s.mode==='polaris'&&s.ho!=null&&s.lhaAries!=null)s.polarisLat=polarisLat(s.ho,s.lhaAries,s.utc);
+  });
   state.nextId=Math.max(1,...state.sights.map(s=>s.id))+1;
   state.selectedSightId=null;
   state.plotPanX=0;state.plotPanY=0;state.plotZoom=1;
@@ -3810,7 +3820,7 @@ function loadDemo(){
     if(ds.mode==='polaris'){
       const lon=ds.lon;
       const lhaA=mod360(ghaAries(utc)+lon);
-      const lat=polarisLat(ho,lhaA,utc.getUTCMonth()+1);
+      const lat=polarisLat(ho,lhaA,utc);
       Object.assign(sight,{lon,lhaAries:lhaA,polarisLat:lat,ghaAries:ghaAries(utc)});
     }else{
       let star;

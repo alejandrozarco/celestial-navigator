@@ -181,8 +181,8 @@ assert('Zn due south (45N, Dec 0, LHA 0)', r.Zn, 180, 0.01);
 // ═══════════════════════════════════════════════════════════
 console.log('\n\x1b[1mSextant Corrections\x1b[0m');
 
-// Dip formula: -1.76√(HoE)
-let c = calc("correct(45, 0, 3)");
+// Dip formula: -1.76√(HoE). correct() takes the dip correction (arcmin), not HoE
+let c = calc("correct(45, 0, dip(3))");
 const expectedDip = -1.76 * Math.sqrt(3);
 check('Dip at 3m', Math.abs(c.dipC - expectedDip) < 0.01,
   `${c.dipC.toFixed(2)}' (expect ${expectedDip.toFixed(2)}')`);
@@ -645,6 +645,28 @@ console.log('\n\x1b[1mLunar Distance\x1b[0m');
 }
 
 // ═══════════════════════════════════════════════════════════
+//  POLARIS LATITUDE (round-trip through sight reduction)
+// ═══════════════════════════════════════════════════════════
+console.log('\n\x1b[1mPolaris Latitude\x1b[0m');
+
+// Compute Polaris Hc at a known latitude, then recover the latitude.
+// Spans the full range of LHA Polaris so a wrong hour angle cannot pass.
+for (const [lat, lon, iso] of [
+  [5, -30, '2026-01-10T04:00:00Z'], [43.77, 11.25, '2026-03-21T18:30:00Z'],
+  [22.2, 115, '2026-06-01T15:00:00Z'], [51.5, -0.12, '2026-09-15T21:00:00Z'],
+  [65, -150, '2026-12-01T09:00:00Z'], [35, 140, '2030-07-04T12:00:00Z'],
+]) {
+  const r = calc(`(function(){
+    const utc = new Date('${iso}');
+    const lhaA = mod360(ghaAries(utc) + ${lon});
+    const p = precessStar(STARS.find(s => s.n === 'Polaris'), utc);
+    const hc = reduce(${lat}, p.dec, mod360(lhaA + p.sha)).Hc;
+    return { lat: polarisLat(hc, lhaA, utc), lhaP: mod360(lhaA + p.sha) };
+  })()`);
+  assert(`Polaris lat ${lat}° (LHA★ ${r.lhaP.toFixed(0)}°)`, r.lat, lat, 0.1 / 60);
+}
+
+// ═══════════════════════════════════════════════════════════
 //  END-TO-END FIX (Florence demo session)
 // ═══════════════════════════════════════════════════════════
 console.log('\n\x1b[1mEnd-to-End Fix\x1b[0m (Florence demo)');
@@ -671,13 +693,13 @@ console.log('\n\x1b[1mEnd-to-End Fix\x1b[0m (Florence demo)');
   demoSights.forEach(ds => {
     const utc = `new Date('${ds.utc}')`;
     const hs = ds.hsDeg + ds.hsMin / 60;
-    const ho = calc(`correct(${hs}, ${ie}, ${hoe}).ho`);
+    const ho = calc(`correct(${hs}, ${ie}, dip(${hoe})).ho`);
 
     if (ds.mode === 'polaris') {
       polarisLat = calc(`(function(){
         const utc = ${utc};
         const lhaA = mod360(ghaAries(utc) + ${ds.lon});
-        return polarisLat(${ho}, lhaA, utc.getUTCMonth() + 1);
+        return polarisLat(${ho}, lhaA, utc);
       })()`);
     } else {
       const sight = calc(`(function(){
@@ -722,7 +744,7 @@ console.log('\n\x1b[1mEnd-to-End Fix\x1b[0m (Florence demo)');
     const hs = ds.hsDeg + ds.hsMin / 60;
     return `(function(){
       const utc = new Date('${ds.utc}');
-      const ho = correct(${hs}, ${ie}, ${hoe}).ho;
+      const ho = correct(${hs}, ${ie}, dip(${hoe})).ho;
       ${ds.body
         ? `const pos = planetPosition('${ds.body}', utc);
            const star = {n:'${ds.body}',sha:pos.sha,dec:pos.dec,isBody:true,bodyType:'${ds.body.toLowerCase()}'};`

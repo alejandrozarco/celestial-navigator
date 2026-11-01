@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-11-01 (v0.1.122)
+
+### Fixed
+- **Polaris latitude off by up to ~33'**: `polarisLat` used LHA Aries where it needed LHA Polaris (missing Polaris's SHA, ~313.5°), and a fixed polar distance of 42' where the 2026 value is 37.5'. It now solves the altitude equation exactly from the precessed Polaris position. The Florence demo sight now gives 43°42.5'N, 0.8' from the intercept fix (previously ~44°14'N).
+- Saved and imported sessions recompute Polaris latitudes on load, so older sights pick up the fix.
+- Polaris workings panel shows SHA, LHA and polar distance of Polaris instead of the old a0/a1/a2 approximations.
+- Two navigator tests passed a height of eye where `correct()` expects a dip correction in arcminutes.
+
+### Added
+- Polaris latitude round-trip tests across the full range of LHA Polaris (0.1' tolerance)
+
 ## 2026-11-01 (v0.1.121)
 
 ### Fixed
