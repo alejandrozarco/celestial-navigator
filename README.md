@@ -236,10 +236,9 @@ CHANGELOG.md            Version history
 | Source | Use | License |
 |--------|-----|---------|
 | [Natural Earth](https://www.naturalearthdata.com/) | Offline map (1:50m land, borders, lakes, rivers, cities) | Public domain |
-| [CartoDB](https://carto.com/attributions) | Dark basemap tiles | CC BY 3.0 |
 | [OpenStreetMap](https://www.openstreetmap.org/copyright) | Standard basemap tiles | ODbL |
 | [OpenSeaMap](https://www.openseamap.org/) | Nautical chart overlay | CC BY-SA 2.0 |
-| [Esri](https://www.esri.com/) | Satellite imagery tiles | Free for display |
+| [Esri](https://www.esri.com/) | Dark basemap and satellite imagery tiles | Free for display |
 | [Leaflet](https://leafletjs.com/) | Map framework | BSD-2-Clause |
 | VSOP87, Hipparcos | Ephemeris & star catalog | Public domain |
 | [NASA/JPL Horizons](https://ssd.jpl.nasa.gov/horizons/) | Validation reference | Public domain |

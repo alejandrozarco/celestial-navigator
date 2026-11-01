@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-01 (v0.1.121)
+
+### Fixed
+- **Dark basemap showing "API KEY REQUIRED"** — CARTO basemap tiles now require an API key. The default Dark layer now uses Esri's keyless Dark Gray Canvas.
+- Map falls back to the bundled Offline layer when the online dark tiles fail to load, so it is never blank.
+
+### Changed
+- Service worker cache bumped to v21, which clears cached error tiles
+
 ## 2026-03-25 (v0.1.120)
 
 ### Fixed

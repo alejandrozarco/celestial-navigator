@@ -1,4 +1,4 @@
-const CACHE_NAME = 'celnav-v20';
+const CACHE_NAME = 'celnav-v21';
 const FONT_CACHE = 'celnav-fonts-v1';
 
 const SHELL_ASSETS = [

@@ -187,7 +187,7 @@ canvas#skyPlot:active{cursor:grabbing}
 
 <header>
   <div>
-    <h1 style="display:inline">&#10022; CELESTIAL NAVIGATOR</h1> <span style="font-family:var(--mono);font-size:10px;color:rgba(200,168,75,0.4);letter-spacing:1.5px;vertical-align:middle;margin-left:8px">v0.1.120 &middot; 2026-03-25</span>
+    <h1 style="display:inline">&#10022; CELESTIAL NAVIGATOR</h1> <span style="font-family:var(--mono);font-size:10px;color:rgba(200,168,75,0.4);letter-spacing:1.5px;vertical-align:middle;margin-left:8px">v0.1.121 &middot; 2026-11-01</span>
     <div class="hdr-sub">SIGHT REDUCTION &middot; FIX COMPUTATION &middot; SUN &middot; MOON &middot; PLANETS &middot; 58 STARS</div>
     <div class="hdr-motto"><em>Seguendo il corso del sole</em></div>
   </div>
@@ -3928,10 +3928,10 @@ function initFixMap(){
     attributionControl:true
   });
 
-  // Tile layers
-  const darkBase=L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
-    maxZoom:19,
-    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+  // Tile layers — Esri Dark Gray Canvas (no API key; CARTO basemaps now require one)
+  const darkBase=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',{
+    maxZoom:16,
+    attribution:'&copy; <a href="https://www.esri.com/">Esri</a> &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors'
   });
   darkBase.addTo(fixMap);
 
@@ -4070,6 +4070,16 @@ function initFixMap(){
     }),
     'Lat/Lon grid':graticuleLayer,
   },{position:'topright',collapsed:true}).addTo(fixMap);
+
+  // Fall back to the bundled offline map if the online dark tiles fail
+  // (no network, or the tile service goes away) so the map is never blank
+  let darkTileErrors=0;
+  darkBase.on('tileerror',function(){
+    if(++darkTileErrors<4||!fixMap.hasLayer(darkBase))return;
+    fixMap.removeLayer(darkBase);
+    offlineBase.addTo(fixMap);
+    fixMap.fire('baselayerchange',{layer:offlineBase,name:'Offline'});
+  });
 
   // Fix icon — larger, more visible
   const fixIcon=L.divIcon({
